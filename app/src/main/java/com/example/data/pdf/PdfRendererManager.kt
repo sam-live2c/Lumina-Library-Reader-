@@ -25,9 +25,23 @@ class PdfRendererManager(private val context: Context) {
     private var fileDescriptor: ParcelFileDescriptor? = null
     private var pdfRenderer: PdfRenderer? = null
 
-    // Cache up to 20 rendered pages in memory
-    private val pageCache = object : LruCache<String, Bitmap>(20) {
+    // Cache up to 64 rendered high-res pages in memory to stabilize scrolling and reading
+    private val pageCache = object : LruCache<String, Bitmap>(64) {
         override fun sizeOf(key: String, value: Bitmap): Int = 1
+    }
+
+    // Cache page dimensions (pageWidth x pageHeight) for instant zero-jump layout sizing
+    private val dimensionCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Int, Int>>()
+
+    fun getCachedPage(filePath: String, pageIndex: Int): Bitmap? {
+        val cacheKey = "${filePath}_${pageIndex}"
+        val cached = pageCache.get(cacheKey)
+        return if (cached != null && !cached.isRecycled) cached else null
+    }
+
+    fun getPageDimensions(filePath: String, pageIndex: Int): Pair<Int, Int>? {
+        val key = "${filePath}_${pageIndex}"
+        return dimensionCache[key]
     }
 
     suspend fun openFile(filePath: String): Int = withContext(Dispatchers.IO) {
@@ -45,7 +59,22 @@ class PdfRendererManager(private val context: Context) {
             fileDescriptor = pfd
             pdfRenderer = renderer
             currentFilePath = filePath
-            renderer.pageCount
+            
+            // Warm dimension cache for initial pages rapidly without bitmap overhead
+            val pageCount = renderer.pageCount
+            val scanLimit = minOf(pageCount, 50)
+            for (i in 0 until scanLimit) {
+                val dimKey = "${filePath}_$i"
+                if (!dimensionCache.containsKey(dimKey)) {
+                    try {
+                        val p = renderer.openPage(i)
+                        dimensionCache[dimKey] = Pair(p.width, p.height)
+                        p.close()
+                    } catch (_: Throwable) {}
+                }
+            }
+
+            pageCount
         }
     }
 
@@ -73,13 +102,18 @@ class PdfRendererManager(private val context: Context) {
         targetWidth: Int = 1080,
         targetHeight: Int = 1920
     ): Bitmap? = withContext(Dispatchers.IO) {
-        val cacheKey = "${filePath}_${pageIndex}_${targetWidth}x${targetHeight}"
+        val cacheKey = "${filePath}_${pageIndex}"
         val cached = pageCache.get(cacheKey)
         if (cached != null && !cached.isRecycled) {
             return@withContext cached
         }
 
         mutex.withLock {
+            val doubleCheck = pageCache.get(cacheKey)
+            if (doubleCheck != null && !doubleCheck.isRecycled) {
+                return@withContext doubleCheck
+            }
+
             if (currentFilePath != filePath || pdfRenderer == null) {
                 val file = File(filePath)
                 if (!file.exists()) return@withContext null
@@ -100,11 +134,13 @@ class PdfRendererManager(private val context: Context) {
                 val pageWidth = page.width
                 val pageHeight = page.height
 
+                dimensionCache[cacheKey] = Pair(pageWidth, pageHeight)
+
                 // Calculate high-resolution scale for razor sharp text rendering
                 val scale = max(
                     targetWidth.toFloat() / pageWidth.toFloat(),
                     targetHeight.toFloat() / pageHeight.toFloat()
-                ).coerceIn(1.2f, 2.5f)
+                ).coerceIn(1.5f, 2.5f)
 
                 val outWidth = (pageWidth * scale).toInt()
                 val outHeight = (pageHeight * scale).toInt()
@@ -129,6 +165,34 @@ class PdfRendererManager(private val context: Context) {
                 null
             } finally {
                 try { page?.close() } catch (_: Throwable) {}
+            }
+        }
+    }
+
+    suspend fun prefetchWindow(
+        filePath: String,
+        centerPageIndex: Int,
+        forwardCount: Int = 4,
+        backwardCount: Int = 2,
+        targetWidth: Int = 1080,
+        targetHeight: Int = 1920
+    ) = withContext(Dispatchers.IO) {
+        // Collect page indices to prefetch (prioritize forward, then backward)
+        val pagesToPrefetch = mutableListOf<Int>()
+        for (i in 1..forwardCount) {
+            val forwardIdx = centerPageIndex + i
+            if (forwardIdx >= 0) pagesToPrefetch.add(forwardIdx)
+        }
+        for (i in 1..backwardCount) {
+            val backwardIdx = centerPageIndex - i
+            if (backwardIdx >= 0) pagesToPrefetch.add(backwardIdx)
+        }
+
+        for (pIdx in pagesToPrefetch) {
+            val cacheKey = "${filePath}_${pIdx}"
+            val existing = pageCache.get(cacheKey)
+            if (existing == null || existing.isRecycled) {
+                renderPage(filePath, pIdx, targetWidth, targetHeight)
             }
         }
     }

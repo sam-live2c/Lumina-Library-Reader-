@@ -143,18 +143,6 @@ fun ContinuousVerticalReaderCanvas(
         }
     }
 
-    // Report active visible page during user scroll
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex }
-            .distinctUntilChanged()
-            .collect { firstIndex ->
-                val newPage = (firstIndex + 1).coerceIn(1, totalPages)
-                if (newPage != currentPageIndex) {
-                    onPageChanged(newPage)
-                }
-            }
-    }
-
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -185,6 +173,27 @@ fun ContinuousVerticalReaderCanvas(
         val density = LocalDensity.current
         val renderWidthPx = with(density) { maxWidth.toPx() }.toInt().coerceAtLeast(720)
         val renderHeightPx = with(density) { maxHeight.toPx() }.toInt().coerceAtLeast(1080)
+
+        // Report active visible page and pre-cache nearby window in background
+        LaunchedEffect(listState, filePath, totalPages, renderWidthPx, renderHeightPx) {
+            snapshotFlow { listState.firstVisibleItemIndex }
+                .distinctUntilChanged()
+                .collect { firstIndex ->
+                    val newPage = (firstIndex + 1).coerceIn(1, totalPages)
+                    if (newPage != currentPageIndex) {
+                        onPageChanged(newPage)
+                    }
+                    // Active background prefetching of adjacent window to preserve scrolling smoothness
+                    pdfRendererManager.prefetchWindow(
+                        filePath = filePath,
+                        centerPageIndex = firstIndex,
+                        forwardCount = 4,
+                        backwardCount = 2,
+                        targetWidth = renderWidthPx,
+                        targetHeight = renderHeightPx
+                    )
+                }
+        }
 
         Box(
             modifier = Modifier
@@ -362,28 +371,38 @@ private fun VerticalPdfPageCard(
     onDoubleTap: () -> Unit = {},
     onPageClick: () -> Unit
 ) {
-    var pageBitmap by remember(filePath, pageIndex) { mutableStateOf<Bitmap?>(null) }
-    var isLoading by remember(filePath, pageIndex) { mutableStateOf(true) }
+    val initialCached = remember(filePath, pageIndex) {
+        pdfRendererManager.getCachedPage(filePath, pageIndex)
+    }
+    var pageBitmap by remember(filePath, pageIndex) { mutableStateOf<Bitmap?>(initialCached) }
+    var isLoading by remember(filePath, pageIndex) { mutableStateOf(initialCached == null) }
 
     LaunchedEffect(filePath, pageIndex, renderWidthPx, renderHeightPx) {
-        isLoading = true
-        val bmp = pdfRendererManager.renderPage(
-            filePath = filePath,
-            pageIndex = pageIndex,
-            targetWidth = renderWidthPx,
-            targetHeight = renderHeightPx
-        )
-        pageBitmap = bmp
-        isLoading = false
+        if (pageBitmap == null) {
+            isLoading = true
+            val bmp = pdfRendererManager.renderPage(
+                filePath = filePath,
+                pageIndex = pageIndex,
+                targetWidth = renderWidthPx,
+                targetHeight = renderHeightPx
+            )
+            pageBitmap = bmp
+            isLoading = false
+        }
     }
 
     // Dynamic aspect ratio calculation so PDF pages are NEVER bent or distorted
-    val naturalRatio = remember(pageBitmap) {
+    val naturalRatio = remember(pageBitmap, filePath, pageIndex) {
         val bmp = pageBitmap
         if (bmp != null && bmp.height > 0 && bmp.width > 0) {
             bmp.width.toFloat() / bmp.height.toFloat()
         } else {
-            0.707f // Standard ISO 216 placeholder ratio before loading
+            val dim = pdfRendererManager.getPageDimensions(filePath, pageIndex)
+            if (dim != null && dim.second > 0 && dim.first > 0) {
+                dim.first.toFloat() / dim.second.toFloat()
+            } else {
+                0.707f // Standard ISO 216 placeholder ratio before loading
+            }
         }
     }
 

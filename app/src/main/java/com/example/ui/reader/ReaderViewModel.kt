@@ -102,8 +102,29 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     private var targetRenderHeight: Int = 1920
 
     fun loadBook(bookId: Long) {
+        renderJob?.cancel()
+        searchJob?.cancel()
+
+        // 1. Immediately reset state so no stale pages from previous book are visible
+        _uiState.update {
+            it.copy(
+                book = null,
+                currentPageBitmap = null,
+                nextPageBitmap = null,
+                previousPageBitmap = null,
+                currentPageStrokes = emptyList(),
+                undoHistory = emptyList(),
+                redoHistory = emptyList(),
+                canUndo = false,
+                canRedo = false,
+                isLoading = true,
+                isSearchOpen = false,
+                searchQuery = "",
+                searchResults = emptyList()
+            )
+        }
+
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
             val book = repository.getBookByIdSync(bookId)
             if (book != null) {
                 val totalPages = pdfRendererManager.openFile(book.filePath).coerceAtLeast(book.totalPages)
@@ -113,6 +134,15 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                 // Mark book as opened so read status and reading progress are activated and recorded
                 repository.markBookOpened(book.id, initialPage, totalPages)
 
+                // 2. Render initial page FIRST before dismissing loading screen to guarantee zero flash
+                val page0 = initialPage - 1
+                val currentBmp = pdfRendererManager.renderPage(
+                    filePath = book.filePath,
+                    pageIndex = page0,
+                    targetWidth = targetRenderWidth,
+                    targetHeight = targetRenderHeight
+                )
+
                 _uiState.update {
                     it.copy(
                         book = book.copy(hasBeenOpened = true, currentPage = initialPage, totalPages = totalPages),
@@ -120,11 +150,28 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                         totalPages = totalPages,
                         isBookmarked = bookmarks.contains(initialPage),
                         bookmarkedPages = bookmarks,
+                        currentPageBitmap = currentBmp,
                         isLoading = false
                     )
                 }
+
                 loadAnnotationsForPage(book.id, initialPage)
-                renderCurrentAndAdjacentPages(book.filePath, initialPage, totalPages)
+
+                // 3. Pre-render adjacent pages in background
+                val nextBmp = if (initialPage < totalPages) {
+                    pdfRendererManager.renderPage(book.filePath, page0 + 1, targetRenderWidth, targetRenderHeight)
+                } else null
+
+                val prevBmp = if (initialPage > 1) {
+                    pdfRendererManager.renderPage(book.filePath, page0 - 1, targetRenderWidth, targetRenderHeight)
+                } else null
+
+                _uiState.update {
+                    it.copy(
+                        nextPageBitmap = nextBmp,
+                        previousPageBitmap = prevBmp
+                    )
+                }
             } else {
                 _uiState.update { it.copy(isLoading = false) }
             }
@@ -135,13 +182,9 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         if (width > 100 && height > 100) {
             val widthDiff = kotlin.math.abs(width - targetRenderWidth)
             val heightDiff = kotlin.math.abs(height - targetRenderHeight)
-            if (widthDiff > 60 || heightDiff > 60) {
+            if (widthDiff > 240 || heightDiff > 240) {
                 targetRenderWidth = width
                 targetRenderHeight = height
-                val state = _uiState.value
-                state.book?.let { book ->
-                    renderCurrentAndAdjacentPages(book.filePath, state.currentPageIndex, state.totalPages)
-                }
             }
         }
     }
@@ -178,7 +221,9 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         if (state.currentPageIndex < state.totalPages) {
             val nextIdx = state.currentPageIndex + 1
             val isBm = state.bookmarkedPages.contains(nextIdx)
-            val promotedCurrentBmp = state.nextPageBitmap ?: state.currentPageBitmap
+            val book = state.book ?: return
+            val cachedNext = pdfRendererManager.getCachedPage(book.filePath, nextIdx - 1)
+            val promotedCurrentBmp = state.nextPageBitmap ?: cachedNext ?: state.currentPageBitmap
 
             _uiState.update {
                 it.copy(
@@ -192,7 +237,6 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                 )
             }
 
-            val book = state.book ?: return
             loadAnnotationsForPage(book.id, nextIdx)
             viewModelScope.launch {
                 repository.updateProgress(book.id, nextIdx)
@@ -206,7 +250,9 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         if (state.currentPageIndex > 1) {
             val prevIdx = state.currentPageIndex - 1
             val isBm = state.bookmarkedPages.contains(prevIdx)
-            val promotedCurrentBmp = state.previousPageBitmap ?: state.currentPageBitmap
+            val book = state.book ?: return
+            val cachedPrev = pdfRendererManager.getCachedPage(book.filePath, prevIdx - 1)
+            val promotedCurrentBmp = state.previousPageBitmap ?: cachedPrev ?: state.currentPageBitmap
 
             _uiState.update {
                 it.copy(
@@ -220,7 +266,6 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                 )
             }
 
-            val book = state.book ?: return
             loadAnnotationsForPage(book.id, prevIdx)
             viewModelScope.launch {
                 repository.updateProgress(book.id, prevIdx)
@@ -236,10 +281,12 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
 
         val book = state.book ?: return
         val isBm = state.bookmarkedPages.contains(clampedPage)
+        val cachedTarget = pdfRendererManager.getCachedPage(book.filePath, clampedPage - 1)
 
         _uiState.update {
             it.copy(
                 currentPageIndex = clampedPage,
+                currentPageBitmap = cachedTarget ?: it.currentPageBitmap,
                 isBookmarked = isBm,
                 undoHistory = emptyList(),
                 redoHistory = emptyList(),
@@ -668,6 +715,16 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 }
             }
+
+            // 4. Background active prefetching to preserve scrolling smoothness and stability
+            pdfRendererManager.prefetchWindow(
+                filePath = filePath,
+                centerPageIndex = page0,
+                forwardCount = 4,
+                backwardCount = 2,
+                targetWidth = targetRenderWidth,
+                targetHeight = targetRenderHeight
+            )
         }
     }
 
