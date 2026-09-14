@@ -31,6 +31,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -318,76 +320,68 @@ private fun MainSettingsContent(
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
-        modifier = modifier
-            .fillMaxSize()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                focusManager.clearFocus()
-            }
+        modifier = modifier.fillMaxSize()
     ) { paddingValues ->
-        Column(
+        LazyColumn(
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = paddingValues.calculateTopPadding() + 6.dp,
+                bottom = paddingValues.calculateBottomPadding() + 24.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    focusManager.clearFocus()
-                }
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 6.dp)
-                .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .navigationBarsPadding()
         ) {
             // Search Settings Pill Field (Matching Reference UI)
-            OutlinedTextField(
-                value = settingsSearchQuery,
-                onValueChange = { settingsSearchQuery = it },
-                placeholder = {
-                    Text(
-                        text = "Search settings",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.Search,
-                        contentDescription = "Search settings",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                    )
-                },
-                trailingIcon = {
-                    if (settingsSearchQuery.isNotBlank()) {
-                        IconButton(onClick = { 
-                            settingsSearchQuery = ""
-                            focusManager.clearFocus()
-                        }) {
-                            Icon(
-                                imageVector = Icons.Outlined.Close,
-                                contentDescription = "Clear search",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+            item(key = "search_field") {
+                OutlinedTextField(
+                    value = settingsSearchQuery,
+                    onValueChange = { settingsSearchQuery = it },
+                    placeholder = {
+                        Text(
+                            text = "Search settings",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Outlined.Search,
+                            contentDescription = "Search settings",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        )
+                    },
+                    trailingIcon = {
+                        if (settingsSearchQuery.isNotBlank()) {
+                            IconButton(onClick = { 
+                                settingsSearchQuery = ""
+                                focusManager.clearFocus()
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = "Clear search",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
-                    }
-                },
-                shape = RoundedCornerShape(20.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    disabledBorderColor = Color.Transparent,
-                    errorBorderColor = Color.Transparent,
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                ),
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("settings_search_field")
-            )
+                    },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        disabledBorderColor = Color.Transparent,
+                        errorBorderColor = Color.Transparent,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    ),
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("settings_search_field")
+                )
+            }
 
             val query = settingsSearchQuery.trim().lowercase()
 
@@ -400,107 +394,111 @@ private fun MainSettingsContent(
             val showSoundRow = query.isEmpty() || "sound audio page turn effect".contains(query)
 
             if (showThemeRow || showFlipRow || showMarginRow || showDoubleTapRow || showHapticsRow || showSoundRow) {
-                SettingsSectionHeader(title = "READING EXPERIENCE")
-                Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(vertical = 2.dp)) {
-                        if (showThemeRow) {
-                            SettingsNavigationRow(
-                                icon = Icons.Outlined.Description,
-                                iconBg = Color(0xFFFF9500),
-                                title = "Default Paper Theme",
-                                value = when (uiState.defaultReaderTheme) {
-                                    ReaderThemeMode.WHITE -> "Clean White"
-                                    ReaderThemeMode.CREAM -> "Warm Linen"
-                                    ReaderThemeMode.SEPIA -> "Heritage Sepia"
-                                    ReaderThemeMode.NIGHT -> "Velvet Night"
-                                },
-                                onClick = { showThemePickerSheet = true },
-                                testTag = "setting_default_theme"
-                            )
-                        }
+                item(key = "section_reading_experience") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SettingsSectionHeader(title = "READING EXPERIENCE")
+                        Card(
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(vertical = 2.dp)) {
+                                if (showThemeRow) {
+                                    SettingsNavigationRow(
+                                        icon = Icons.Outlined.Description,
+                                        iconBg = Color(0xFFFF9500),
+                                        title = "Default Paper Theme",
+                                        value = when (uiState.defaultReaderTheme) {
+                                            ReaderThemeMode.WHITE -> "Clean White"
+                                            ReaderThemeMode.CREAM -> "Warm Linen"
+                                            ReaderThemeMode.SEPIA -> "Heritage Sepia"
+                                            ReaderThemeMode.NIGHT -> "Velvet Night"
+                                        },
+                                        onClick = { showThemePickerSheet = true },
+                                        testTag = "setting_default_theme"
+                                    )
+                                }
 
-                        if (showFlipRow) {
-                            if (showThemeRow) SettingsDivider()
-                            SettingsNavigationRow(
-                                icon = Icons.Outlined.AutoStories,
-                                iconBg = Color(0xFF007AFF),
-                                title = "Default Page Turn",
-                                value = when (uiState.defaultPageFlipStyle) {
-                                    PageFlipStyle.REALISTIC_CURL -> "3D Curl"
-                                    PageFlipStyle.BOOK_3D_FLIP -> "3D Turn"
-                                    PageFlipStyle.SMOOTH_SLIDE -> "Slide"
-                                },
-                                onClick = { showFlipPickerSheet = true },
-                                testTag = "setting_default_flip"
-                            )
-                        }
+                                if (showFlipRow) {
+                                    if (showThemeRow) SettingsDivider()
+                                    SettingsNavigationRow(
+                                        icon = Icons.Outlined.AutoStories,
+                                        iconBg = Color(0xFF007AFF),
+                                        title = "Default Page Turn",
+                                        value = when (uiState.defaultPageFlipStyle) {
+                                            PageFlipStyle.REALISTIC_CURL -> "3D Curl"
+                                            PageFlipStyle.BOOK_3D_FLIP -> "3D Turn"
+                                            PageFlipStyle.SMOOTH_SLIDE -> "Slide"
+                                        },
+                                        onClick = { showFlipPickerSheet = true },
+                                        testTag = "setting_default_flip"
+                                    )
+                                }
 
-                        if (showMarginRow) {
-                            if (showThemeRow || showFlipRow) SettingsDivider()
-                            SettingsSwitchRow(
-                                icon = Icons.Outlined.Crop,
-                                iconBg = Color(0xFF34C759),
-                                title = "Smart Margin Fit",
-                                subtitle = "Auto-trim white PDF borders for bigger text",
-                                isChecked = uiState.isSmartMarginFitEnabled,
-                                onCheckedChange = onSetSmartMarginFit,
-                                testTag = "setting_toggle_margin_fit"
-                            )
-                        }
+                                if (showMarginRow) {
+                                    if (showThemeRow || showFlipRow) SettingsDivider()
+                                    SettingsSwitchRow(
+                                        icon = Icons.Outlined.Crop,
+                                        iconBg = Color(0xFF34C759),
+                                        title = "Smart Margin Fit",
+                                        subtitle = "Auto-trim white PDF borders for bigger text",
+                                        isChecked = uiState.isSmartMarginFitEnabled,
+                                        onCheckedChange = onSetSmartMarginFit,
+                                        testTag = "setting_toggle_margin_fit"
+                                    )
+                                }
 
-                        if (showDoubleTapRow) {
-                            if (showThemeRow || showFlipRow || showMarginRow) SettingsDivider()
-                            SettingsSwitchRow(
-                                icon = Icons.Outlined.Draw,
-                                iconBg = Color(0xFF5856D6),
-                                title = "Double-Tap for Pen",
-                                subtitle = "Instant summon annotation tools on page",
-                                isChecked = uiState.isDoubleTapPenEnabled,
-                                onCheckedChange = onSetDoubleTapPen,
-                                testTag = "setting_toggle_double_tap"
-                            )
-                        }
+                                if (showDoubleTapRow) {
+                                    if (showThemeRow || showFlipRow || showMarginRow) SettingsDivider()
+                                    SettingsSwitchRow(
+                                        icon = Icons.Outlined.Draw,
+                                        iconBg = Color(0xFF5856D6),
+                                        title = "Double-Tap for Pen",
+                                        subtitle = "Instant summon annotation tools on page",
+                                        isChecked = uiState.isDoubleTapPenEnabled,
+                                        onCheckedChange = onSetDoubleTapPen,
+                                        testTag = "setting_toggle_double_tap"
+                                    )
+                                }
 
-                        if (showHapticsRow) {
-                            if (showThemeRow || showFlipRow || showMarginRow || showDoubleTapRow) SettingsDivider()
-                            SettingsSwitchRow(
-                                icon = Icons.Outlined.Vibration,
-                                iconBg = Color(0xFFFF2D55),
-                                title = "Tactile Haptics",
-                                subtitle = "Vibrations on turn, bookmarks & ink",
-                                isChecked = uiState.isHapticsEnabled,
-                                onCheckedChange = onSetHaptics,
-                                testTag = "setting_toggle_haptics"
-                            )
-                        }
+                                if (showHapticsRow) {
+                                    if (showThemeRow || showFlipRow || showMarginRow || showDoubleTapRow) SettingsDivider()
+                                    SettingsSwitchRow(
+                                        icon = Icons.Outlined.Vibration,
+                                        iconBg = Color(0xFFFF2D55),
+                                        title = "Tactile Haptics",
+                                        subtitle = "Vibrations on turn, bookmarks & ink",
+                                        isChecked = uiState.isHapticsEnabled,
+                                        onCheckedChange = onSetHaptics,
+                                        testTag = "setting_toggle_haptics"
+                                    )
+                                }
 
-                        if (showSoundRow) {
-                            if (showThemeRow || showFlipRow || showMarginRow || showDoubleTapRow || showHapticsRow) SettingsDivider()
-                            SettingsSwitchRow(
-                                icon = if (uiState.isPageTurnSoundEnabled) Icons.Outlined.VolumeUp else Icons.Outlined.VolumeOff,
-                                iconBg = if (uiState.isPageTurnSoundEnabled) Color(0xFFAF52DE) else Color(0xFF757575),
-                                title = "Page Turn Audio",
-                                subtitle = if (uiState.isPageTurnSoundEnabled) "Subtle acoustic tactile feedback on turn" else "Audio turned off (Sound profiles inactive)",
-                                isChecked = uiState.isPageTurnSoundEnabled,
-                                onCheckedChange = onSetSound,
-                                testTag = "setting_toggle_sound"
-                            )
-                            SettingsDivider()
-                            SettingsNavigationRow(
-                                icon = Icons.Outlined.GraphicEq,
-                                iconBg = if (uiState.isPageTurnSoundEnabled) Color(0xFF5AC8FA) else Color(0xFF9E9E9E),
-                                title = "Sound Profile",
-                                value = if (uiState.isPageTurnSoundEnabled) uiState.defaultSoundStyle.title else "${uiState.defaultSoundStyle.title} (Inactive)",
-                                onClick = { showSoundPickerSheet = true },
-                                testTag = "setting_sound_style",
-                                enabled = uiState.isPageTurnSoundEnabled
-                            )
+                                if (showSoundRow) {
+                                    if (showThemeRow || showFlipRow || showMarginRow || showDoubleTapRow || showHapticsRow) SettingsDivider()
+                                    SettingsSwitchRow(
+                                        icon = if (uiState.isPageTurnSoundEnabled) Icons.Outlined.VolumeUp else Icons.Outlined.VolumeOff,
+                                        iconBg = if (uiState.isPageTurnSoundEnabled) Color(0xFFAF52DE) else Color(0xFF757575),
+                                        title = "Page Turn Audio",
+                                        subtitle = if (uiState.isPageTurnSoundEnabled) "Subtle acoustic tactile feedback on turn" else "Audio turned off (Sound profiles inactive)",
+                                        isChecked = uiState.isPageTurnSoundEnabled,
+                                        onCheckedChange = onSetSound,
+                                        testTag = "setting_toggle_sound"
+                                    )
+                                    SettingsDivider()
+                                    SettingsNavigationRow(
+                                        icon = Icons.Outlined.GraphicEq,
+                                        iconBg = if (uiState.isPageTurnSoundEnabled) Color(0xFF5AC8FA) else Color(0xFF9E9E9E),
+                                        title = "Sound Profile",
+                                        value = if (uiState.isPageTurnSoundEnabled) uiState.defaultSoundStyle.title else "${uiState.defaultSoundStyle.title} (Inactive)",
+                                        onClick = { showSoundPickerSheet = true },
+                                        testTag = "setting_sound_style",
+                                        enabled = uiState.isPageTurnSoundEnabled
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -512,100 +510,104 @@ private fun MainSettingsContent(
             val showCacheRow = query.isEmpty() || "cache storage page render clean memory".contains(query)
 
             if (showLayoutRow || showSortRow || showCacheRow) {
-                SettingsSectionHeader(title = "LIBRARY & STORAGE")
-                Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(vertical = 2.dp)) {
-                        if (showLayoutRow) {
-                            SettingsNavigationRow(
-                                icon = if (uiState.libraryViewMode == LibraryViewMode.GRID) Icons.Outlined.GridView else Icons.Outlined.ViewList,
-                                iconBg = Color(0xFF00C7BE),
-                                title = "Library Layout",
-                                value = if (uiState.libraryViewMode == LibraryViewMode.GRID) "2-Column Grid" else "Detailed List",
-                                onClick = {
-                                    val nextMode = if (uiState.libraryViewMode == LibraryViewMode.GRID) LibraryViewMode.LIST else LibraryViewMode.GRID
-                                    onSetViewMode(nextMode)
-                                },
-                                testTag = "setting_library_layout"
-                            )
-                        }
-
-                        if (showSortRow) {
-                            if (showLayoutRow) SettingsDivider()
-                            SettingsNavigationRow(
-                                icon = Icons.Outlined.Sort,
-                                iconBg = Color(0xFFFF9500),
-                                title = "Sort Books By",
-                                value = uiState.librarySortOrder.title,
-                                onClick = { showSortPickerSheet = true },
-                                testTag = "setting_library_sort"
-                            )
-                        }
-
-                        if (showCacheRow) {
-                            if (showLayoutRow || showSortRow) SettingsDivider()
-                            val cacheMb = String.format("%.1f MB", uiState.cacheSizeBytes / (1024f * 1024f))
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = Color(0xFFFF3B30),
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                             Icon(
-                                                 imageVector = Icons.Outlined.CleaningServices,
-                                                 contentDescription = null,
-                                                 tint = Color.White,
-                                                 modifier = Modifier.size(20.dp)
-                                             )
-                                        }
-                                    }
-
-                                    Column {
-                                        Text(
-                                            text = "Page Render Cache",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "Preloaded pages: $cacheMb • Highlights & notes safe",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                item(key = "section_library_storage") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SettingsSectionHeader(title = "LIBRARY & STORAGE")
+                        Card(
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(vertical = 2.dp)) {
+                                if (showLayoutRow) {
+                                    SettingsNavigationRow(
+                                        icon = if (uiState.libraryViewMode == LibraryViewMode.GRID) Icons.Outlined.GridView else Icons.Outlined.ViewList,
+                                        iconBg = Color(0xFF00C7BE),
+                                        title = "Library Layout",
+                                        value = if (uiState.libraryViewMode == LibraryViewMode.GRID) "2-Column Grid" else "Detailed List",
+                                        onClick = {
+                                            val nextMode = if (uiState.libraryViewMode == LibraryViewMode.GRID) LibraryViewMode.LIST else LibraryViewMode.GRID
+                                            onSetViewMode(nextMode)
+                                        },
+                                        testTag = "setting_library_layout"
+                                    )
                                 }
 
-                                if (uiState.isCacheClearing) {
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                } else {
-                                    Surface(
-                                        onClick = onClearCache,
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                                        modifier = Modifier.testTag("setting_clear_cache_btn")
+                                if (showSortRow) {
+                                    if (showLayoutRow) SettingsDivider()
+                                    SettingsNavigationRow(
+                                        icon = Icons.Outlined.Sort,
+                                        iconBg = Color(0xFFFF9500),
+                                        title = "Sort Books By",
+                                        value = uiState.librarySortOrder.title,
+                                        onClick = { showSortPickerSheet = true },
+                                        testTag = "setting_library_sort"
+                                    )
+                                }
+
+                                if (showCacheRow) {
+                                    if (showLayoutRow || showSortRow) SettingsDivider()
+                                    val cacheMb = String.format("%.1f MB", uiState.cacheSizeBytes / (1024f * 1024f))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(
-                                            text = "Clear",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = LuminaAccentPrimary,
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = Color(0xFFFF3B30),
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                     Icon(
+                                                         imageVector = Icons.Outlined.CleaningServices,
+                                                         contentDescription = null,
+                                                         tint = Color.White,
+                                                         modifier = Modifier.size(20.dp)
+                                                     )
+                                                }
+                                            }
+
+                                            Column {
+                                                Text(
+                                                    text = "Page Render Cache",
+                                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = "Preloaded pages: $cacheMb • Highlights & notes safe",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+
+                                        if (uiState.isCacheClearing) {
+                                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                        } else {
+                                            Surface(
+                                                onClick = onClearCache,
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                                modifier = Modifier.testTag("setting_clear_cache_btn")
+                                            ) {
+                                                Text(
+                                                    text = "Clear",
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                    color = LuminaAccentPrimary,
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -619,36 +621,40 @@ private fun MainSettingsContent(
             val showHelpRow = query.isEmpty() || "help support faq feedback contact bug".contains(query)
 
             if (showHowToUseRow || showHelpRow) {
-                SettingsSectionHeader(title = "GUIDES & SUPPORT")
-                Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(vertical = 2.dp)) {
-                        if (showHowToUseRow) {
-                            SettingsNavigationRow(
-                                icon = Icons.Outlined.TouchApp,
-                                iconBg = Color(0xFF007AFF),
-                                title = "How to Use & Gestures",
-                                value = "Interactive Guide",
-                                onClick = { onNavigateToSubpage(SettingsSubpage.HOW_TO_USE) },
-                                testTag = "setting_nav_how_to_use"
-                            )
-                        }
+                item(key = "section_guides_support") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SettingsSectionHeader(title = "GUIDES & SUPPORT")
+                        Card(
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(vertical = 2.dp)) {
+                                if (showHowToUseRow) {
+                                    SettingsNavigationRow(
+                                        icon = Icons.Outlined.TouchApp,
+                                        iconBg = Color(0xFF007AFF),
+                                        title = "How to Use & Gestures",
+                                        value = "Interactive Guide",
+                                        onClick = { onNavigateToSubpage(SettingsSubpage.HOW_TO_USE) },
+                                        testTag = "setting_nav_how_to_use"
+                                    )
+                                }
 
-                        if (showHelpRow) {
-                            if (showHowToUseRow) SettingsDivider()
-                            SettingsNavigationRow(
-                                icon = Icons.Outlined.HelpOutline,
-                                iconBg = Color(0xFF34C759),
-                                title = "Help & Support",
-                                value = "FAQ & Feedback",
-                                onClick = { onNavigateToSubpage(SettingsSubpage.HELP_AND_SUPPORT) },
-                                testTag = "setting_nav_help_support"
-                            )
+                                if (showHelpRow) {
+                                    if (showHowToUseRow) SettingsDivider()
+                                    SettingsNavigationRow(
+                                        icon = Icons.Outlined.HelpOutline,
+                                        iconBg = Color(0xFF34C759),
+                                        title = "Help & Support",
+                                        value = "FAQ & Feedback",
+                                        onClick = { onNavigateToSubpage(SettingsSubpage.HELP_AND_SUPPORT) },
+                                        testTag = "setting_nav_help_support"
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -660,74 +666,78 @@ private fun MainSettingsContent(
             val showTermsRow = query.isEmpty() || "terms and conditions license legal rights".contains(query)
 
             if (showAboutRow || showPrivacyRow || showTermsRow) {
-                SettingsSectionHeader(title = "ABOUT & LEGAL")
-                Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(vertical = 2.dp)) {
-                        if (showAboutRow) {
-                            SettingsNavigationRow(
-                                icon = Icons.Outlined.Info,
-                                iconBg = Color(0xFF8E8E93),
-                                title = "About Lumina",
-                                value = "v2.4.0",
-                                onClick = { onNavigateToSubpage(SettingsSubpage.ABOUT_US) },
-                                testTag = "setting_nav_about"
-                            )
-                        }
+                item(key = "section_about_legal") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SettingsSectionHeader(title = "ABOUT & LEGAL")
+                        Card(
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(vertical = 2.dp)) {
+                                if (showAboutRow) {
+                                    SettingsNavigationRow(
+                                        icon = Icons.Outlined.Info,
+                                        iconBg = Color(0xFF8E8E93),
+                                        title = "About Lumina",
+                                        value = "v2.4.0",
+                                        onClick = { onNavigateToSubpage(SettingsSubpage.ABOUT_US) },
+                                        testTag = "setting_nav_about"
+                                    )
+                                }
 
-                        if (showPrivacyRow) {
-                            if (showAboutRow) SettingsDivider()
-                            SettingsNavigationRow(
-                                icon = Icons.Outlined.Lock,
-                                iconBg = Color(0xFF30B0C7),
-                                title = "Privacy Policy",
-                                value = "100% On-Device",
-                                onClick = { onNavigateToSubpage(SettingsSubpage.PRIVACY_POLICY) },
-                                testTag = "setting_nav_privacy"
-                            )
-                        }
+                                if (showPrivacyRow) {
+                                    if (showAboutRow) SettingsDivider()
+                                    SettingsNavigationRow(
+                                        icon = Icons.Outlined.Lock,
+                                        iconBg = Color(0xFF30B0C7),
+                                        title = "Privacy Policy",
+                                        value = "100% On-Device",
+                                        onClick = { onNavigateToSubpage(SettingsSubpage.PRIVACY_POLICY) },
+                                        testTag = "setting_nav_privacy"
+                                    )
+                                }
 
-                        if (showTermsRow) {
-                            if (showAboutRow || showPrivacyRow) SettingsDivider()
-                            SettingsNavigationRow(
-                                icon = Icons.Outlined.Description,
-                                iconBg = Color(0xFF64D2FF),
-                                title = "Terms & Conditions",
-                                value = "License & Terms",
-                                onClick = { onNavigateToSubpage(SettingsSubpage.TERMS_AND_CONDITIONS) },
-                                testTag = "setting_nav_terms"
-                            )
+                                if (showTermsRow) {
+                                    if (showAboutRow || showPrivacyRow) SettingsDivider()
+                                    SettingsNavigationRow(
+                                        icon = Icons.Outlined.Description,
+                                        iconBg = Color(0xFF64D2FF),
+                                        title = "Terms & Conditions",
+                                        value = "License & Terms",
+                                        onClick = { onNavigateToSubpage(SettingsSubpage.TERMS_AND_CONDITIONS) },
+                                        testTag = "setting_nav_terms"
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
 
             // Apple Style Footer Signature
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Lumina Reader • Made by Sahanur Molla",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "GitHub: sam-live2c/sam-live29",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
+            item(key = "footer_signature") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Lumina Reader • Made by Sahanur Molla",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "GitHub: sam-live2c/sam-live29",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 

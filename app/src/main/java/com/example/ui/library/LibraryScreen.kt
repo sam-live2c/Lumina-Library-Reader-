@@ -215,14 +215,7 @@ fun LibraryScreen(
                 }
             },
             containerColor = MaterialTheme.colorScheme.background,
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures(onTap = {
-                        focusManager.clearFocus()
-                        keyboardController?.hide()
-                    })
-                }
+            modifier = Modifier.fillMaxSize()
         ) { paddingValues ->
             Box(
                 modifier = Modifier
@@ -245,12 +238,6 @@ fun LibraryScreen(
                     verticalArrangement = Arrangement.spacedBy(if (uiState.viewMode == LibraryViewMode.GRID) 14.dp else 10.dp),
                     modifier = Modifier
                         .fillMaxSize()
-                        .pointerInput(Unit) {
-                            detectTapGestures(onTap = {
-                                focusManager.clearFocus()
-                                keyboardController?.hide()
-                            })
-                        }
                         .testTag(if (uiState.viewMode == LibraryViewMode.GRID) "books_grid" else "books_list")
                 ) {
                     // 1. Library Header with 3 Dots Menu Button
@@ -1661,82 +1648,84 @@ private fun BookCoverThumbnail(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val cacheKey = coverImagePath ?: filePath ?: title
+    val initialCached = remember(cacheKey) { CoverMemoryCache.lru.get(cacheKey) }
     var bitmapLoaded by remember(cacheKey) {
-        mutableStateOf(CoverMemoryCache.lru.get(cacheKey))
+        mutableStateOf(initialCached)
     }
 
-    LaunchedEffect(cacheKey) {
-        val inCache = CoverMemoryCache.lru.get(cacheKey)
-        if (inCache != null) {
-            bitmapLoaded = inCache
-            return@LaunchedEffect
-        }
-
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            var loaded: Bitmap? = null
-
-            // 1. Try loading cached cover image file if available and valid
-            if (!coverImagePath.isNullOrBlank()) {
-                val file = File(coverImagePath)
-                if (file.exists() && file.length() > 0) {
-                    try {
-                        val opts = BitmapFactory.Options().apply {
-                            inPreferredConfig = Bitmap.Config.RGB_565
-                        }
-                        loaded = BitmapFactory.decodeFile(file.absolutePath, opts)
-                    } catch (_: Throwable) {}
-                }
+    if (initialCached == null) {
+        LaunchedEffect(cacheKey) {
+            val inCache = CoverMemoryCache.lru.get(cacheKey)
+            if (inCache != null) {
+                bitmapLoaded = inCache
+                return@LaunchedEffect
             }
 
-            // 2. If cover file is missing or unreadable, dynamically render page 0 directly from the PDF file
-            if (loaded == null && !filePath.isNullOrBlank()) {
-                val pdfFile = File(filePath)
-                if (pdfFile.exists() && pdfFile.length() > 0) {
-                    var pfd: ParcelFileDescriptor? = null
-                    var renderer: PdfRenderer? = null
-                    var page: PdfRenderer.Page? = null
-                    try {
-                        pfd = ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY)
-                        renderer = PdfRenderer(pfd)
-                        if (renderer.pageCount > 0) {
-                            page = renderer.openPage(0)
-                            val pw = page.width
-                            val ph = page.height
-                            val scale = minOf(360f / pw.toFloat(), 520f / ph.toFloat(), 1.0f).coerceAtLeast(0.15f)
-                            val outW = (pw * scale).toInt().coerceIn(120, 480)
-                            val outH = (ph * scale).toInt().coerceIn(180, 720)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                var loaded: Bitmap? = null
 
-                            val bmp = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
-                            val canvas = Canvas(bmp)
-                            canvas.drawColor(AndroidColor.WHITE)
-                            page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-
-                            loaded = bmp
-
-                            // Persist to covers directory so subsequent loads are immediate
-                            val coversDir = File(context.filesDir, "covers")
-                            if (!coversDir.exists()) coversDir.mkdirs()
-                            val cachedCover = File(coversDir, "${pdfFile.nameWithoutExtension}_cover.jpg")
-                            java.io.FileOutputStream(cachedCover).use { out ->
-                                bmp.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                // 1. Try loading cached cover image file if available and valid
+                if (!coverImagePath.isNullOrBlank()) {
+                    val file = File(coverImagePath)
+                    if (file.exists() && file.length() > 0) {
+                        try {
+                            val opts = BitmapFactory.Options().apply {
+                                inPreferredConfig = Bitmap.Config.RGB_565
                             }
-                        }
-                    } catch (t: Throwable) {
-                        t.printStackTrace()
-                    } finally {
-                        try { page?.close() } catch (_: Throwable) {}
-                        try { renderer?.close() } catch (_: Throwable) {}
-                        try { pfd?.close() } catch (_: Throwable) {}
+                            loaded = BitmapFactory.decodeFile(file.absolutePath, opts)
+                        } catch (_: Throwable) {}
                     }
                 }
-            }
 
-            if (loaded != null) {
-                CoverMemoryCache.lru.put(cacheKey, loaded)
-            }
+                // 2. If cover file is missing or unreadable, dynamically render page 0 directly from the PDF file
+                if (loaded == null && !filePath.isNullOrBlank()) {
+                    val pdfFile = File(filePath)
+                    if (pdfFile.exists() && pdfFile.length() > 0) {
+                        var pfd: ParcelFileDescriptor? = null
+                        var renderer: PdfRenderer? = null
+                        var page: PdfRenderer.Page? = null
+                        try {
+                            pfd = ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY)
+                            renderer = PdfRenderer(pfd)
+                            if (renderer.pageCount > 0) {
+                                page = renderer.openPage(0)
+                                val pw = page.width
+                                val ph = page.height
+                                val scale = minOf(360f / pw.toFloat(), 520f / ph.toFloat(), 1.0f).coerceAtLeast(0.15f)
+                                val outW = (pw * scale).toInt().coerceIn(120, 480)
+                                val outH = (ph * scale).toInt().coerceIn(180, 720)
 
-            withContext(kotlinx.coroutines.Dispatchers.Main) {
-                bitmapLoaded = loaded
+                                val bmp = Bitmap.createBitmap(outW, outH, Bitmap.Config.RGB_565)
+                                val canvas = Canvas(bmp)
+                                canvas.drawColor(AndroidColor.WHITE)
+                                page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+
+                                loaded = bmp
+
+                                // Persist to covers directory so subsequent loads are immediate
+                                val coversDir = File(context.filesDir, "covers")
+                                if (!coversDir.exists()) coversDir.mkdirs()
+                                val cachedCover = File(coversDir, "${pdfFile.nameWithoutExtension}_cover.jpg")
+                                java.io.FileOutputStream(cachedCover).use { out ->
+                                    bmp.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                                }
+                            }
+                        } catch (t: Throwable) {
+                            t.printStackTrace()
+                        } finally {
+                            try { page?.close() } catch (_: Throwable) {}
+                            try { renderer?.close() } catch (_: Throwable) {}
+                            try { pfd?.close() } catch (_: Throwable) {}
+                        }
+                    }
+                }
+
+                if (loaded != null) {
+                    CoverMemoryCache.lru.put(cacheKey, loaded)
+                    withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        bitmapLoaded = loaded
+                    }
+                }
             }
         }
     }

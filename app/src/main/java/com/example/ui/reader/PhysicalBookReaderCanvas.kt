@@ -525,6 +525,7 @@ fun PhysicalBookReaderCanvas(
                     onStrokeCompleted = onStrokeCompleted,
                     onEraseStroke = onEraseStroke,
                     onStrokesUpdated = onStrokesUpdated,
+                    zoomScale = zoomScale.value,
                     onTransform = { panChange, zoomChange ->
                         coroutineScope.launch {
                             val newZoom = (zoomScale.value * zoomChange).coerceIn(1f, 3.5f)

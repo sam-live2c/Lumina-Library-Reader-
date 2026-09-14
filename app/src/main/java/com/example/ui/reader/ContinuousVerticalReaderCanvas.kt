@@ -270,6 +270,7 @@ fun ContinuousVerticalReaderCanvas(
                             strokeWidth = strokeWidth,
                             isAnnotationsVisible = isAnnotationsVisible,
                             pageStrokes = if (isCurrentPage) currentPageStrokes else emptyList(),
+                            zoomScale = zoomScale.value,
                             onStrokeCompleted = onStrokeCompleted,
                             onEraseStroke = onEraseStroke,
                             onStrokesUpdated = onStrokesUpdated,
@@ -354,6 +355,7 @@ private fun VerticalPdfPageCard(
     strokeWidth: Float,
     isAnnotationsVisible: Boolean,
     pageStrokes: List<AnnotationStroke>,
+    zoomScale: Float = 1f,
     onStrokeCompleted: (AnnotationStroke) -> Unit,
     onEraseStroke: (Long) -> Unit,
     onStrokesUpdated: (List<AnnotationStroke>) -> Unit = {},
@@ -483,6 +485,7 @@ private fun VerticalPdfPageCard(
                     onStrokeCompleted = onStrokeCompleted,
                     onEraseStroke = onEraseStroke,
                     onStrokesUpdated = onStrokesUpdated,
+                    zoomScale = zoomScale,
                     modifier = Modifier.fillMaxSize()
                 )
             }

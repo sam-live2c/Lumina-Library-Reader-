@@ -54,8 +54,10 @@ data class ReaderUiState(
     val strokeWidth: Float = 4f,
     val isAnnotationsVisible: Boolean = true,
     val currentPageStrokes: List<AnnotationStroke> = emptyList(),
-    val undoStack: List<AnnotationStroke> = emptyList(),
-    val redoStack: List<AnnotationStroke> = emptyList(),
+    val undoHistory: List<List<AnnotationStroke>> = emptyList(),
+    val redoHistory: List<List<AnnotationStroke>> = emptyList(),
+    val canUndo: Boolean = false,
+    val canRedo: Boolean = false,
 
     // In-Book Search
     val isSearchOpen: Boolean = false,
@@ -183,8 +185,10 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                     currentPageIndex = nextIdx,
                     currentPageBitmap = promotedCurrentBmp,
                     isBookmarked = isBm,
-                    undoStack = emptyList(),
-                    redoStack = emptyList()
+                    undoHistory = emptyList(),
+                    redoHistory = emptyList(),
+                    canUndo = false,
+                    canRedo = false
                 )
             }
 
@@ -209,8 +213,10 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                     currentPageIndex = prevIdx,
                     currentPageBitmap = promotedCurrentBmp,
                     isBookmarked = isBm,
-                    undoStack = emptyList(),
-                    redoStack = emptyList()
+                    undoHistory = emptyList(),
+                    redoHistory = emptyList(),
+                    canUndo = false,
+                    canRedo = false
                 )
             }
 
@@ -235,8 +241,10 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
             it.copy(
                 currentPageIndex = clampedPage,
                 isBookmarked = isBm,
-                undoStack = emptyList(),
-                redoStack = emptyList()
+                undoHistory = emptyList(),
+                redoHistory = emptyList(),
+                canUndo = false,
+                canRedo = false
             )
         }
 
@@ -388,12 +396,17 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
             pageIndex = state.currentPageIndex
         )
 
-        val updatedStrokes = state.currentPageStrokes + strokeWithInfo
+        val previousStrokes = state.currentPageStrokes
+        val updatedStrokes = previousStrokes + strokeWithInfo
+        val newUndoHistory = state.undoHistory + listOf(previousStrokes)
+
         _uiState.update {
             it.copy(
                 currentPageStrokes = updatedStrokes,
-                undoStack = updatedStrokes,
-                redoStack = emptyList()
+                undoHistory = newUndoHistory,
+                redoHistory = emptyList(),
+                canUndo = true,
+                canRedo = false
             )
         }
 
@@ -402,16 +415,22 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun updateStrokes(strokes: List<AnnotationStroke>) {
+    fun updateStrokes(strokes: List<AnnotationStroke>, pushToHistory: Boolean = true, preActionState: List<AnnotationStroke>? = null) {
         val state = _uiState.value
         val book = state.book ?: return
         val pageIndex = state.currentPageIndex
         val updatedStrokes = strokes.map { it.copy(bookId = book.id, pageIndex = pageIndex) }
 
+        val previousState = preActionState ?: state.currentPageStrokes
+        val newUndoHistory = if (pushToHistory) state.undoHistory + listOf(previousState) else state.undoHistory
+
         _uiState.update {
             it.copy(
                 currentPageStrokes = updatedStrokes,
-                undoStack = updatedStrokes
+                undoHistory = newUndoHistory,
+                redoHistory = if (pushToHistory) emptyList() else it.redoHistory,
+                canUndo = newUndoHistory.isNotEmpty() || updatedStrokes.isNotEmpty(),
+                canRedo = if (pushToHistory) false else it.redoHistory.isNotEmpty()
             )
         }
 
@@ -425,11 +444,19 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
 
     fun eraseStroke(strokeId: Long) {
         val state = _uiState.value
-        val updated = state.currentPageStrokes.filter { it.id != strokeId }
+        val book = state.book ?: return
+        val pageIndex = state.currentPageIndex
+        val previousStrokes = state.currentPageStrokes
+        val updated = previousStrokes.filter { it.id != strokeId }
+        val newUndoHistory = state.undoHistory + listOf(previousStrokes)
+
         _uiState.update {
             it.copy(
                 currentPageStrokes = updated,
-                undoStack = updated
+                undoHistory = newUndoHistory,
+                redoHistory = emptyList(),
+                canUndo = newUndoHistory.isNotEmpty() || updated.isNotEmpty(),
+                canRedo = false
             )
         }
         viewModelScope.launch {
@@ -439,37 +466,74 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
 
     fun undoStroke() {
         val state = _uiState.value
-        if (state.currentPageStrokes.isNotEmpty()) {
-            val lastStroke = state.currentPageStrokes.last()
-            val newStrokes = state.currentPageStrokes.dropLast(1)
+        val book = state.book ?: return
+        val pageIndex = state.currentPageIndex
+        val currentStrokes = state.currentPageStrokes
+
+        if (state.undoHistory.isNotEmpty()) {
+            val previousStrokes = state.undoHistory.last()
+            val newUndoHistory = state.undoHistory.dropLast(1)
+            val newRedoHistory = state.redoHistory + listOf(currentStrokes)
+
+            _uiState.update {
+                it.copy(
+                    currentPageStrokes = previousStrokes,
+                    undoHistory = newUndoHistory,
+                    redoHistory = newRedoHistory,
+                    canUndo = newUndoHistory.isNotEmpty() || previousStrokes.isNotEmpty(),
+                    canRedo = true
+                )
+            }
+
+            viewModelScope.launch {
+                annotationRepository.clearPage(book.id, pageIndex)
+                previousStrokes.forEach { annotationRepository.saveStroke(it) }
+            }
+        } else if (currentStrokes.isNotEmpty()) {
+            val newStrokes = currentStrokes.dropLast(1)
+            val newRedoHistory = state.redoHistory + listOf(currentStrokes)
+
             _uiState.update {
                 it.copy(
                     currentPageStrokes = newStrokes,
-                    undoStack = newStrokes,
-                    redoStack = it.redoStack + lastStroke
+                    undoHistory = emptyList(),
+                    redoHistory = newRedoHistory,
+                    canUndo = newStrokes.isNotEmpty(),
+                    canRedo = true
                 )
             }
+
             viewModelScope.launch {
-                annotationRepository.deleteStroke(lastStroke.id)
+                annotationRepository.clearPage(book.id, pageIndex)
+                newStrokes.forEach { annotationRepository.saveStroke(it) }
             }
         }
     }
 
     fun redoStroke() {
         val state = _uiState.value
-        if (state.redoStack.isNotEmpty()) {
-            val strokeToRestore = state.redoStack.last()
-            val newRedo = state.redoStack.dropLast(1)
-            val newStrokes = state.currentPageStrokes + strokeToRestore
+        val book = state.book ?: return
+        val pageIndex = state.currentPageIndex
+        val currentStrokes = state.currentPageStrokes
+
+        if (state.redoHistory.isNotEmpty()) {
+            val nextStrokes = state.redoHistory.last()
+            val newRedoHistory = state.redoHistory.dropLast(1)
+            val newUndoHistory = state.undoHistory + listOf(currentStrokes)
+
             _uiState.update {
                 it.copy(
-                    currentPageStrokes = newStrokes,
-                    undoStack = newStrokes,
-                    redoStack = newRedo
+                    currentPageStrokes = nextStrokes,
+                    undoHistory = newUndoHistory,
+                    redoHistory = newRedoHistory,
+                    canUndo = true,
+                    canRedo = newRedoHistory.isNotEmpty()
                 )
             }
+
             viewModelScope.launch {
-                annotationRepository.saveStroke(strokeToRestore)
+                annotationRepository.clearPage(book.id, pageIndex)
+                nextStrokes.forEach { annotationRepository.saveStroke(it) }
             }
         }
     }
@@ -480,8 +544,10 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
             _uiState.update {
                 it.copy(
                     currentPageStrokes = strokes,
-                    undoStack = strokes,
-                    redoStack = emptyList()
+                    undoHistory = emptyList(),
+                    redoHistory = emptyList(),
+                    canUndo = strokes.isNotEmpty(),
+                    canRedo = false
                 )
             }
         }

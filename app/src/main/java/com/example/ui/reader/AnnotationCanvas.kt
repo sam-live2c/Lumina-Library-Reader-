@@ -46,6 +46,7 @@ fun AnnotationCanvas(
     onStrokesUpdated: ((List<AnnotationStroke>) -> Unit)? = null,
     onTransform: ((pan: Offset, zoom: Float) -> Unit)? = null,
     onDoubleTap: (() -> Unit)? = null,
+    zoomScale: Float = 1f,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -58,6 +59,7 @@ fun AnnotationCanvas(
     val currentOnEraseStroke by androidx.compose.runtime.rememberUpdatedState(onEraseStroke)
     val currentOnStrokeCompleted by androidx.compose.runtime.rememberUpdatedState(onStrokeCompleted)
     val currentOnTransform by androidx.compose.runtime.rememberUpdatedState(onTransform)
+    val currentZoomScale by androidx.compose.runtime.rememberUpdatedState(zoomScale)
 
     Box(
         modifier = modifier
@@ -78,13 +80,16 @@ fun AnnotationCanvas(
                             var lastEraserNormY = normY
                             var activeStrokesList = currentStrokesState
 
+                            // Dynamically regulate eraser radius according to current zoom level
+                            val dynamicEraserRadius = (0.038f / sqrt(currentZoomScale.coerceAtLeast(1f))).coerceIn(0.010f, 0.045f)
+
                             if (isEraserActive) {
                                 eraserTouchPoint = Pair(normX, normY)
                                 val updated = performLocalizedErase(
                                     normX = normX,
                                     normY = normY,
                                     strokes = activeStrokesList,
-                                    eraserRadius = 0.040f,
+                                    eraserRadius = dynamicEraserRadius,
                                     haptic = haptic
                                 )
                                 if (updated != null) {
@@ -132,7 +137,7 @@ fun AnnotationCanvas(
 
                                             // Smooth path interpolation between points during fast continuous drag
                                             val dist = hypot(rawNormX - lastEraserNormX, rawNormY - lastEraserNormY)
-                                            val stepCount = (dist / 0.006f).toInt().coerceIn(1, 16)
+                                            val stepCount = (dist / 0.005f).toInt().coerceIn(1, 16)
                                             var intermediateChanges = false
 
                                             for (step in 1..stepCount) {
@@ -144,7 +149,7 @@ fun AnnotationCanvas(
                                                     normX = stepX,
                                                     normY = stepY,
                                                     strokes = activeStrokesList,
-                                                    eraserRadius = 0.040f,
+                                                    eraserRadius = dynamicEraserRadius,
                                                     haptic = haptic
                                                 )
                                                 if (stepUpdated != null) {
@@ -168,10 +173,10 @@ fun AnnotationCanvas(
                                                 val lastPt = currentPoints.last()
                                                 val dist = hypot(rawNormX - lastPt.first, rawNormY - lastPt.second)
                                                 // Micro-jitter dampener: Ignore micro-movements smaller than threshold
-                                                if (dist >= 0.0015f) {
+                                                if (dist >= 0.0012f) {
                                                     // Smooth low-pass interpolation to prevent jitter when zoomed in
-                                                    val smoothedX = lastPt.first * 0.20f + rawNormX * 0.80f
-                                                    val smoothedY = lastPt.second * 0.20f + rawNormY * 0.80f
+                                                    val smoothedX = lastPt.first * 0.25f + rawNormX * 0.75f
+                                                    val smoothedY = lastPt.second * 0.25f + rawNormY * 0.75f
                                                     currentPoints.add(Pair(smoothedX, smoothedY))
                                                 }
                                             } else {
@@ -228,10 +233,11 @@ fun AnnotationCanvas(
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val w = size.width
                 val h = size.height
+                val zoom = zoomScale
 
                 // 1. Draw Saved Strokes
                 strokes.forEach { stroke ->
-                    drawSingleStroke(stroke, w, h)
+                    drawSingleStroke(stroke, w, h, zoom)
                 }
 
                 // 2. Draw Live In-Progress Stroke
@@ -250,14 +256,15 @@ fun AnnotationCanvas(
                         strokeWidth = strokeWidth,
                         points = livePoints
                     )
-                    drawSingleStroke(liveStroke, w, h)
+                    drawSingleStroke(liveStroke, w, h, zoom)
                 }
 
-                // 3. Draw Colorless Floating Eraser Cursor Indicator while erasing
+                // 3. Draw Colorless Floating Eraser Cursor Indicator while erasing (zoom-calibrated)
                 eraserTouchPoint?.let { (ex, ey) ->
                     val cx = ex * w
                     val cy = ey * h
-                    val cursorRadius = (w * 0.040f).coerceIn(24f, 42f)
+                    val dynamicRadiusNormalized = (0.038f / sqrt(zoom.coerceAtLeast(1f))).coerceIn(0.010f, 0.045f)
+                    val cursorRadius = (w * dynamicRadiusNormalized).coerceIn(16f, 48f)
 
                     // Subtle neutral translucent fill (no color tint)
                     drawCircle(
@@ -292,9 +299,11 @@ fun AnnotationCanvas(
 }
 
 /**
- * Smart Highlighter Algorithm:
- * - When swiping across text horizontally (typical reading flow), cleanly snaps to straight horizontal text line.
- * - When drawing freehand marks, circles, vertical notes, or diagrams, preserves the freehand natural curve.
+ * Natural Smart Highlighter Algorithm:
+ * - When swiping across a printed text line (reading direction), gently stabilizes vertical hand wobble
+ *   toward the line's optical baseline while preserving organic entry/exit tapers and natural multi-point curvature.
+ * - Retains rich continuous spline points so it feels like authentic translucent ink on paper rather than a rigid pill capsule.
+ * - When drawing freehand marks, margin brackets, circles, or diagrams, fully preserves freehand paths.
  */
 private fun processSmartHighlightPoints(points: List<Pair<Float, Float>>): List<Pair<Float, Float>> {
     if (points.size < 2) return points
@@ -309,14 +318,18 @@ private fun processSmartHighlightPoints(points: List<Pair<Float, Float>>): List<
     val avgY = points.map { it.second }.average().toFloat()
     val maxDevY = points.maxOf { abs(it.second - avgY) }
 
-    // Predominantly horizontal swipe (Text line highlight mode)
-    val isTextHighlight = (dx >= 0.025f && maxDevY < 0.038f) || (dx > dy * 2.2f && maxDevY < 0.055f)
+    // Predominantly horizontal swipe (Text line reading highlight gesture)
+    val isTextHighlight = (dx >= 0.020f && maxDevY < 0.040f) || (dx > dy * 2.0f && maxDevY < 0.060f)
 
     return if (isTextHighlight) {
-        val minX = minOf(first.first, last.first)
-        val maxX = maxOf(first.first, last.first)
-        val baselineY = avgY
-        listOf(Pair(minX, baselineY), Pair(maxX, baselineY))
+        // Line-following assist: Smooth vertical wobble toward optical baseline, but preserve organic multi-point flow
+        points.mapIndexed { index, pt ->
+            // Subtle natural taper at start and end of stroke
+            val t = index.toFloat() / (points.size - 1).coerceAtLeast(1)
+            val baselineWeight = if (t < 0.10f || t > 0.90f) 0.65f else 0.85f
+            val smoothedY = pt.second * (1f - baselineWeight) + avgY * baselineWeight
+            Pair(pt.first, smoothedY)
+        }
     } else {
         // Freehand diagram / margin / curved highlight
         points.toList()
@@ -332,7 +345,7 @@ private fun performLocalizedErase(
     normX: Float,
     normY: Float,
     strokes: List<AnnotationStroke>,
-    eraserRadius: Float = 0.040f,
+    eraserRadius: Float = 0.038f,
     haptic: androidx.compose.ui.hapticfeedback.HapticFeedback
 ): List<AnnotationStroke>? {
     var hasChanges = false
@@ -347,7 +360,7 @@ private fun performLocalizedErase(
         when (stroke.type) {
             AnnotationType.HIGHLIGHTER, AnnotationType.STRIKE_THROUGH -> {
                 if (stroke.points.size == 2) {
-                    // Straight-line / Snapped highlight segment
+                    // Straight-line / 2-point highlight segment
                     val p1 = stroke.points[0]
                     val p2 = stroke.points[1]
                     val x1 = p1.first
@@ -400,7 +413,7 @@ private fun performLocalizedErase(
                         }
                     }
                 } else {
-                    // Multi-point Highlighter
+                    // Multi-point Natural Highlighter
                     val resultFrags = filterPointsWithEraser(stroke.points, normX, normY, eraserRadius)
                     if (resultFrags != listOf(stroke.points)) {
                         hasChanges = true
@@ -469,13 +482,17 @@ private fun filterPointsWithEraser(
     return fragments
 }
 
-private fun DrawScope.drawSingleStroke(stroke: AnnotationStroke, w: Float, h: Float) {
+private fun DrawScope.drawSingleStroke(stroke: AnnotationStroke, w: Float, h: Float, zoomScale: Float = 1f) {
     if (stroke.points.size < 2) return
 
     val color = Color(stroke.colorArgb.toULong())
+    val zoomFactor = sqrt(zoomScale.coerceAtLeast(1f))
 
     when (stroke.type) {
         AnnotationType.HIGHLIGHTER -> {
+            // Regulate highlight height by zoom level so it always corresponds proportionally to printed text lines
+            val highlightHeight = (stroke.strokeWidth * 3.4f / zoomFactor).coerceIn(16f, 44f)
+
             if (stroke.points.size == 2) {
                 val p1 = stroke.points.first()
                 val p2 = stroke.points.last()
@@ -485,10 +502,8 @@ private fun DrawScope.drawSingleStroke(stroke: AnnotationStroke, w: Float, h: Fl
                 val endX = p2.first * w
                 val endY = p2.second * h
 
-                val highlightHeight = (stroke.strokeWidth * 3.6f).coerceIn(22f, 44f)
-
                 drawLine(
-                    color = color.copy(alpha = 0.46f),
+                    color = color.copy(alpha = 0.40f),
                     start = Offset(startX, startY),
                     end = Offset(endX, endY),
                     strokeWidth = highlightHeight,
@@ -496,7 +511,7 @@ private fun DrawScope.drawSingleStroke(stroke: AnnotationStroke, w: Float, h: Fl
                     blendMode = BlendMode.Multiply
                 )
             } else {
-                // Freehand highlighter curve
+                // Natural organic highlighter curve with smooth quadratic bezier interpolation
                 val path = Path().apply {
                     val first = stroke.points.first()
                     moveTo(first.first * w, first.second * h)
@@ -513,9 +528,9 @@ private fun DrawScope.drawSingleStroke(stroke: AnnotationStroke, w: Float, h: Fl
 
                 drawPath(
                     path = path,
-                    color = color.copy(alpha = 0.46f),
+                    color = color.copy(alpha = 0.40f),
                     style = Stroke(
-                        width = (stroke.strokeWidth * 3.6f).coerceIn(22f, 44f),
+                        width = highlightHeight,
                         cap = StrokeCap.Round,
                         join = StrokeJoin.Round
                     ),
@@ -533,16 +548,20 @@ private fun DrawScope.drawSingleStroke(stroke: AnnotationStroke, w: Float, h: Fl
             val endX = p2.first * w
             val endY = p2.second * h
 
+            val strikeWidth = ((stroke.strokeWidth * 1.5f) / zoomFactor).coerceIn(2.5f, 6f)
+
             drawLine(
                 color = color.copy(alpha = 0.88f),
                 start = Offset(startX, startY),
                 end = Offset(endX, endY),
-                strokeWidth = (stroke.strokeWidth * 1.6f).coerceAtLeast(3f),
+                strokeWidth = strikeWidth,
                 cap = StrokeCap.Round
             )
         }
 
         AnnotationType.PEN -> {
+            val penWidth = (stroke.strokeWidth / zoomFactor).coerceIn(1.8f, 10f)
+
             val path = Path().apply {
                 val first = stroke.points.first()
                 moveTo(first.first * w, first.second * h)
@@ -567,7 +586,7 @@ private fun DrawScope.drawSingleStroke(stroke: AnnotationStroke, w: Float, h: Fl
                 path = path,
                 color = color,
                 style = Stroke(
-                    width = stroke.strokeWidth.coerceAtLeast(3.2f),
+                    width = penWidth,
                     cap = StrokeCap.Round,
                     join = StrokeJoin.Round
                 )

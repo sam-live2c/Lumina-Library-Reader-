@@ -34,13 +34,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
@@ -72,6 +76,9 @@ fun InBookSearchBar(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Suggestions list is open while user is actively typing or focused; collapses on selection or enter
+    var isSuggestionsOpen by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -129,7 +136,10 @@ fun InBookSearchBar(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 4.dp),
+                        .padding(horizontal = 4.dp)
+                        .clickable {
+                            isSuggestionsOpen = true
+                        },
                     contentAlignment = Alignment.CenterStart
                 ) {
                     if (query.isEmpty()) {
@@ -144,7 +154,10 @@ fun InBookSearchBar(
                     }
                     BasicTextField(
                         value = query,
-                        onValueChange = onQueryChange,
+                        onValueChange = {
+                            isSuggestionsOpen = true
+                            onQueryChange(it)
+                        },
                         singleLine = true,
                         textStyle = TextStyle(
                             color = barText,
@@ -154,19 +167,32 @@ fun InBookSearchBar(
                         cursorBrush = SolidColor(readerTheme.accentColor),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = {
+                            // On Enter/Search: Close suggestions dropdown, dismiss keyboard, and stay on active match
+                            isSuggestionsOpen = false
                             keyboardController?.hide()
                             focusManager.clearFocus()
+                            if (matches.isNotEmpty()) {
+                                onSelectMatch(currentMatchIndex.coerceIn(0, matches.size - 1))
+                            }
                         }),
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester)
+                            .onFocusChanged { focusState ->
+                                if (focusState.isFocused && query.isNotEmpty()) {
+                                    isSuggestionsOpen = true
+                                }
+                            }
                             .testTag("search_input_field")
                     )
                 }
 
                 if (query.isNotEmpty()) {
                     IconButton(
-                        onClick = { onQueryChange("") },
+                        onClick = {
+                            onQueryChange("")
+                            isSuggestionsOpen = true
+                        },
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
@@ -189,7 +215,12 @@ fun InBookSearchBar(
                     )
 
                     IconButton(
-                        onClick = onPreviousMatch,
+                        onClick = {
+                            isSuggestionsOpen = false
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                            onPreviousMatch()
+                        },
                         modifier = Modifier
                             .size(36.dp)
                             .testTag("search_prev_match")
@@ -203,7 +234,12 @@ fun InBookSearchBar(
                     }
 
                     IconButton(
-                        onClick = onNextMatch,
+                        onClick = {
+                            isSuggestionsOpen = false
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                            onNextMatch()
+                        },
                         modifier = Modifier
                             .size(36.dp)
                             .testTag("search_next_match")
@@ -226,7 +262,7 @@ fun InBookSearchBar(
             }
 
             // Results List Dropdown preview (Shows search results & page jump items)
-            if (matches.isNotEmpty() && query.isNotBlank()) {
+            if (isSuggestionsOpen && matches.isNotEmpty() && query.isNotBlank()) {
                 HorizontalDivider(color = barSubtext.copy(alpha = 0.2f), thickness = 0.8.dp)
                 LazyColumn(
                     modifier = Modifier
@@ -240,6 +276,8 @@ fun InBookSearchBar(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
+                                    // Standard UX: Click suggestion -> dropdown closes, keyboard hides, user gets search result on page
+                                    isSuggestionsOpen = false
                                     keyboardController?.hide()
                                     focusManager.clearFocus()
                                     onSelectMatch(index)
