@@ -147,6 +147,24 @@ fun PrivacyPolicyScreen(
                         PrivacyBadge(icon = Icons.Outlined.Lock, text = "Local Sandboxing")
                         PrivacyBadge(icon = Icons.Outlined.Security, text = "No Account Needed")
                     }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF34C759).copy(alpha = 0.12f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Notice: By using Lumina Reader, you agree to our Privacy Policy and Terms of Service.",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                lineHeight = 19.sp
+                            ),
+                            color = Color(0xFF34C759),
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
                 }
             }
 

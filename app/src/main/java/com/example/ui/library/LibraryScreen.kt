@@ -763,15 +763,6 @@ private fun LibraryHeader(
                     modifier = Modifier.testTag("menu_item_sort")
                 )
 
-                // Divider
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                        .height(0.5.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                )
-
                 // 3. Settings Page
                 DropdownMenuItem(
                     text = { Text("Settings", fontWeight = FontWeight.Medium) },

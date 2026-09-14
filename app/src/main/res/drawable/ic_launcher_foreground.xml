@@ -1,8 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:width="66dp"
-        android:height="66dp"
-        android:drawable="@drawable/img_lumina_vector_logo"
-        android:gravity="center" />
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Soft Golden Aura Glow behind book -->
+    <path
+        android:pathData="M54,54m-28,0a28,28 0 1,1 56,0a28,28 0 1,1 -56,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="54"
+                android:centerY="54"
+                android:gradientRadius="30"
+                android:type="radial">
+                <item android:offset="0.0" android:color="#40D4A054" />
+                <item android:offset="0.6" android:color="#15D4A054" />
+                <item android:offset="1.0" android:color="#00000000" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Left Book Cover / Outer Page Base -->
+    <path
+        android:fillColor="#C68930"
+        android:pathData="M52,70 C41,68 31,70.5 25,72.5 C24,72.9 23,72 23,71 L23,43 C23,42.2 23.6,41.5 24.4,41.2 C31,39 41,36.5 52,39 Z" />
+
+    <!-- Right Book Cover / Outer Page Base -->
+    <path
+        android:fillColor="#E09F3E"
+        android:pathData="M56,70 C67,68 77,70.5 83,72.5 C84,72.9 85,72 85,71 L85,43 C85,42.2 84.4,41.5 83.6,41.2 C77,39 67,36.5 56,39 Z" />
+
+    <!-- Left Inner Page Layer -->
+    <path
+        android:fillColor="#FFEECB"
+        android:pathData="M51.5,67 C41.5,65.2 32,67.8 26.5,69.5 L26.5,44 C32,42.3 41.5,39.7 51.5,41.5 Z" />
+
+    <!-- Right Inner Page Layer -->
+    <path
+        android:fillColor="#FFFDF5"
+        android:pathData="M56.5,67 C66.5,65.2 76,67.8 81.5,69.5 L81.5,44 C76,42.3 66.5,39.7 56.5,41.5 Z" />
+
+    <!-- Left Page Accent Lines -->
+    <path
+        android:fillColor="#C59A4E"
+        android:pathData="M31,48.5 L46.5,45.8 L46.5,47.3 L31,50 Z M31,53 L46.5,50.3 L46.5,51.8 L31,54.5 Z M31,57.5 L43,55.5 L43,57 L31,59 Z" />
+
+    <!-- Right Page Accent Lines -->
+    <path
+        android:fillColor="#D8B16E"
+        android:pathData="M61.5,45.8 L77,48.5 L77,50 L61.5,47.3 Z M61.5,50.3 L77,53 L77,54.5 L61.5,51.8 Z M65,55.5 L77,57.5 L77,59 L65,57 Z" />
+
+    <!-- Center Spine Line -->
+    <path
+        android:fillColor="#9E6819"
+        android:pathData="M53,38 L55,38 L55,70.5 L53,70.5 Z" />
+
+    <!-- Golden Silk Bookmark Ribbon -->
+    <path
+        android:fillColor="#FF5733"
+        android:pathData="M53.3,38.5 L54.7,38.5 L54.7,74.5 L54,73 L53.3,74.5 Z" />
+
+    <!-- Golden Lumina Sparkle Star above Spine -->
+    <path
+        android:fillColor="#FFDF88"
+        android:pathData="M54,29.5 Q54,33 57.5,33 Q54,33 54,36.5 Q54,33 50.5,33 Q54,33 54,29.5 Z" />
+
+</vector>
