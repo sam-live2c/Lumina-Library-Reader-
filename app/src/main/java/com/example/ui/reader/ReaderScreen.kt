@@ -57,6 +57,13 @@ fun ReaderScreen(
     val soundManager = remember { PageTurnSoundManager(context) }
 
     DisposableEffect(Unit) {
+        val window = (context as? Activity)?.window
+        if (window != null) {
+            val insetsController = WindowCompat.getInsetsController(window, view)
+            insetsController.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            insetsController.hide(WindowInsetsCompat.Type.statusBars())
+        }
         onDispose {
             soundManager.release()
         }
