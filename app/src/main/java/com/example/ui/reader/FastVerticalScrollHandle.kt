@@ -10,8 +10,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.theme.ReaderThemeMode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -113,24 +114,27 @@ fun FastVerticalScrollHandle(
     ) {
         val availableHeight = maxHeight
         val density = LocalDensity.current
-        // Default resting position is noticeably lower on page 1 for comfortable thumb reach
-        val trackPaddingTop = (availableHeight * 0.28f).coerceIn(210.dp, 300.dp)
-        val trackPaddingBottom = (availableHeight * 0.16f).coerceIn(120.dp, 180.dp)
-        val usableHeightDp = (availableHeight - trackPaddingTop - trackPaddingBottom).coerceAtLeast(80.dp)
+        
+        // Smart track boundaries: top padding leaves room below top bar; bottom padding stops safely above the floating pen with generous breathing room
+        val trackPaddingTop = (availableHeight * 0.18f).coerceIn(110.dp, 160.dp)
+        val trackPaddingBottom = 135.dp // Increased spacing above the floating pen FAB for clean clearance
+        val usableHeightDp = (availableHeight - trackPaddingTop - trackPaddingBottom).coerceAtLeast(100.dp)
         val usableHeightPx = with(density) { usableHeightDp.toPx() }
         val topPaddingPx = with(density) { trackPaddingTop.toPx() }
+        val maxVisualYPx = topPaddingPx + usableHeightPx
 
-        // Default resting position: lower down on page 1 / start
-        val defaultYPx = topPaddingPx
-        val indicatorYAnim = remember { Animatable(defaultYPx) }
+        // Smart progression position calculation based on current reading progress
+        val initialFraction = if (totalPages > 1) (currentPage - 1f) / (totalPages - 1f) else 0f
+        val initialYPx = topPaddingPx + (usableHeightPx * initialFraction)
+        val indicatorYAnim = remember { Animatable(initialYPx) }
 
-        // Synchronize handle Y with current page fraction when not dragging
+        // Animate button position along with reading progress (Page 1 -> Total Pages up to nearest position above floating pen)
         LaunchedEffect(currentPage, totalPages, isDragging) {
             if (!isDragging && totalPages > 1) {
-                val pageFraction = (currentPage - 1f) / (totalPages - 1f)
-                val targetY = topPaddingPx + usableHeightPx * pageFraction
+                val progressFraction = ((currentPage - 1f) / (totalPages - 1f)).coerceIn(0f, 1f)
+                val smartTargetY = topPaddingPx + (usableHeightPx * progressFraction)
                 indicatorYAnim.animateTo(
-                    targetValue = targetY,
+                    targetValue = smartTargetY,
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioLowBouncy,
                         stiffness = Spring.StiffnessMediumLow
@@ -141,50 +145,96 @@ fun FastVerticalScrollHandle(
 
         val currentYDp = with(density) { indicatorYAnim.value.toDp() }
 
-        // Composite Handle: Popup Page Badge + Grip Thumb Pill in a single aligned Row
-        // Gestures (click and drag) are attached strictly to this visible indicator badge & pill,
-        // and NOT to any imaginary vertical path, strictly satisfying user requirement.
-        Row(
+        // Fixed gesture layer along right side to track handle drag in stationary parent coordinates
+        Box(
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(y = (currentYDp - 24.dp).coerceIn(trackPaddingTop - 24.dp, availableHeight - trackPaddingBottom))
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = {
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(96.dp)
+                .pointerInput(totalPages) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val startY = down.position.y
+                        val handleCenterY = indicatorYAnim.value
+                        
+                        // Check if touch down starts on or near the indicator handle
+                        val touchRadiusPx = with(density) { 56.dp.toPx() }
+                        val isNearHandle = abs(startY - handleCenterY) <= touchRadiusPx
+
+                        if (!isNearHandle) {
+                            // Touch was outside the handle - do not intercept
+                            return@awaitEachGesture
+                        }
+
+                        val downTime = System.currentTimeMillis()
+                        var isActivelyDragging = false
+                        var lastDispatchedPage = currentPage
+
+                        do {
+                            val event = awaitPointerEvent()
+                            val pressed = event.changes.firstOrNull { it.id == down.id && it.pressed }
+                            if (pressed != null) {
+                                val currentTouchY = pressed.position.y
+                                val movementY = abs(currentTouchY - startY)
+
+                                if (!isActivelyDragging && movementY > 8f) {
+                                    isActivelyDragging = true
+                                    isDragging = true
+                                    onDragStarted()
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                }
+
+                                if (isActivelyDragging) {
+                                    pressed.consume()
+                                    // Visual button stops when getting to the nearest position above the floating pen
+                                    val clampedVisualY = currentTouchY.coerceIn(topPaddingPx, maxVisualYPx)
+                                    coroutineScope.launch {
+                                        indicatorYAnim.snapTo(clampedVisualY)
+                                    }
+
+                                    // Extended pull range allows continuous page progression while pulling & holding further down
+                                    val scrubEffectiveHeight = usableHeightPx + with(density) { 60.dp.toPx() }
+                                    val fraction = ((currentTouchY - topPaddingPx) / scrubEffectiveHeight).coerceIn(0f, 1f)
+                                    val targetPage = (1 + fraction * (totalPages - 1)).roundToInt().coerceIn(1, totalPages)
+                                    if (targetPage != lastDispatchedPage) {
+                                        lastDispatchedPage = targetPage
+                                        lastScrubbedPage = targetPage
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        onPageSelected(targetPage)
+                                    }
+                                }
+                            }
+                        } while (event.changes.any { it.pressed })
+
+                        val duration = System.currentTimeMillis() - downTime
+                        if (isActivelyDragging) {
+                            isDragging = false
+                            // Smoothly settle at the smart position for the chosen page
+                            val finalFraction = ((lastDispatchedPage - 1f) / (totalPages - 1f).coerceAtLeast(1f)).coerceIn(0f, 1f)
+                            val finalTargetY = topPaddingPx + usableHeightPx * finalFraction
+                            coroutineScope.launch {
+                                indicatorYAnim.animateTo(
+                                    targetValue = finalTargetY,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioLowBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                )
+                            }
+                        } else if (duration < 350) {
+                            // Quick tap on indicator opens Jump Dialog
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onIndicatorClick()
                         }
-                    )
+                    }
                 }
-                .pointerInput(totalPages) {
-                    detectDragGestures(
-                        onDragStart = {
-                            isDragging = true
-                            onDragStarted()
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            val nextY = (indicatorYAnim.value + dragAmount.y).coerceIn(topPaddingPx, topPaddingPx + usableHeightPx)
-                            coroutineScope.launch {
-                                indicatorYAnim.snapTo(nextY)
-                            }
-                            val fraction = ((nextY - topPaddingPx) / usableHeightPx).coerceIn(0f, 1f)
-                            val targetPage = (1 + fraction * (totalPages - 1)).roundToInt().coerceIn(1, totalPages)
-                            if (targetPage != lastScrubbedPage) {
-                                lastScrubbedPage = targetPage
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onPageSelected(targetPage)
-                            }
-                        },
-                        onDragEnd = {
-                            isDragging = false
-                        },
-                        onDragCancel = {
-                            isDragging = false
-                        }
-                    )
-                }
+        )
+
+        // Composite Handle: Popup Page Badge + Grip Thumb Pill in a single aligned Row
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(y = (currentYDp - 26.dp).coerceIn(trackPaddingTop - 26.dp, availableHeight - trackPaddingBottom))
                 .padding(vertical = 4.dp, horizontal = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)

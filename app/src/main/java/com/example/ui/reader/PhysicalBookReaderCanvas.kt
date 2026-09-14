@@ -214,44 +214,28 @@ fun PhysicalBookReaderCanvas(
                                 }
                                 change.consume()
                             } else {
-                                // Single-touch Page Curl / Flip (Supports horizontal swipes and vertical drag)
+                                // Single-touch Page Curl / Flip (Strictly deliberate horizontal swipe/turn)
                                 if (!isDraggingPage) {
                                     val absX = abs(totalDragX)
                                     val absY = abs(totalDragY)
-                                    if (absX > 14f && absX > absY * 0.8f) {
-                                        isDraggingPage = true
-                                    } else if (absY > 14f && absY > absX * 0.8f) {
+                                    // Only engage page turn on clear horizontal movement across the page
+                                    if (absX > 18f && absX > absY * 1.5f) {
                                         isDraggingPage = true
                                     }
                                 }
 
                                 if (isDraggingPage) {
                                     change.consume()
-                                    val isVerticalGesture = abs(totalDragY) > abs(totalDragX)
-                                    val deltaFraction = if (isVerticalGesture) {
-                                        -dragDelta.y / size.height.toFloat()
-                                    } else {
-                                        -dragDelta.x / size.width.toFloat()
-                                    }
+                                    val deltaFraction = -dragDelta.x / size.width.toFloat()
                                     val currentVal = animProgress.value
 
                                     if (activeDirection == FlipDirection.NONE) {
-                                        if (isVerticalGesture) {
-                                            // Push upside (drag up) -> Forward / Next Page
-                                            // Pull down (drag down) -> Backward / Previous Page
-                                            if (totalDragY < -12f && currentPageIndex < totalPages) {
-                                                activeDirection = FlipDirection.FORWARD
-                                            } else if (totalDragY > 12f && currentPageIndex > 1) {
-                                                activeDirection = FlipDirection.BACKWARD
-                                            }
-                                        } else {
-                                            // Swipe left -> Forward / Next Page
-                                            // Swipe right -> Backward / Previous Page
-                                            if (totalDragX < -12f && currentPageIndex < totalPages) {
-                                                activeDirection = FlipDirection.FORWARD
-                                            } else if (totalDragX > 12f && currentPageIndex > 1) {
-                                                activeDirection = FlipDirection.BACKWARD
-                                            }
+                                        // Swipe left -> Forward / Next Page
+                                        // Swipe right -> Backward / Previous Page
+                                        if (totalDragX < -14f && currentPageIndex < totalPages) {
+                                            activeDirection = FlipDirection.FORWARD
+                                        } else if (totalDragX > 14f && currentPageIndex > 1) {
+                                            activeDirection = FlipDirection.BACKWARD
                                         }
                                     }
 
@@ -343,46 +327,8 @@ fun PhysicalBookReaderCanvas(
                             lastTapTimestamp = now
                             lastTapPosition = downPos
 
-                            // Direct Tap handling (Edge turns page only when NOT zoomed, Center toggles HUD)
-                            if (zoomScale.value <= 1.05f) {
-                                val w = size.width.toFloat()
-                                val leftEdge = w * 0.14f
-                                val rightEdge = w * 0.86f
-
-                                if (downPos.x > rightEdge && currentPageIndex < totalPages) {
-                                    // Turn forward with smooth curl animation
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    activeDirection = FlipDirection.FORWARD
-                                    coroutineScope.launch {
-                                        animProgress.snapTo(0f)
-                                        animProgress.animateTo(1f, tween(300, easing = FastOutSlowInEasing))
-                                        onNextPage()
-                                        panOffsetX.snapTo(0f)
-                                        panOffsetY.snapTo(0f)
-                                        animProgress.snapTo(0f)
-                                        activeDirection = FlipDirection.NONE
-                                    }
-                                } else if (downPos.x < leftEdge && currentPageIndex > 1) {
-                                    // Turn backward with smooth curl animation
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    activeDirection = FlipDirection.BACKWARD
-                                    coroutineScope.launch {
-                                        animProgress.snapTo(0f)
-                                        animProgress.animateTo(-1f, tween(300, easing = FastOutSlowInEasing))
-                                        onPreviousPage()
-                                        panOffsetX.snapTo(0f)
-                                        panOffsetY.snapTo(0f)
-                                        animProgress.snapTo(0f)
-                                        activeDirection = FlipDirection.NONE
-                                    }
-                                } else {
-                                    // Center tap toggles HUD controls
-                                    onToggleHud()
-                                }
-                            } else {
-                                // While zoomed in, tap toggles HUD controls without flipping page
-                                onToggleHud()
-                            }
+                            // Tap cleanly toggles HUD controls (No accidental edge-tap page turn)
+                            onToggleHud()
                         }
                     }
                 }
