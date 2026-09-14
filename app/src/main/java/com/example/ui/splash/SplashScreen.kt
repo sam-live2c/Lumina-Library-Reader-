@@ -68,12 +68,12 @@ fun SplashScreen(modifier: Modifier = Modifier) {
                 contentAlignment = Alignment.Center
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                    painter = painterResource(id = R.drawable.img_lumina_vector_logo),
                     contentDescription = "Lumina App Logo",
-                    contentScale = ContentScale.Fit,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(10.dp)
+                        .clip(RoundedCornerShape(24.dp))
                 )
             }
 
