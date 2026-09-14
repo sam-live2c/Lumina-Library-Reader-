@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -145,39 +146,28 @@ fun FastVerticalScrollHandle(
 
         val currentYDp = with(density) { indicatorYAnim.value.toDp() }
 
-        // Fixed gesture layer along right side to track handle drag in stationary parent coordinates
-        Box(
+        // Composite Handle: Popup Page Badge + Grip Thumb Pill in a single aligned Row
+        // Gestures are attached directly to this handle and its immediate touch padding, leaving the rest of the screen 100% free for swipes and taps
+        Row(
             modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(96.dp)
+                .align(Alignment.TopEnd)
+                .offset(y = (currentYDp - 26.dp).coerceIn(trackPaddingTop - 26.dp, availableHeight - trackPaddingBottom))
                 .pointerInput(totalPages) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
-                        val startY = down.position.y
-                        val handleCenterY = indicatorYAnim.value
-                        
-                        // Check if touch down starts on or near the indicator handle
-                        val touchRadiusPx = with(density) { 56.dp.toPx() }
-                        val isNearHandle = abs(startY - handleCenterY) <= touchRadiusPx
-
-                        if (!isNearHandle) {
-                            // Touch was outside the handle - do not intercept
-                            return@awaitEachGesture
-                        }
-
                         val downTime = System.currentTimeMillis()
                         var isActivelyDragging = false
+                        var totalMovementY = 0f
                         var lastDispatchedPage = currentPage
 
                         do {
                             val event = awaitPointerEvent()
                             val pressed = event.changes.firstOrNull { it.id == down.id && it.pressed }
                             if (pressed != null) {
-                                val currentTouchY = pressed.position.y
-                                val movementY = abs(currentTouchY - startY)
+                                val deltaY = pressed.positionChange().y
+                                totalMovementY += deltaY
 
-                                if (!isActivelyDragging && movementY > 8f) {
+                                if (!isActivelyDragging && abs(totalMovementY) > 6f) {
                                     isActivelyDragging = true
                                     isDragging = true
                                     onDragStarted()
@@ -186,15 +176,18 @@ fun FastVerticalScrollHandle(
 
                                 if (isActivelyDragging) {
                                     pressed.consume()
+                                    val currentVal = indicatorYAnim.value
+                                    val nextY = currentVal + deltaY
+
                                     // Visual button stops when getting to the nearest position above the floating pen
-                                    val clampedVisualY = currentTouchY.coerceIn(topPaddingPx, maxVisualYPx)
+                                    val clampedVisualY = nextY.coerceIn(topPaddingPx, maxVisualYPx)
                                     coroutineScope.launch {
                                         indicatorYAnim.snapTo(clampedVisualY)
                                     }
 
                                     // Extended pull range allows continuous page progression while pulling & holding further down
-                                    val scrubEffectiveHeight = usableHeightPx + with(density) { 60.dp.toPx() }
-                                    val fraction = ((currentTouchY - topPaddingPx) / scrubEffectiveHeight).coerceIn(0f, 1f)
+                                    val scrubEffectiveHeight = usableHeightPx + with(density) { 50.dp.toPx() }
+                                    val fraction = ((nextY - topPaddingPx) / scrubEffectiveHeight).coerceIn(0f, 1f)
                                     val targetPage = (1 + fraction * (totalPages - 1)).roundToInt().coerceIn(1, totalPages)
                                     if (targetPage != lastDispatchedPage) {
                                         lastDispatchedPage = targetPage
@@ -221,21 +214,14 @@ fun FastVerticalScrollHandle(
                                     )
                                 )
                             }
-                        } else if (duration < 350) {
-                            // Quick tap on indicator opens Jump Dialog
+                        } else if (duration < 350 && abs(totalMovementY) < 14f) {
+                            // Quick tap on indicator / page number badge opens Jump Dialog
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onIndicatorClick()
                         }
                     }
                 }
-        )
-
-        // Composite Handle: Popup Page Badge + Grip Thumb Pill in a single aligned Row
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(y = (currentYDp - 26.dp).coerceIn(trackPaddingTop - 26.dp, availableHeight - trackPaddingBottom))
-                .padding(vertical = 4.dp, horizontal = 2.dp),
+                .padding(vertical = 10.dp, horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {

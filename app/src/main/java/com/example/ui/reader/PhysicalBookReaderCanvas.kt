@@ -214,12 +214,11 @@ fun PhysicalBookReaderCanvas(
                                 }
                                 change.consume()
                             } else {
-                                // Single-touch Page Curl / Flip (Strictly deliberate horizontal swipe/turn)
+                                // Single-touch Page Curl / Flip (Horizontal swipe / page turn)
                                 if (!isDraggingPage) {
                                     val absX = abs(totalDragX)
                                     val absY = abs(totalDragY)
-                                    // Only engage page turn on clear horizontal movement across the page
-                                    if (absX > 18f && absX > absY * 1.5f) {
+                                    if (absX > 10f && absX > absY * 0.7f) {
                                         isDraggingPage = true
                                     }
                                 }
@@ -232,9 +231,9 @@ fun PhysicalBookReaderCanvas(
                                     if (activeDirection == FlipDirection.NONE) {
                                         // Swipe left -> Forward / Next Page
                                         // Swipe right -> Backward / Previous Page
-                                        if (totalDragX < -14f && currentPageIndex < totalPages) {
+                                        if (totalDragX < -8f && currentPageIndex < totalPages) {
                                             activeDirection = FlipDirection.FORWARD
-                                        } else if (totalDragX > 14f && currentPageIndex > 1) {
+                                        } else if (totalDragX > 8f && currentPageIndex > 1) {
                                             activeDirection = FlipDirection.BACKWARD
                                         }
                                     }
@@ -257,9 +256,10 @@ fun PhysicalBookReaderCanvas(
                     if (isDraggingPage && activeDirection != FlipDirection.NONE) {
                         // Complete or cancel the live interactive page turn
                         val progress = animProgress.value
+                        val isFling = duration < 350 && abs(totalDragX) > 40f
                         coroutineScope.launch {
                             if (activeDirection == FlipDirection.FORWARD) {
-                                if (progress > 0.22f && currentPageIndex < totalPages) {
+                                if ((progress > 0.18f || (isFling && totalDragX < -40f)) && currentPageIndex < totalPages) {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     animProgress.animateTo(1f, tween(260, easing = FastOutSlowInEasing))
                                     onNextPage()
@@ -269,7 +269,7 @@ fun PhysicalBookReaderCanvas(
                                     animProgress.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
                                 }
                             } else if (activeDirection == FlipDirection.BACKWARD) {
-                                if (progress < -0.22f && currentPageIndex > 1) {
+                                if ((progress < -0.18f || (isFling && totalDragX > 40f)) && currentPageIndex > 1) {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     animProgress.animateTo(-1f, tween(260, easing = FastOutSlowInEasing))
                                     onPreviousPage()
@@ -282,7 +282,7 @@ fun PhysicalBookReaderCanvas(
                             animProgress.snapTo(0f)
                             activeDirection = FlipDirection.NONE
                         }
-                    } else if (!isDraggingPage && !isMultiTouch && duration < 350 && abs(totalDragX) < 16f && abs(totalDragY) < 16f) {
+                    } else if (!isDraggingPage && !isMultiTouch && duration < 450 && abs(totalDragX) < 24f && abs(totalDragY) < 24f) {
                         val now = System.currentTimeMillis()
                         val timeSinceLastTap = now - lastTapTimestamp
                         val distFromLastTap = (downPos - lastTapPosition).getDistance()
