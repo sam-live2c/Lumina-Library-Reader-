@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.repository.AppSettingsManager
 import com.example.ui.reader.PageFlipStyle
 import com.example.ui.reader.PageTurnSoundManager
 import com.example.ui.reader.PageTurnSoundStyle
@@ -46,6 +47,7 @@ data class SettingsUiState(
     val defaultPageFlipStyle: PageFlipStyle = PageFlipStyle.REALISTIC_CURL,
     val defaultSoundStyle: PageTurnSoundStyle = PageTurnSoundStyle.CLASSIC_PAPER,
     val isSmartMarginFitEnabled: Boolean = true,
+    val isFullScreenModeEnabled: Boolean = false,
     val isHapticsEnabled: Boolean = true,
     val isPageTurnSoundEnabled: Boolean = true,
     val isDoubleTapPenEnabled: Boolean = true,
@@ -80,6 +82,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 PageTurnSoundStyle.CLASSIC_PAPER
             },
             isSmartMarginFitEnabled = prefs.getBoolean("pref_smart_margin_fit", true),
+            isFullScreenModeEnabled = prefs.getBoolean("pref_full_screen_mode", false),
             isHapticsEnabled = prefs.getBoolean("pref_haptics", true),
             isPageTurnSoundEnabled = prefs.getBoolean("pref_sound", true),
             isDoubleTapPenEnabled = prefs.getBoolean("pref_double_tap_pen", true),
@@ -95,6 +98,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
+        AppSettingsManager.init(application)
+        viewModelScope.launch {
+            AppSettingsManager.isFullScreenModeEnabled.collect { isFs ->
+                _uiState.update { it.copy(isFullScreenModeEnabled = isFs) }
+            }
+        }
         calculateCacheSize()
     }
 
@@ -148,6 +157,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setSmartMarginFit(enabled: Boolean) {
         prefs.edit().putBoolean("pref_smart_margin_fit", enabled).apply()
         _uiState.update { it.copy(isSmartMarginFitEnabled = enabled, toastMessage = if (enabled) "Smart Margin Fit enabled" else "Smart Margin Fit disabled") }
+    }
+
+    fun setFullScreenMode(enabled: Boolean) {
+        AppSettingsManager.setFullScreenMode(enabled)
+        _uiState.update { it.copy(isFullScreenModeEnabled = enabled, toastMessage = if (enabled) "Full Screen Mode enabled" else "Full Screen Mode disabled") }
     }
 
     fun setHaptics(enabled: Boolean) {

@@ -345,15 +345,43 @@ object SampleBooksGenerator {
             currentY += layout.height + 18f
         }
 
-        // Bottom Footer
+        // Bottom Footer: adjusted component positions, subtly shifted to left side, careful with book names
+        val footerRulePaint = Paint().apply {
+            color = Color.parseColor("#EAE4D9")
+            strokeWidth = 0.8f
+        }
+        val footerY = height - 34f
+        canvas.drawLine(margin - 4f, footerY - 14f, width - margin, footerY - 14f, footerRulePaint)
+
         val footerPaint = TextPaint().apply {
-            color = Color.parseColor("#9C958A")
+            color = Color.parseColor("#8E877D")
             textSize = 9.5f
             typeface = serifRegular
             isAntiAlias = true
             textAlign = Paint.Align.LEFT
         }
-        canvas.drawText("Lumina Book Reader", margin, height - 36f, footerPaint)
+
+        // Careful with book names: format title cleanly with ellipsis if long
+        val rawTitle = pageContent.header
+        val maxTitleWidth = (width - margin * 2) * 0.62f
+        val displayTitle = if (footerPaint.measureText(rawTitle) > maxTitleWidth) {
+            val count = footerPaint.breakText(rawTitle, true, maxTitleWidth - 14f, null)
+            rawTitle.substring(0, count).trimEnd() + "…"
+        } else {
+            rawTitle
+        }
+
+        // Asymmetrical / left-shifted layout: book name shifted to margin - 4f
+        canvas.drawText(displayTitle, margin - 4f, footerY, footerPaint)
+
+        val footerPagePaint = TextPaint().apply {
+            color = Color.parseColor("#8E877D")
+            textSize = 9.5f
+            typeface = serifRegular
+            isAntiAlias = true
+            textAlign = Paint.Align.RIGHT
+        }
+        canvas.drawText("Page $pageNum of $totalPages", width - margin, footerY, footerPagePaint)
     }
 
     fun createGatsbyBook(): SampleBookInfo {

@@ -1,5 +1,7 @@
 package com.example
 
+import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -19,13 +21,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.data.repository.AppSettingsManager
 import com.example.ui.library.LibraryScreen
 import com.example.ui.library.LibraryViewModel
 import com.example.ui.reader.ReaderScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.settings.SettingsSubpage
+import com.example.ui.settings.SettingsViewModel
 import com.example.ui.splash.SplashScreen
 import com.example.ui.theme.LuminaTheme
 import kotlinx.coroutines.delay
@@ -43,7 +49,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        hideSystemBars()
+        AppSettingsManager.init(this)
+        applyFullScreenPreference()
         extractPdfUriFromIntent(intent)
 
         setContent {
@@ -60,14 +67,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        hideSystemBars()
+        applyFullScreenPreference()
     }
 
-    private fun hideSystemBars() {
-        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        insetsController.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        insetsController.hide(WindowInsetsCompat.Type.statusBars())
+    private fun applyFullScreenPreference() {
+        AppSettingsManager.applySystemBars(this, AppSettingsManager.isFullScreenModeEnabled.value)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -109,8 +113,20 @@ fun LuminaApp(
 ) {
     val libraryViewModel: LibraryViewModel = viewModel()
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
+    val settingsViewModel: SettingsViewModel = viewModel()
+    val settingsUiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val activity = context as? Activity
+    val isFullScreen by AppSettingsManager.isFullScreenModeEnabled.collectAsStateWithLifecycle()
     var isSplashActive by remember { mutableStateOf(true) }
     var currentDestination by remember { mutableStateOf<AppDestination>(AppDestination.Library) }
+
+    // Dynamic full-screen mode listener: toggles status bar immediately across all pages
+    LaunchedEffect(isFullScreen, currentDestination) {
+        if (currentDestination !is AppDestination.Reader) {
+            AppSettingsManager.applySystemBars(activity, isFullScreen, isDarkTheme = false)
+        }
+    }
 
     // Handle opening PDF directly from other applications ("Open with..." or "Share to")
     LaunchedEffect(incomingUri, isSplashActive) {
@@ -145,6 +161,7 @@ fun LuminaApp(
             is AppDestination.Library -> {
                 LibraryScreen(
                     viewModel = libraryViewModel,
+                    isFullScreenModeEnabled = isFullScreen,
                     onOpenBook = { bookId ->
                         currentDestination = AppDestination.Reader(bookId)
                     },
@@ -164,6 +181,7 @@ fun LuminaApp(
             is AppDestination.Settings -> {
                 SettingsScreen(
                     initialSubpage = destination.initialSubpage,
+                    viewModel = settingsViewModel,
                     onNavigateBack = {
                         currentDestination = AppDestination.Library
                     }

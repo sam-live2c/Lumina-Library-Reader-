@@ -131,6 +131,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.model.BookEntity
+import com.example.data.repository.AppSettingsManager
 import com.example.ui.settings.LibrarySortOrder
 import com.example.ui.settings.LibraryViewMode
 import com.example.ui.settings.SettingsSubpage
@@ -145,6 +146,7 @@ fun LibraryScreen(
     onOpenBook: (Long) -> Unit,
     onOpenSettings: (SettingsSubpage?) -> Unit,
     viewModel: LibraryViewModel = viewModel(),
+    isFullScreenModeEnabled: Boolean = AppSettingsManager.isFullScreenModeEnabled.collectAsStateWithLifecycle().value,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -186,7 +188,7 @@ fun LibraryScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
-            contentWindowInsets = WindowInsets.statusBars,
+            contentWindowInsets = if (isFullScreenModeEnabled) WindowInsets(0, 0, 0, 0) else WindowInsets.statusBars,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             floatingActionButton = {
                 ExtendedFloatingActionButton(
@@ -1317,7 +1319,7 @@ private fun BookCardItem(
                 Text(
                     text = book.title,
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
@@ -1462,7 +1464,7 @@ private fun BookListItem(
                 Text(
                     text = book.title,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )

@@ -83,6 +83,7 @@ fun ReaderTopBar(
     totalPages: Int,
     isBookmarked: Boolean,
     readerTheme: ReaderThemeMode,
+    isFullScreenModeEnabled: Boolean = false,
     onBack: () -> Unit,
     onToggleBookmark: () -> Unit,
     onOpenSearch: () -> Unit,
@@ -104,7 +105,7 @@ fun ReaderTopBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
+                .then(if (!isFullScreenModeEnabled) Modifier.statusBarsPadding() else Modifier.padding(top = 4.dp))
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -232,7 +233,7 @@ fun ReaderBottomBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                    .padding(start = 2.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -252,12 +253,12 @@ fun ReaderBottomBar(
                 }
 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.Start),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.Start),
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .weight(1f, fill = false)
                         .horizontalScroll(rememberScrollState())
-                        .padding(start = 2.dp, end = 6.dp)
+                        .padding(start = 1.dp, end = 4.dp)
                 ) {
                     // Book Overview Mode Toggle Button
                     Surface(

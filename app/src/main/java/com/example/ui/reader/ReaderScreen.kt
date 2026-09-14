@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -37,6 +38,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import com.example.data.repository.AppSettingsManager
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -56,14 +58,16 @@ fun ReaderScreen(
     val focusManager = LocalFocusManager.current
     val soundManager = remember { PageTurnSoundManager(context) }
 
+    val activity = context as? Activity
+    LaunchedEffect(uiState.isFullScreenModeEnabled, uiState.readerTheme) {
+        AppSettingsManager.applySystemBars(
+            activity = activity,
+            isFullScreen = uiState.isFullScreenModeEnabled,
+            isDarkTheme = uiState.readerTheme.isDark
+        )
+    }
+
     DisposableEffect(Unit) {
-        val window = (context as? Activity)?.window
-        if (window != null) {
-            val insetsController = WindowCompat.getInsetsController(window, view)
-            insetsController.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            insetsController.hide(WindowInsetsCompat.Type.statusBars())
-        }
         onDispose {
             soundManager.release()
         }
@@ -97,77 +101,90 @@ fun ReaderScreen(
     var isDraggingPen by remember { mutableStateOf(false) }
     var isOverDismissTarget by remember { mutableStateOf(false) }
 
+    val canvasInsetsModifier = if (!uiState.isFullScreenModeEnabled) {
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+    } else {
+        Modifier.fillMaxSize()
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(uiState.readerTheme.background)
-            .onGloballyPositioned { coordinates ->
-                viewModel.setCanvasDimensions(coordinates.size.width, coordinates.size.height)
-            }
             .testTag("reader_screen_container")
     ) {
-        if (uiState.isContinuousScrollMode) {
-            // Vertically Aligned Continuous Scroll / Book Overview Mode
-            ContinuousVerticalReaderCanvas(
-                filePath = uiState.book?.filePath,
-                totalPages = uiState.totalPages,
-                currentPageIndex = uiState.currentPageIndex,
-                readerTheme = uiState.readerTheme,
-                pdfRendererManager = viewModel.pdfManager,
-                isSmartMarginFit = uiState.isSmartMarginFitEnabled,
-                isAnnotationMode = uiState.isAnnotationMode,
-                activeTool = uiState.activeTool,
-                isEraserActive = uiState.isEraserActive,
-                activeColor = uiState.activeColor,
-                strokeWidth = uiState.strokeWidth,
-                isAnnotationsVisible = uiState.isAnnotationsVisible,
-                currentPageStrokes = uiState.currentPageStrokes,
-                onStrokeCompleted = { viewModel.addStroke(it) },
-                onEraseStroke = { viewModel.eraseStroke(it) },
-                onStrokesUpdated = { viewModel.updateStrokes(it) },
-                onPageChanged = { viewModel.goToPage(it) },
-                onToggleHud = { viewModel.toggleHud() },
-                onDoubleTap = { viewModel.summonPen() },
-                onPageClick = { targetPage ->
-                    viewModel.switchToPageTurnMode(targetPage)
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            // Single-Page 3D Realistic Turn / Slide Canvas with integrated zoom-locked annotation layer
-            PhysicalBookReaderCanvas(
-                currentPageBitmap = uiState.currentPageBitmap,
-                nextPageBitmap = uiState.nextPageBitmap,
-                previousPageBitmap = uiState.previousPageBitmap,
-                currentPageIndex = uiState.currentPageIndex,
-                totalPages = uiState.totalPages,
-                isBookmarked = uiState.isBookmarked,
-                readerTheme = uiState.readerTheme,
-                flipStyle = uiState.flipStyle,
-                isSmartMarginFit = uiState.isSmartMarginFitEnabled,
-                pageVerticalPosition = uiState.pageVerticalPosition,
-                isAnnotationMode = uiState.isAnnotationMode,
-                activeTool = uiState.activeTool,
-                isEraserActive = uiState.isEraserActive,
-                activeColor = uiState.activeColor,
-                strokeWidth = uiState.strokeWidth,
-                isAnnotationsVisible = uiState.isAnnotationsVisible,
-                currentPageStrokes = uiState.currentPageStrokes,
-                onStrokeCompleted = { viewModel.addStroke(it) },
-                onEraseStroke = { viewModel.eraseStroke(it) },
-                onStrokesUpdated = { viewModel.updateStrokes(it) },
-                onNextPage = {
-                    soundManager.playPageTurnSound()
-                    viewModel.nextPage()
-                },
-                onPreviousPage = {
-                    soundManager.playPageTurnSound()
-                    viewModel.previousPage()
-                },
-                onToggleHud = { viewModel.toggleHud() },
-                onDoubleTap = { viewModel.summonPen() },
-                modifier = Modifier.fillMaxSize()
-            )
+        Box(
+            modifier = canvasInsetsModifier
+                .onGloballyPositioned { coordinates ->
+                    viewModel.setCanvasDimensions(coordinates.size.width, coordinates.size.height)
+                }
+        ) {
+            if (uiState.isContinuousScrollMode) {
+                // Vertically Aligned Continuous Scroll / Book Overview Mode
+                ContinuousVerticalReaderCanvas(
+                    filePath = uiState.book?.filePath,
+                    totalPages = uiState.totalPages,
+                    currentPageIndex = uiState.currentPageIndex,
+                    readerTheme = uiState.readerTheme,
+                    pdfRendererManager = viewModel.pdfManager,
+                    isSmartMarginFit = uiState.isSmartMarginFitEnabled,
+                    isAnnotationMode = uiState.isAnnotationMode,
+                    activeTool = uiState.activeTool,
+                    isEraserActive = uiState.isEraserActive,
+                    activeColor = uiState.activeColor,
+                    strokeWidth = uiState.strokeWidth,
+                    isAnnotationsVisible = uiState.isAnnotationsVisible,
+                    currentPageStrokes = uiState.currentPageStrokes,
+                    onStrokeCompleted = { viewModel.addStroke(it) },
+                    onEraseStroke = { viewModel.eraseStroke(it) },
+                    onStrokesUpdated = { viewModel.updateStrokes(it) },
+                    onPageChanged = { viewModel.goToPage(it) },
+                    onToggleHud = { viewModel.toggleHud() },
+                    onDoubleTap = { viewModel.summonPen() },
+                    onPageClick = { targetPage ->
+                        viewModel.switchToPageTurnMode(targetPage)
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                // Single-Page 3D Realistic Turn / Slide Canvas with integrated zoom-locked annotation layer
+                PhysicalBookReaderCanvas(
+                    currentPageBitmap = uiState.currentPageBitmap,
+                    nextPageBitmap = uiState.nextPageBitmap,
+                    previousPageBitmap = uiState.previousPageBitmap,
+                    currentPageIndex = uiState.currentPageIndex,
+                    totalPages = uiState.totalPages,
+                    isBookmarked = uiState.isBookmarked,
+                    readerTheme = uiState.readerTheme,
+                    flipStyle = uiState.flipStyle,
+                    isSmartMarginFit = uiState.isSmartMarginFitEnabled,
+                    pageVerticalPosition = uiState.pageVerticalPosition,
+                    isAnnotationMode = uiState.isAnnotationMode,
+                    activeTool = uiState.activeTool,
+                    isEraserActive = uiState.isEraserActive,
+                    activeColor = uiState.activeColor,
+                    strokeWidth = uiState.strokeWidth,
+                    isAnnotationsVisible = uiState.isAnnotationsVisible,
+                    currentPageStrokes = uiState.currentPageStrokes,
+                    onStrokeCompleted = { viewModel.addStroke(it) },
+                    onEraseStroke = { viewModel.eraseStroke(it) },
+                    onStrokesUpdated = { viewModel.updateStrokes(it) },
+                    onNextPage = {
+                        soundManager.playPageTurnSound()
+                        viewModel.nextPage()
+                    },
+                    onPreviousPage = {
+                        soundManager.playPageTurnSound()
+                        viewModel.previousPage()
+                    },
+                    onToggleHud = { viewModel.toggleHud() },
+                    onDoubleTap = { viewModel.summonPen() },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
 
         // Fast Vertical Luxury Scrubber Bar along right edge
@@ -217,6 +234,7 @@ fun ReaderScreen(
                 matches = uiState.searchResults,
                 currentMatchIndex = uiState.currentSearchMatchIndex,
                 readerTheme = uiState.readerTheme,
+                isFullScreenModeEnabled = uiState.isFullScreenModeEnabled,
                 onQueryChange = { viewModel.updateSearchQuery(it) },
                 onNextMatch = { viewModel.nextSearchMatch() },
                 onPreviousMatch = { viewModel.previousSearchMatch() },
@@ -238,6 +256,7 @@ fun ReaderScreen(
                 totalPages = uiState.totalPages,
                 isBookmarked = uiState.isBookmarked,
                 readerTheme = uiState.readerTheme,
+                isFullScreenModeEnabled = uiState.isFullScreenModeEnabled,
                 onBack = onNavigateBack,
                 onToggleBookmark = { viewModel.toggleBookmark() },
                 onOpenSearch = { viewModel.openSearch() },
@@ -332,7 +351,7 @@ fun ReaderScreen(
             )
         }
 
-        // Appearance & Themes Dialog (Display, Themes, Page Transition, Vertical Position, Smart Fit, Contrast)
+        // Appearance & Themes Dialog (Display, Themes, Page Transition, Vertical Position, Smart Fit, Contrast, Full Screen)
         if (uiState.isThemeDialogOpen) {
             ReaderThemeAppearanceDialog(
                 currentTheme = uiState.readerTheme,
@@ -340,11 +359,13 @@ fun ReaderScreen(
                 pageVerticalPosition = uiState.pageVerticalPosition,
                 isSmartMarginFitEnabled = uiState.isSmartMarginFitEnabled,
                 isEnhancedContrastEnabled = uiState.isEnhancedContrastEnabled,
+                isFullScreenModeEnabled = uiState.isFullScreenModeEnabled,
                 onSelectTheme = { viewModel.setReaderTheme(it) },
                 onSelectFlipStyle = { viewModel.setFlipStyle(it) },
                 onSelectPageVerticalPosition = { viewModel.setPageVerticalPosition(it) },
                 onToggleSmartMarginFit = { viewModel.toggleSmartMarginFit() },
                 onToggleEnhancedContrast = { viewModel.toggleEnhancedContrast() },
+                onToggleFullScreenMode = { viewModel.toggleFullScreenMode() },
                 onDismiss = { viewModel.closeThemeDialog() }
             )
         }

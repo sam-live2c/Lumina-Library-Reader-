@@ -13,6 +13,7 @@ import com.example.data.model.BookEntity
 import com.example.data.pdf.PdfRendererManager
 import com.example.data.repository.AnnotationRepository
 import com.example.data.repository.AnnotationStroke
+import com.example.data.repository.AppSettingsManager
 import com.example.data.repository.BookRepository
 import com.example.data.repository.BookSearchManager
 import com.example.data.repository.SearchMatch
@@ -68,7 +69,8 @@ data class ReaderUiState(
     // Reading Mode & Smart Formatting
     val isContinuousScrollMode: Boolean = false,
     val isSmartMarginFitEnabled: Boolean = true, // Default optimal formatting so user never suffers from formatting
-    val isEnhancedContrastEnabled: Boolean = true
+    val isEnhancedContrastEnabled: Boolean = true,
+    val isFullScreenModeEnabled: Boolean = false
 )
 
 class ReaderViewModel(application: Application) : AndroidViewModel(application) {
@@ -83,6 +85,7 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     private val prefs: SharedPreferences = application.getSharedPreferences("lumina_settings_prefs", Context.MODE_PRIVATE)
     private val _uiState = MutableStateFlow(
         ReaderUiState(
+            isFullScreenModeEnabled = prefs.getBoolean("pref_full_screen_mode", false),
             pageVerticalPosition = try {
                 PageVerticalPosition.valueOf(
                     application.getSharedPreferences("lumina_settings_prefs", Context.MODE_PRIVATE)
@@ -95,6 +98,15 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         )
     )
     val uiState: StateFlow<ReaderUiState> = _uiState.asStateFlow()
+
+    init {
+        AppSettingsManager.init(application)
+        viewModelScope.launch {
+            AppSettingsManager.isFullScreenModeEnabled.collect { isFs ->
+                _uiState.update { it.copy(isFullScreenModeEnabled = isFs) }
+            }
+        }
+    }
 
     private var renderJob: Job? = null
     private var searchJob: Job? = null
@@ -368,6 +380,12 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
 
     fun toggleEnhancedContrast() {
         _uiState.update { it.copy(isEnhancedContrastEnabled = !it.isEnhancedContrastEnabled) }
+    }
+
+    fun toggleFullScreenMode() {
+        val next = !_uiState.value.isFullScreenModeEnabled
+        AppSettingsManager.setFullScreenMode(next)
+        _uiState.update { it.copy(isFullScreenModeEnabled = next) }
     }
 
     fun openThemeDialog() {

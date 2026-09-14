@@ -66,6 +66,7 @@ fun InBookSearchBar(
     matches: List<SearchMatch>,
     currentMatchIndex: Int,
     readerTheme: ReaderThemeMode,
+    isFullScreenModeEnabled: Boolean = false,
     onQueryChange: (String) -> Unit,
     onNextMatch: () -> Unit,
     onPreviousMatch: () -> Unit,
@@ -108,7 +109,7 @@ fun InBookSearchBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .statusBarsPadding()
+                    .then(if (!isFullScreenModeEnabled) Modifier.statusBarsPadding() else Modifier.padding(top = 4.dp))
                     .padding(horizontal = 4.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)

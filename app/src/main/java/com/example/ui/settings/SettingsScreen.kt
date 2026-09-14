@@ -52,6 +52,7 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Crop
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Draw
+import androidx.compose.material.icons.outlined.FitScreen
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.HelpOutline
@@ -189,6 +190,7 @@ fun SettingsScreen(
                         onSetSoundStyle = { viewModel.setPageTurnSoundStyle(it) },
                         onPreviewSound = { viewModel.previewPageTurnSound(it) },
                         onSetSmartMarginFit = { viewModel.setSmartMarginFit(it) },
+                        onSetFullScreenMode = { viewModel.setFullScreenMode(it) },
                         onSetHaptics = { viewModel.setHaptics(it) },
                         onSetSound = { viewModel.setPageTurnSound(it) },
                         onSetDoubleTapPen = { viewModel.setDoubleTapPen(it) },
@@ -274,6 +276,7 @@ private fun MainSettingsContent(
     onSetSoundStyle: (PageTurnSoundStyle) -> Unit,
     onPreviewSound: (PageTurnSoundStyle) -> Unit,
     onSetSmartMarginFit: (Boolean) -> Unit,
+    onSetFullScreenMode: (Boolean) -> Unit,
     onSetHaptics: (Boolean) -> Unit,
     onSetSound: (Boolean) -> Unit,
     onSetDoubleTapPen: (Boolean) -> Unit,
@@ -293,9 +296,10 @@ private fun MainSettingsContent(
     val clipboardManager = LocalClipboardManager.current
 
     Scaffold(
-        contentWindowInsets = WindowInsets.statusBars,
+        contentWindowInsets = if (uiState.isFullScreenModeEnabled) WindowInsets(0, 0, 0, 0) else WindowInsets.statusBars,
         topBar = {
             TopAppBar(
+                windowInsets = if (uiState.isFullScreenModeEnabled) WindowInsets(0, 0, 0, 0) else TopAppBarDefaults.windowInsets,
                 title = {
                     Text(
                         text = "Settings",
@@ -389,11 +393,12 @@ private fun MainSettingsContent(
             val showThemeRow = query.isEmpty() || "paper theme default color reading".contains(query)
             val showFlipRow = query.isEmpty() || "page turn flip animation curl 3d slide".contains(query)
             val showMarginRow = query.isEmpty() || "smart margin fit crop border zoom".contains(query)
+            val showFullScreenRow = query.isEmpty() || "full screen fullscreen mode status bar immersive display".contains(query)
             val showDoubleTapRow = query.isEmpty() || "double tap pen annotation ink draw".contains(query)
             val showHapticsRow = query.isEmpty() || "tactile haptics vibration touch".contains(query)
             val showSoundRow = query.isEmpty() || "sound audio page turn effect".contains(query)
 
-            if (showThemeRow || showFlipRow || showMarginRow || showDoubleTapRow || showHapticsRow || showSoundRow) {
+            if (showThemeRow || showFlipRow || showMarginRow || showFullScreenRow || showDoubleTapRow || showHapticsRow || showSoundRow) {
                 item(key = "section_reading_experience") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SettingsSectionHeader(title = "READING EXPERIENCE")
@@ -450,8 +455,21 @@ private fun MainSettingsContent(
                                     )
                                 }
 
-                                if (showDoubleTapRow) {
+                                if (showFullScreenRow) {
                                     if (showThemeRow || showFlipRow || showMarginRow) SettingsDivider()
+                                    SettingsSwitchRow(
+                                        icon = Icons.Outlined.FitScreen,
+                                        iconBg = Color(0xFF007AFF),
+                                        title = "Full Screen Mode",
+                                        subtitle = if (uiState.isFullScreenModeEnabled) "Distraction-free immersive view (Status bar hidden)" else "Standard system status bar visible",
+                                        isChecked = uiState.isFullScreenModeEnabled,
+                                        onCheckedChange = onSetFullScreenMode,
+                                        testTag = "setting_toggle_fullscreen"
+                                    )
+                                }
+
+                                if (showDoubleTapRow) {
+                                    if (showThemeRow || showFlipRow || showMarginRow || showFullScreenRow) SettingsDivider()
                                     SettingsSwitchRow(
                                         icon = Icons.Outlined.Draw,
                                         iconBg = Color(0xFF5856D6),
@@ -464,7 +482,7 @@ private fun MainSettingsContent(
                                 }
 
                                 if (showHapticsRow) {
-                                    if (showThemeRow || showFlipRow || showMarginRow || showDoubleTapRow) SettingsDivider()
+                                    if (showThemeRow || showFlipRow || showMarginRow || showFullScreenRow || showDoubleTapRow) SettingsDivider()
                                     SettingsSwitchRow(
                                         icon = Icons.Outlined.Vibration,
                                         iconBg = Color(0xFFFF2D55),
@@ -477,7 +495,7 @@ private fun MainSettingsContent(
                                 }
 
                                 if (showSoundRow) {
-                                    if (showThemeRow || showFlipRow || showMarginRow || showDoubleTapRow || showHapticsRow) SettingsDivider()
+                                    if (showThemeRow || showFlipRow || showMarginRow || showFullScreenRow || showDoubleTapRow || showHapticsRow) SettingsDivider()
                                     SettingsSwitchRow(
                                         icon = if (uiState.isPageTurnSoundEnabled) Icons.Outlined.VolumeUp else Icons.Outlined.VolumeOff,
                                         iconBg = if (uiState.isPageTurnSoundEnabled) Color(0xFFAF52DE) else Color(0xFF757575),

@@ -72,6 +72,7 @@ import com.example.ui.theme.ReaderThemeMode
 import androidx.compose.material.icons.outlined.AutoFixHigh
 import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.CropFree
+import androidx.compose.material.icons.outlined.FitScreen
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.VerticalAlignBottom
 import androidx.compose.material.icons.outlined.VerticalAlignCenter
@@ -88,11 +89,13 @@ fun ReaderThemeAppearanceDialog(
     pageVerticalPosition: PageVerticalPosition = PageVerticalPosition.CENTER,
     isSmartMarginFitEnabled: Boolean = true,
     isEnhancedContrastEnabled: Boolean = true,
+    isFullScreenModeEnabled: Boolean = false,
     onSelectTheme: (ReaderThemeMode) -> Unit,
     onSelectFlipStyle: (PageFlipStyle) -> Unit,
     onSelectPageVerticalPosition: (PageVerticalPosition) -> Unit = {},
     onToggleSmartMarginFit: () -> Unit = {},
     onToggleEnhancedContrast: () -> Unit = {},
+    onToggleFullScreenMode: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -459,6 +462,49 @@ fun ReaderThemeAppearanceDialog(
                                 checkedTrackColor = accentColor
                             ),
                             modifier = Modifier.testTag("enhanced_contrast_switch")
+                        )
+                    }
+
+                    // Full Screen Mode
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.FitScreen,
+                                contentDescription = null,
+                                tint = accentColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "Full Screen Mode",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (currentTheme.isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+                                )
+                                Text(
+                                    text = if (isFullScreenModeEnabled) "Distraction-free immersive view (Status bar hidden)" else "Standard system status bar visible",
+                                    fontSize = 12.sp,
+                                    color = if (currentTheme.isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                                )
+                            }
+                        }
+
+                        Switch(
+                            checked = isFullScreenModeEnabled,
+                            onCheckedChange = { onToggleFullScreenMode() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = accentColor
+                            ),
+                            modifier = Modifier.testTag("reader_fullscreen_mode_switch")
                         )
                     }
                 }
