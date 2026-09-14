@@ -1251,7 +1251,7 @@ private fun BookCardItem(
                     }
                 }
 
-                // Options Menu Button with circular backdrop
+                // Options Menu Button with clean circular backdrop (no white border or shadow artifact)
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -1259,10 +1259,8 @@ private fun BookCardItem(
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = Color.Black.copy(alpha = 0.52f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                        shadowElevation = 3.dp,
-                        modifier = Modifier.size(32.dp)
+                        color = Color.Black.copy(alpha = 0.55f),
+                        modifier = Modifier.size(30.dp)
                     ) {
                         IconButton(
                             onClick = { showMenu = true },
@@ -1570,27 +1568,20 @@ private fun BookListItem(
             }
         }
 
-        // More Options with circular backdrop
+        // More Options
         Box {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                modifier = Modifier.size(36.dp)
+            IconButton(
+                onClick = { showMenu = true },
+                modifier = Modifier
+                    .size(36.dp)
+                    .testTag("book_list_options_${book.id}")
             ) {
-                IconButton(
-                    onClick = { showMenu = true },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag("book_list_options_${book.id}")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Options",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "Options",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
             }
 
             DropdownMenu(

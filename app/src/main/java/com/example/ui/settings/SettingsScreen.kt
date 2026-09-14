@@ -338,9 +338,9 @@ private fun MainSettingsContent(
                     focusManager.clearFocus()
                 }
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 6.dp)
                 .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Search Settings Pill Field (Matching Reference UI)
             OutlinedTextField(
@@ -350,14 +350,14 @@ private fun MainSettingsContent(
                     Text(
                         text = "Search settings",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
                     )
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Outlined.Search,
                         contentDescription = "Search settings",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     )
                 },
                 trailingIcon = {
@@ -374,7 +374,7 @@ private fun MainSettingsContent(
                         }
                     }
                 },
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent,
@@ -402,11 +402,13 @@ private fun MainSettingsContent(
             if (showThemeRow || showFlipRow || showMarginRow || showDoubleTapRow || showHapticsRow || showSoundRow) {
                 SettingsSectionHeader(title = "READING EXPERIENCE")
                 Card(
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.padding(vertical = 2.dp)) {
                         if (showThemeRow) {
                             SettingsNavigationRow(
                                 icon = Icons.Outlined.Description,
@@ -427,7 +429,7 @@ private fun MainSettingsContent(
                             if (showThemeRow) SettingsDivider()
                             SettingsNavigationRow(
                                 icon = Icons.Outlined.AutoStories,
-                                iconBg = Color(0xFF1E88E5),
+                                iconBg = Color(0xFF007AFF),
                                 title = "Default Page Turn",
                                 value = when (uiState.defaultPageFlipStyle) {
                                     PageFlipStyle.REALISTIC_CURL -> "3D Curl"
@@ -443,7 +445,7 @@ private fun MainSettingsContent(
                             if (showThemeRow || showFlipRow) SettingsDivider()
                             SettingsSwitchRow(
                                 icon = Icons.Outlined.Crop,
-                                iconBg = Color(0xFFE91E63),
+                                iconBg = Color(0xFF34C759),
                                 title = "Smart Margin Fit",
                                 subtitle = "Auto-trim white PDF borders for bigger text",
                                 isChecked = uiState.isSmartMarginFitEnabled,
@@ -456,7 +458,7 @@ private fun MainSettingsContent(
                             if (showThemeRow || showFlipRow || showMarginRow) SettingsDivider()
                             SettingsSwitchRow(
                                 icon = Icons.Outlined.Draw,
-                                iconBg = Color(0xFF5C6BC0),
+                                iconBg = Color(0xFF5856D6),
                                 title = "Double-Tap for Pen",
                                 subtitle = "Instant summon annotation tools on page",
                                 isChecked = uiState.isDoubleTapPenEnabled,
@@ -469,7 +471,7 @@ private fun MainSettingsContent(
                             if (showThemeRow || showFlipRow || showMarginRow || showDoubleTapRow) SettingsDivider()
                             SettingsSwitchRow(
                                 icon = Icons.Outlined.Vibration,
-                                iconBg = Color(0xFF00C853),
+                                iconBg = Color(0xFFFF2D55),
                                 title = "Tactile Haptics",
                                 subtitle = "Vibrations on turn, bookmarks & ink",
                                 isChecked = uiState.isHapticsEnabled,
@@ -482,7 +484,7 @@ private fun MainSettingsContent(
                             if (showThemeRow || showFlipRow || showMarginRow || showDoubleTapRow || showHapticsRow) SettingsDivider()
                             SettingsSwitchRow(
                                 icon = if (uiState.isPageTurnSoundEnabled) Icons.Outlined.VolumeUp else Icons.Outlined.VolumeOff,
-                                iconBg = if (uiState.isPageTurnSoundEnabled) Color(0xFF8E24AA) else Color(0xFF757575),
+                                iconBg = if (uiState.isPageTurnSoundEnabled) Color(0xFFAF52DE) else Color(0xFF757575),
                                 title = "Page Turn Audio",
                                 subtitle = if (uiState.isPageTurnSoundEnabled) "Subtle acoustic tactile feedback on turn" else "Audio turned off (Sound profiles inactive)",
                                 isChecked = uiState.isPageTurnSoundEnabled,
@@ -492,7 +494,7 @@ private fun MainSettingsContent(
                             SettingsDivider()
                             SettingsNavigationRow(
                                 icon = Icons.Outlined.GraphicEq,
-                                iconBg = if (uiState.isPageTurnSoundEnabled) Color(0xFF00897B) else Color(0xFF9E9E9E),
+                                iconBg = if (uiState.isPageTurnSoundEnabled) Color(0xFF5AC8FA) else Color(0xFF9E9E9E),
                                 title = "Sound Profile",
                                 value = if (uiState.isPageTurnSoundEnabled) uiState.defaultSoundStyle.title else "${uiState.defaultSoundStyle.title} (Inactive)",
                                 onClick = { showSoundPickerSheet = true },
@@ -512,15 +514,17 @@ private fun MainSettingsContent(
             if (showLayoutRow || showSortRow || showCacheRow) {
                 SettingsSectionHeader(title = "LIBRARY & STORAGE")
                 Card(
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.padding(vertical = 2.dp)) {
                         if (showLayoutRow) {
                             SettingsNavigationRow(
                                 icon = if (uiState.libraryViewMode == LibraryViewMode.GRID) Icons.Outlined.GridView else Icons.Outlined.ViewList,
-                                iconBg = Color(0xFF00ACC1),
+                                iconBg = Color(0xFF00C7BE),
                                 title = "Library Layout",
                                 value = if (uiState.libraryViewMode == LibraryViewMode.GRID) "2-Column Grid" else "Detailed List",
                                 onClick = {
@@ -535,7 +539,7 @@ private fun MainSettingsContent(
                             if (showLayoutRow) SettingsDivider()
                             SettingsNavigationRow(
                                 icon = Icons.Outlined.Sort,
-                                iconBg = Color(0xFFFF9100),
+                                iconBg = Color(0xFFFF9500),
                                 title = "Sort Books By",
                                 value = uiState.librarySortOrder.title,
                                 onClick = { showSortPickerSheet = true },
@@ -549,7 +553,7 @@ private fun MainSettingsContent(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
@@ -560,7 +564,7 @@ private fun MainSettingsContent(
                                 ) {
                                     Surface(
                                         shape = RoundedCornerShape(10.dp),
-                                        color = Color(0xFFE53935),
+                                        color = Color(0xFFFF3B30),
                                         modifier = Modifier.size(36.dp)
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
@@ -617,15 +621,17 @@ private fun MainSettingsContent(
             if (showHowToUseRow || showHelpRow) {
                 SettingsSectionHeader(title = "GUIDES & SUPPORT")
                 Card(
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.padding(vertical = 2.dp)) {
                         if (showHowToUseRow) {
                             SettingsNavigationRow(
                                 icon = Icons.Outlined.TouchApp,
-                                iconBg = Color(0xFF2979FF),
+                                iconBg = Color(0xFF007AFF),
                                 title = "How to Use & Gestures",
                                 value = "Interactive Guide",
                                 onClick = { onNavigateToSubpage(SettingsSubpage.HOW_TO_USE) },
@@ -637,7 +643,7 @@ private fun MainSettingsContent(
                             if (showHowToUseRow) SettingsDivider()
                             SettingsNavigationRow(
                                 icon = Icons.Outlined.HelpOutline,
-                                iconBg = Color(0xFF00C853),
+                                iconBg = Color(0xFF34C759),
                                 title = "Help & Support",
                                 value = "FAQ & Feedback",
                                 onClick = { onNavigateToSubpage(SettingsSubpage.HELP_AND_SUPPORT) },
@@ -656,15 +662,17 @@ private fun MainSettingsContent(
             if (showAboutRow || showPrivacyRow || showTermsRow) {
                 SettingsSectionHeader(title = "ABOUT & LEGAL")
                 Card(
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.padding(vertical = 2.dp)) {
                         if (showAboutRow) {
                             SettingsNavigationRow(
                                 icon = Icons.Outlined.Info,
-                                iconBg = Color(0xFF673AB7),
+                                iconBg = Color(0xFF8E8E93),
                                 title = "About Lumina",
                                 value = "v2.4.0",
                                 onClick = { onNavigateToSubpage(SettingsSubpage.ABOUT_US) },
@@ -676,7 +684,7 @@ private fun MainSettingsContent(
                             if (showAboutRow) SettingsDivider()
                             SettingsNavigationRow(
                                 icon = Icons.Outlined.Lock,
-                                iconBg = Color(0xFF00897B),
+                                iconBg = Color(0xFF30B0C7),
                                 title = "Privacy Policy",
                                 value = "100% On-Device",
                                 onClick = { onNavigateToSubpage(SettingsSubpage.PRIVACY_POLICY) },
@@ -688,7 +696,7 @@ private fun MainSettingsContent(
                             if (showAboutRow || showPrivacyRow) SettingsDivider()
                             SettingsNavigationRow(
                                 icon = Icons.Outlined.Description,
-                                iconBg = Color(0xFF546E7A),
+                                iconBg = Color(0xFF64D2FF),
                                 title = "Terms & Conditions",
                                 value = "License & Terms",
                                 onClick = { onNavigateToSubpage(SettingsSubpage.TERMS_AND_CONDITIONS) },

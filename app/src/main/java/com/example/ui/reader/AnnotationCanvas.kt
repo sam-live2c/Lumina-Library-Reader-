@@ -52,12 +52,19 @@ fun AnnotationCanvas(
     val currentPoints = remember { mutableStateListOf<Pair<Float, Float>>() }
     var eraserTouchPoint by remember { mutableStateOf<Pair<Float, Float>?>(null) }
 
+    // Use rememberUpdatedState to avoid resetting pointerInput gesture coroutine during continuous erasing
+    val currentStrokesState by androidx.compose.runtime.rememberUpdatedState(strokes)
+    val currentOnStrokesUpdated by androidx.compose.runtime.rememberUpdatedState(onStrokesUpdated)
+    val currentOnEraseStroke by androidx.compose.runtime.rememberUpdatedState(onEraseStroke)
+    val currentOnStrokeCompleted by androidx.compose.runtime.rememberUpdatedState(onStrokeCompleted)
+    val currentOnTransform by androidx.compose.runtime.rememberUpdatedState(onTransform)
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .then(
                 if (isAnnotationMode) {
-                    Modifier.pointerInput(isEraserActive, activeTool, activeColor, strokeWidth, strokes) {
+                    Modifier.pointerInput(isEraserActive, activeTool, activeColor, strokeWidth) {
                         awaitEachGesture {
                             val firstDown = awaitFirstDown(requireUnconsumed = false)
                             var isMultiTouch = false
@@ -67,19 +74,26 @@ fun AnnotationCanvas(
                             val normX = (firstDown.position.x / canvasW).coerceIn(0f, 1f)
                             val normY = (firstDown.position.y / canvasH).coerceIn(0f, 1f)
 
+                            var lastEraserNormX = normX
+                            var lastEraserNormY = normY
+                            var activeStrokesList = currentStrokesState
+
                             if (isEraserActive) {
                                 eraserTouchPoint = Pair(normX, normY)
-                                performLocalizedErase(
+                                val updated = performLocalizedErase(
                                     normX = normX,
                                     normY = normY,
-                                    strokes = strokes,
-                                    onStrokesUpdated = onStrokesUpdated ?: { updated ->
-                                        // Fallback if not provided: find deleted IDs
-                                        val remainingIds = updated.map { it.id }.toSet()
-                                        strokes.filter { it.id !in remainingIds }.forEach { onEraseStroke(it.id) }
-                                    },
+                                    strokes = activeStrokesList,
+                                    eraserRadius = 0.040f,
                                     haptic = haptic
                                 )
+                                if (updated != null) {
+                                    activeStrokesList = updated
+                                    currentOnStrokesUpdated?.invoke(updated) ?: run {
+                                        val remainingIds = updated.map { it.id }.toSet()
+                                        currentStrokesState.filter { it.id !in remainingIds }.forEach { currentOnEraseStroke(it.id) }
+                                    }
+                                }
                             } else {
                                 eraserTouchPoint = null
                                 currentPoints.clear()
@@ -101,7 +115,7 @@ fun AnnotationCanvas(
                                     val pan = event.calculatePan()
 
                                     if (zoom != 1f || pan != Offset.Zero) {
-                                        onTransform?.invoke(pan, zoom)
+                                        currentOnTransform?.invoke(pan, zoom)
                                     }
                                     event.changes.forEach { it.consume() }
                                 } else if (activePointers.size == 1 && !isMultiTouch) {
@@ -115,16 +129,39 @@ fun AnnotationCanvas(
 
                                         if (isEraserActive) {
                                             eraserTouchPoint = Pair(rawNormX, rawNormY)
-                                            performLocalizedErase(
-                                                normX = rawNormX,
-                                                normY = rawNormY,
-                                                strokes = strokes,
-                                                onStrokesUpdated = onStrokesUpdated ?: { updated ->
-                                                    val remainingIds = updated.map { it.id }.toSet()
-                                                    strokes.filter { it.id !in remainingIds }.forEach { onEraseStroke(it.id) }
-                                                },
-                                                haptic = haptic
-                                            )
+
+                                            // Smooth path interpolation between points during fast continuous drag
+                                            val dist = hypot(rawNormX - lastEraserNormX, rawNormY - lastEraserNormY)
+                                            val stepCount = (dist / 0.006f).toInt().coerceIn(1, 16)
+                                            var intermediateChanges = false
+
+                                            for (step in 1..stepCount) {
+                                                val fraction = step.toFloat() / stepCount
+                                                val stepX = lastEraserNormX + (rawNormX - lastEraserNormX) * fraction
+                                                val stepY = lastEraserNormY + (rawNormY - lastEraserNormY) * fraction
+
+                                                val stepUpdated = performLocalizedErase(
+                                                    normX = stepX,
+                                                    normY = stepY,
+                                                    strokes = activeStrokesList,
+                                                    eraserRadius = 0.040f,
+                                                    haptic = haptic
+                                                )
+                                                if (stepUpdated != null) {
+                                                    activeStrokesList = stepUpdated
+                                                    intermediateChanges = true
+                                                }
+                                            }
+
+                                            if (intermediateChanges) {
+                                                currentOnStrokesUpdated?.invoke(activeStrokesList) ?: run {
+                                                    val remainingIds = activeStrokesList.map { it.id }.toSet()
+                                                    currentStrokesState.filter { it.id !in remainingIds }.forEach { currentOnEraseStroke(it.id) }
+                                                }
+                                            }
+
+                                            lastEraserNormX = rawNormX
+                                            lastEraserNormY = rawNormY
                                         } else {
                                             eraserTouchPoint = null
                                             if (currentPoints.isNotEmpty()) {
@@ -177,7 +214,7 @@ fun AnnotationCanvas(
                                     strokeWidth = strokeWidth,
                                     points = finalPoints
                                 )
-                                onStrokeCompleted(newStroke)
+                                currentOnStrokeCompleted(newStroke)
                             }
                             currentPoints.clear()
                         }
@@ -216,19 +253,37 @@ fun AnnotationCanvas(
                     drawSingleStroke(liveStroke, w, h)
                 }
 
-                // 3. Draw Eraser Cursor Indicator while erasing
+                // 3. Draw Colorless Floating Eraser Cursor Indicator while erasing
                 eraserTouchPoint?.let { (ex, ey) ->
-                    val cursorRadius = 18f
+                    val cx = ex * w
+                    val cy = ey * h
+                    val cursorRadius = (w * 0.040f).coerceIn(24f, 42f)
+
+                    // Subtle neutral translucent fill (no color tint)
                     drawCircle(
-                        color = Color(0x33FF5252),
+                        color = Color.Black.copy(alpha = 0.08f),
                         radius = cursorRadius,
-                        center = Offset(ex * w, ey * h)
+                        center = Offset(cx, cy)
                     )
+                    // Outer dark hairline ring for crisp visibility on bright/white pages
                     drawCircle(
-                        color = Color(0xCCFF5252),
+                        color = Color.Black.copy(alpha = 0.50f),
                         radius = cursorRadius,
-                        center = Offset(ex * w, ey * h),
+                        center = Offset(cx, cy),
                         style = Stroke(width = 1.8f)
+                    )
+                    // Inner light ring for crisp visibility on dark/sepia backgrounds
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.80f),
+                        radius = (cursorRadius - 1.5f).coerceAtLeast(1f),
+                        center = Offset(cx, cy),
+                        style = Stroke(width = 1.2f)
+                    )
+                    // Colorless precision center dot
+                    drawCircle(
+                        color = Color.Black.copy(alpha = 0.65f),
+                        radius = 2.5f,
+                        center = Offset(cx, cy)
                     )
                 }
             }
@@ -277,10 +332,9 @@ private fun performLocalizedErase(
     normX: Float,
     normY: Float,
     strokes: List<AnnotationStroke>,
-    eraserRadius: Float = 0.035f,
-    onStrokesUpdated: (List<AnnotationStroke>) -> Unit,
+    eraserRadius: Float = 0.040f,
     haptic: androidx.compose.ui.hapticfeedback.HapticFeedback
-) {
+): List<AnnotationStroke>? {
     var hasChanges = false
     val updatedStrokes = mutableListOf<AnnotationStroke>()
 
@@ -330,13 +384,13 @@ private fun performLocalizedErase(
                             val tEnd = (t + tRadius).coerceIn(0f, 1f)
 
                             // Left remaining piece (if long enough)
-                            if (tStart > 0.04f && (tStart * segLen) >= 0.012f) {
+                            if (tStart > 0.03f && (tStart * segLen) >= 0.010f) {
                                 val pLeftEnd = Pair(x1 + tStart * segDx, y1 + tStart * segDy)
                                 updatedStrokes.add(stroke.copy(points = listOf(p1, pLeftEnd)))
                             }
 
                             // Right remaining piece (if long enough)
-                            if (tEnd < 0.96f && ((1f - tEnd) * segLen) >= 0.012f) {
+                            if (tEnd < 0.97f && ((1f - tEnd) * segLen) >= 0.010f) {
                                 val pRightStart = Pair(x1 + tEnd * segDx, y1 + tEnd * segDy)
                                 val newId = stroke.id + (tEnd * 1000).toLong() + 1
                                 updatedStrokes.add(stroke.copy(id = newId, points = listOf(pRightStart, p2)))
@@ -376,9 +430,11 @@ private fun performLocalizedErase(
         }
     }
 
-    if (hasChanges) {
+    return if (hasChanges) {
         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        onStrokesUpdated(updatedStrokes)
+        updatedStrokes
+    } else {
+        null
     }
 }
 
