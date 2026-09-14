@@ -96,12 +96,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         val sorted = when (sortOrder) {
             LibrarySortOrder.DATE_ADDED -> filtered.sortedWith(
                 compareByDescending<BookEntity> { it.isPinned }
-                    .thenByDescending { it.dateAddedTimestamp }
+                    .thenByDescending { if (it.hasBeenOpened) maxOf(it.lastReadTimestamp, it.dateAddedTimestamp) else it.dateAddedTimestamp }
                     .thenByDescending { it.id }
             )
             LibrarySortOrder.RECENT -> filtered.sortedWith(
                 compareByDescending<BookEntity> { it.isPinned }
                     .thenByDescending { if (it.hasBeenOpened) it.lastReadTimestamp else 0L }
+                    .thenByDescending { it.dateAddedTimestamp }
                     .thenByDescending { it.id }
             )
             LibrarySortOrder.TITLE_ASC -> filtered.sortedWith(
@@ -117,11 +118,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             LibrarySortOrder.PROGRESS -> filtered.sortedWith(
                 compareByDescending<BookEntity> { it.isPinned }
                     .thenByDescending { if (it.hasBeenOpened) it.progressPercent else -1f }
+                    .thenByDescending { if (it.hasBeenOpened) it.lastReadTimestamp else 0L }
                     .thenByDescending { it.id }
             )
         }
 
         // Recent read carousel pdfs: ONLY books actually read/opened by the reader will be available
+        // Pinned books always appear first, followed by the most recently opened books
         val recentReadBooks = books
             .filter { it.hasBeenOpened && it.lastReadTimestamp > 0L }
             .sortedWith(

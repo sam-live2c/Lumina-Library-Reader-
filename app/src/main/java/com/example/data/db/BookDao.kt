@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BookDao {
-    @Query("SELECT * FROM books ORDER BY lastReadTimestamp DESC")
+    @Query("SELECT * FROM books ORDER BY isPinned DESC, lastReadTimestamp DESC, dateAddedTimestamp DESC")
     fun getAllBooks(): Flow<List<BookEntity>>
 
-    @Query("SELECT * FROM books ORDER BY lastReadTimestamp DESC")
+    @Query("SELECT * FROM books ORDER BY isPinned DESC, lastReadTimestamp DESC, dateAddedTimestamp DESC")
     suspend fun getAllBooksList(): List<BookEntity>
 
     @Query("SELECT * FROM books WHERE id = :id")
