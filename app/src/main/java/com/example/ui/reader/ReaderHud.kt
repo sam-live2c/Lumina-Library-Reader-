@@ -403,21 +403,22 @@ fun FloatingPageIndicator(
 ) {
     AnimatedVisibility(
         visible = isVisible && totalPages > 0,
-        enter = fadeIn() + scaleIn(initialScale = 0.92f),
-        exit = fadeOut() + scaleOut(targetScale = 0.92f),
+        enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(180)),
+        exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(150)),
         modifier = modifier
     ) {
         val percent = if (totalPages > 0) ((currentPage.toFloat() / totalPages.toFloat()) * 100).toInt() else 0
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = if (readerTheme.isDark) Color(0xEE1E2026) else Color(0xF2FAF7F2),
-            shadowElevation = 8.dp,
-            border = BorderStroke(
-                width = 0.75.dp,
-                color = if (readerTheme.isDark) Color(0x33FFFFFF) else Color(0x22000000)
-            ),
+        val pillShape = RoundedCornerShape(24.dp)
+        Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(24.dp))
+                .shadow(elevation = 6.dp, shape = pillShape, clip = false)
+                .clip(pillShape)
+                .background(if (readerTheme.isDark) Color(0xEE1E2026) else Color(0xF2FAF7F2))
+                .border(
+                    width = 0.75.dp,
+                    color = if (readerTheme.isDark) Color(0x33FFFFFF) else Color(0x22000000),
+                    shape = pillShape
+                )
                 .clickable { onClick() }
                 .testTag("reader_floating_page_indicator")
         ) {

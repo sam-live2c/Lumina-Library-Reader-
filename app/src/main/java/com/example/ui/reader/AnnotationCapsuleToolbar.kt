@@ -94,30 +94,40 @@ fun FloatingPenDismissTarget(
 ) {
     AnimatedVisibility(
         visible = isVisible,
-        enter = fadeIn() + scaleIn(),
-        exit = fadeOut() + scaleOut(),
+        enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(150)),
+        exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(150)),
         modifier = modifier
     ) {
-        Surface(
-            shape = CircleShape,
-            color = if (isTargetActive) Color(0xFFEF4444) else if (readerTheme.isDark) Color(0xDD2A2624) else Color(0xDDEAE4D8),
-            shadowElevation = if (isTargetActive) 10.dp else 4.dp,
+        val targetSize = if (isTargetActive) 60.dp else 50.dp
+        Box(
             modifier = Modifier
-                .size(if (isTargetActive) 60.dp else 50.dp)
+                .size(targetSize)
+                .shadow(
+                    elevation = if (isTargetActive) 10.dp else 4.dp,
+                    shape = CircleShape,
+                    clip = false
+                )
+                .clip(CircleShape)
+                .background(
+                    if (isTargetActive) Color(0xFFEF4444)
+                    else if (readerTheme.isDark) Color(0xDD2A2624)
+                    else Color(0xDDEAE4D8)
+                )
                 .border(
                     width = 1.5.dp,
-                    color = if (isTargetActive) Color.White else if (readerTheme.isDark) Color(0x55FFFFFF) else Color(0x44000000),
+                    color = if (isTargetActive) Color.White
+                    else if (readerTheme.isDark) Color(0x55FFFFFF)
+                    else Color(0x44000000),
                     shape = CircleShape
-                )
+                ),
+            contentAlignment = Alignment.Center
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = "Dismiss Pen",
-                    tint = if (isTargetActive) Color.White else readerTheme.textColor,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = "Dismiss Pen",
+                tint = if (isTargetActive) Color.White else readerTheme.textColor,
+                modifier = Modifier.size(24.dp)
+            )
         }
     }
 }
@@ -138,16 +148,26 @@ fun AnnotationFloatingFab(
     var isDragging by remember { mutableStateOf(false) }
     var isOverDismissZone by remember { mutableStateOf(false) }
 
-    Surface(
-        shape = CircleShape,
-        color = if (isAnnotationMode) LuminaAccentPrimary else if (readerTheme.isDark) Color(0xFF22201E) else Color(0xFFFAF7F2),
-        shadowElevation = if (isDragging) 12.dp else 8.dp,
+    Box(
         modifier = modifier
             .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
             .size(52.dp)
+            .shadow(
+                elevation = if (isDragging) 10.dp else 6.dp,
+                shape = CircleShape,
+                clip = false
+            )
+            .clip(CircleShape)
+            .background(
+                if (isAnnotationMode) LuminaAccentPrimary
+                else if (readerTheme.isDark) Color(0xFF22201E)
+                else Color(0xFFFAF7F2)
+            )
             .border(
                 width = 1.dp,
-                color = if (isAnnotationMode) Color.Transparent else if (readerTheme.isDark) Color(0x33FFFFFF) else Color(0x22000000),
+                color = if (isAnnotationMode) Color.Transparent
+                else if (readerTheme.isDark) Color(0x33FFFFFF)
+                else Color(0x22000000),
                 shape = CircleShape
             )
             .pointerInput(Unit) {
@@ -208,16 +228,15 @@ fun AnnotationFloatingFab(
                     }
                 )
             }
-            .testTag("annotation_fab_toggle")
+            .testTag("annotation_fab_toggle"),
+        contentAlignment = Alignment.Center
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = if (isAnnotationMode) Icons.Filled.Close else Icons.Outlined.Create,
-                contentDescription = if (isAnnotationMode) "Close annotation toolbar" else "Annotate document",
-                tint = if (isAnnotationMode) Color.White else readerTheme.textColor,
-                modifier = Modifier.size(22.dp)
-            )
-        }
+        Icon(
+            imageVector = if (isAnnotationMode) Icons.Filled.Close else Icons.Outlined.Create,
+            contentDescription = if (isAnnotationMode) "Close annotation toolbar" else "Annotate document",
+            tint = if (isAnnotationMode) Color.White else readerTheme.textColor,
+            modifier = Modifier.size(22.dp)
+        )
     }
 }
 

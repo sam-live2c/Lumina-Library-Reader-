@@ -306,8 +306,8 @@ fun ReaderScreen(
         // Annotation Quick Toggle FAB (Ergonomic thumb reach position on mobile)
         AnimatedVisibility(
             visible = !uiState.isAnnotationMode && !uiState.isSearchOpen && !uiState.isHudVisible && !uiState.isPenDismissed,
-            enter = fadeIn() + scaleIn(initialScale = 0.8f),
-            exit = fadeOut() + scaleOut(targetScale = 0.8f),
+            enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(180)),
+            exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(150)),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
