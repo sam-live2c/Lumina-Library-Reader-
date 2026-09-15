@@ -624,17 +624,17 @@ private fun DrawScope.drawRealisticPageCurlForward(
 
     // 2. CORNER-PICKING & FOLD GEOMETRY
     val yFrac = touchFractionY.coerceIn(0.05f, 0.95f)
-    val isBottomCorner = yFrac >= 0.5f
-    val cornerPullBias = ((yFrac - 0.5f) * 2f).coerceIn(-1f, 1f) // +1 for bottom corner, -1 for top corner
+    val cornerPullBias = ((yFrac - 0.5f) * 2f).coerceIn(-1f, 1f) // -1 for top corner, 0 for center, +1 for bottom corner
 
     // Dynamic Fold Crease line (where paper bends)
+    // When top corner is pulled (cornerPullBias < 0), top edge is pulled left faster than bottom
     val tiltSpread = (sin(p * PI) * pW * 0.16f * cornerPullBias).toFloat()
-    val foldXTop = (pRight - (p * pW * 1.08f) - tiltSpread).coerceIn(pLeft, pRight)
-    val foldXBottom = (pRight - (p * pW * 1.08f) + tiltSpread).coerceIn(pLeft, pRight)
+    val foldXTop = (pRight - (p * pW * 1.05f) + tiltSpread).coerceIn(pLeft, pRight)
+    val foldXBottom = (pRight - (p * pW * 1.05f) - tiltSpread).coerceIn(pLeft, pRight)
 
     // Paper flexural bowing inwards towards the spine
-    val bowDisplacement = (sin(p * PI) * pW * 0.08f * (1f - 0.25f * abs(cornerPullBias))).toFloat()
-    val foldXMid = ((foldXTop + foldXBottom) / 2f - bowDisplacement).coerceIn(pLeft, pRight)
+    val bowDisplacement = (sin(p * PI) * pW * 0.07f * (1f - 0.25f * abs(cornerPullBias))).toFloat()
+    val foldXMid = (((foldXTop + foldXBottom) / 2f) - bowDisplacement).coerceIn(pLeft, pRight)
 
     // Smooth Bézier Control Points for organic curved fold
     val c1x = foldXTop + (foldXMid - foldXTop) * 0.60f
@@ -733,39 +733,42 @@ private fun DrawScope.drawRealisticPageCurlForward(
         }
     }
 
-    // 5. THE GENEROUS, 100% SOLID OPAQUE VERSO LEAF (The Turned Paper Flap)
-    if (p in 0.01f..0.999f) {
-        val cornerLiftProgress = sin(p * PI).toFloat()
-        val cornerLiftY = pH * (0.35f * cornerLiftProgress + 0.15f * p) * (0.50f + abs(cornerPullBias) * 0.50f)
-        val flapReach = (pW * p * 2.0f).coerceIn(0f, pW * 1.15f)
-        val apexX = (pRight - flapReach).coerceIn(pLeft - 20f, pRight)
-        val apexY = if (isBottomCorner) {
-            (pBottom - cornerLiftY).coerceIn(pTop + pH * 0.08f, pBottom)
-        } else {
-            (pTop + cornerLiftY).coerceIn(pTop, pBottom - pH * 0.08f)
-        }
+    // 5. THE 100% SOLID OPAQUE VERSO LEAF (The Turned Paper Flap)
+    if (p in 0.005f..0.995f) {
+        val wFoldedTop = (pRight - foldXTop).coerceAtLeast(0f)
+        val wFoldedBottom = (pRight - foldXBottom).coerceAtLeast(0f)
 
-        val flapOppositeX = (pRight - flapReach * 0.85f).coerceIn(pLeft - 20f, pRight)
-        val flapOppositeY = if (isBottomCorner) pTop else pBottom
+        val curlFactor = 0.96f
+        val curlXTop = (foldXTop - wFoldedTop * curlFactor).coerceIn(pLeft - 30f, pRight)
+        val curlXBottom = (foldXBottom - wFoldedBottom * curlFactor).coerceIn(pLeft - 30f, pRight)
+
+        val curlIntensity = sin(p * PI).toFloat()
+        val curlYTop = if (cornerPullBias < 0f) {
+            pTop + (pH * 0.28f * curlIntensity * (-cornerPullBias).coerceIn(0f, 1f))
+        } else {
+            pTop + (pH * 0.03f * curlIntensity)
+        }.coerceIn(pTop, pBottom - pH * 0.1f)
+
+        val curlYBottom = if (cornerPullBias > 0f) {
+            pBottom - (pH * 0.28f * curlIntensity * cornerPullBias.coerceIn(0f, 1f))
+        } else {
+            pBottom - (pH * 0.03f * curlIntensity)
+        }.coerceIn(pTop + pH * 0.1f, pBottom)
+
+        val curlXMid = (minOf(curlXTop, curlXBottom) - curlIntensity * pW * 0.08f).coerceIn(pLeft - 40f, pRight)
+        val curlYMid = (curlYTop + curlYBottom) / 2f
+
+        val cOuter1X = curlXBottom + (curlXMid - curlXBottom) * 0.55f
+        val cOuter1Y = curlYBottom - (curlYBottom - curlYMid) * 0.55f
+        val cOuter2X = curlXTop + (curlXMid - curlXTop) * 0.55f
+        val cOuter2Y = curlYTop + (curlYMid - curlYTop) * 0.55f
 
         val flapPath = Path().apply {
             moveTo(foldXTop, pTop)
             cubicTo(c1x, c1y, c2x, c2y, foldXBottom, pBottom)
-            if (isBottomCorner) {
-                lineTo(apexX, apexY)
-                quadraticBezierTo(
-                    (apexX + flapOppositeX) / 2f, (apexY + flapOppositeY) / 2f,
-                    flapOppositeX, flapOppositeY
-                )
-                lineTo(foldXTop, pTop)
-            } else {
-                lineTo(apexX, apexY)
-                quadraticBezierTo(
-                    (apexX + flapOppositeX) / 2f, (apexY + flapOppositeY) / 2f,
-                    flapOppositeX, flapOppositeY
-                )
-                lineTo(foldXBottom, pBottom)
-            }
+            lineTo(curlXBottom, curlYBottom)
+            cubicTo(cOuter1X, cOuter1Y, cOuter2X, cOuter2Y, curlXTop, curlYTop)
+            lineTo(foldXTop, pTop)
             close()
         }
 
@@ -773,10 +776,10 @@ private fun DrawScope.drawRealisticPageCurlForward(
         drawPath(path = flapPath, color = versoPaperColor)
 
         // Realistic cylinder highlight and inner crease shading
-        val minFlapX = minOf(foldXTop, foldXBottom, foldXMid, apexX, flapOppositeX)
-        val maxFlapX = maxOf(foldXTop, foldXBottom, foldXMid, apexX, flapOppositeX)
-        val highlightColor = if (theme.isDark) Color(0x1CFFFFFF) else Color(0x38FFFFFF)
-        val creaseShadowColor = Color.Black.copy(alpha = if (theme.isDark) 0.16f else 0.10f)
+        val minFlapX = minOf(foldXTop, foldXBottom, curlXTop, curlXBottom, curlXMid)
+        val maxFlapX = maxOf(foldXTop, foldXBottom)
+        val highlightColor = if (theme.isDark) Color(0x18FFFFFF) else Color(0x32FFFFFF)
+        val creaseShadowColor = Color.Black.copy(alpha = if (theme.isDark) 0.18f else 0.12f)
 
         if (maxFlapX > minFlapX) {
             drawPath(
@@ -798,7 +801,7 @@ private fun DrawScope.drawRealisticPageCurlForward(
         // Physical paper thickness edge contour
         drawPath(
             path = flapPath,
-            color = Color(0x20000000),
+            color = Color(0x22000000),
             style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.2f)
         )
 
@@ -809,7 +812,7 @@ private fun DrawScope.drawRealisticPageCurlForward(
                 brush = Brush.horizontalGradient(
                     colors = listOf(
                         Color.Transparent,
-                        Color.Black.copy(alpha = 0.07f)
+                        Color.Black.copy(alpha = 0.08f)
                     ),
                     startX = (minFlapX - leftShadowWidth).coerceAtLeast(pLeft),
                     endX = minFlapX
@@ -889,17 +892,16 @@ private fun DrawScope.drawRealisticPageCurlBackward(
 
     // 2. BACKWARD CORNER-PICKING & FOLD GEOMETRY (Unrolling from spine to right)
     val yFrac = touchFractionY.coerceIn(0.05f, 0.95f)
-    val isBottomCorner = yFrac >= 0.5f
-    val cornerPullBias = ((yFrac - 0.5f) * 2f).coerceIn(-1f, 1f)
+    val cornerPullBias = ((yFrac - 0.5f) * 2f).coerceIn(-1f, 1f) // -1 for top corner, 0 for center, +1 for bottom corner
 
     // Dynamic Fold Crease line unrolling from left
     val tiltSpread = (sin(p * PI) * pW * 0.16f * cornerPullBias).toFloat()
-    val foldXTop = (pLeft + (p * pW * 1.08f) - tiltSpread).coerceIn(pLeft, pRight)
-    val foldXBottom = (pLeft + (p * pW * 1.08f) + tiltSpread).coerceIn(pLeft, pRight)
+    val foldXTop = (pLeft + (p * pW * 1.05f) - tiltSpread).coerceIn(pLeft, pRight)
+    val foldXBottom = (pLeft + (p * pW * 1.05f) + tiltSpread).coerceIn(pLeft, pRight)
 
     // Paper flexural bowing
-    val bowDisplacement = (sin(p * PI) * pW * 0.08f * (1f - 0.25f * abs(cornerPullBias))).toFloat()
-    val foldXMid = ((foldXTop + foldXBottom) / 2f + bowDisplacement).coerceIn(pLeft, pRight)
+    val bowDisplacement = (sin(p * PI) * pW * 0.07f * (1f - 0.25f * abs(cornerPullBias))).toFloat()
+    val foldXMid = (((foldXTop + foldXBottom) / 2f) + bowDisplacement).coerceIn(pLeft, pRight)
 
     val c1x = foldXTop + (foldXMid - foldXTop) * 0.60f
     val c1y = pTop + pH * 0.32f
@@ -996,39 +998,42 @@ private fun DrawScope.drawRealisticPageCurlBackward(
         }
     }
 
-    // 5. THE GENEROUS, 100% SOLID OPAQUE UNROLLING VERSO FLAP (Top Layer)
-    if (p in 0.01f..0.999f) {
-        val cornerLiftProgress = sin(p * PI).toFloat()
-        val cornerLiftY = pH * (0.35f * cornerLiftProgress + 0.15f * p) * (0.50f + abs(cornerPullBias) * 0.50f)
-        val flapReach = (pW * p * 2.0f).coerceIn(0f, pW * 1.15f)
-        val apexX = (pLeft + flapReach).coerceIn(pLeft, pRight + 20f)
-        val apexY = if (isBottomCorner) {
-            (pBottom - cornerLiftY).coerceIn(pTop + pH * 0.08f, pBottom)
-        } else {
-            (pTop + cornerLiftY).coerceIn(pTop, pBottom - pH * 0.08f)
-        }
+    // 5. THE 100% SOLID OPAQUE UNROLLING VERSO FLAP (Top Layer)
+    if (p in 0.005f..0.995f) {
+        val wFoldedTop = (foldXTop - pLeft).coerceAtLeast(0f)
+        val wFoldedBottom = (foldXBottom - pLeft).coerceAtLeast(0f)
 
-        val flapOppositeX = (pLeft + flapReach * 0.85f).coerceIn(pLeft, pRight + 20f)
-        val flapOppositeY = if (isBottomCorner) pTop else pBottom
+        val curlFactor = 0.96f
+        val curlXTop = (foldXTop + wFoldedTop * curlFactor).coerceIn(pLeft, pRight + 30f)
+        val curlXBottom = (foldXBottom + wFoldedBottom * curlFactor).coerceIn(pLeft, pRight + 30f)
+
+        val curlIntensity = sin(p * PI).toFloat()
+        val curlYTop = if (cornerPullBias < 0f) {
+            pTop + (pH * 0.28f * curlIntensity * (-cornerPullBias).coerceIn(0f, 1f))
+        } else {
+            pTop + (pH * 0.03f * curlIntensity)
+        }.coerceIn(pTop, pBottom - pH * 0.1f)
+
+        val curlYBottom = if (cornerPullBias > 0f) {
+            pBottom - (pH * 0.28f * curlIntensity * cornerPullBias.coerceIn(0f, 1f))
+        } else {
+            pBottom - (pH * 0.03f * curlIntensity)
+        }.coerceIn(pTop + pH * 0.1f, pBottom)
+
+        val curlXMid = (maxOf(curlXTop, curlXBottom) + curlIntensity * pW * 0.08f).coerceIn(pLeft, pRight + 40f)
+        val curlYMid = (curlYTop + curlYBottom) / 2f
+
+        val cOuter1X = curlXBottom + (curlXMid - curlXBottom) * 0.55f
+        val cOuter1Y = curlYBottom - (curlYBottom - curlYMid) * 0.55f
+        val cOuter2X = curlXTop + (curlXMid - curlXTop) * 0.55f
+        val cOuter2Y = curlYTop + (curlYMid - curlYTop) * 0.55f
 
         val flapPath = Path().apply {
             moveTo(foldXTop, pTop)
             cubicTo(c1x, c1y, c2x, c2y, foldXBottom, pBottom)
-            if (isBottomCorner) {
-                lineTo(apexX, apexY)
-                quadraticBezierTo(
-                    (apexX + flapOppositeX) / 2f, (apexY + flapOppositeY) / 2f,
-                    flapOppositeX, flapOppositeY
-                )
-                lineTo(foldXTop, pTop)
-            } else {
-                lineTo(apexX, apexY)
-                quadraticBezierTo(
-                    (apexX + flapOppositeX) / 2f, (apexY + flapOppositeY) / 2f,
-                    flapOppositeX, flapOppositeY
-                )
-                lineTo(foldXBottom, pBottom)
-            }
+            lineTo(curlXBottom, curlYBottom)
+            cubicTo(cOuter1X, cOuter1Y, cOuter2X, cOuter2Y, curlXTop, curlYTop)
+            lineTo(foldXTop, pTop)
             close()
         }
 
@@ -1036,10 +1041,10 @@ private fun DrawScope.drawRealisticPageCurlBackward(
         drawPath(path = flapPath, color = versoPaperColor)
 
         // Realistic cylinder highlight and crease shadow
-        val minFlapX = minOf(foldXTop, foldXBottom, foldXMid, apexX, flapOppositeX)
-        val maxFlapX = maxOf(foldXTop, foldXBottom, foldXMid, apexX, flapOppositeX)
-        val highlightColor = if (theme.isDark) Color(0x1CFFFFFF) else Color(0x38FFFFFF)
-        val creaseShadowColor = Color.Black.copy(alpha = if (theme.isDark) 0.16f else 0.10f)
+        val minFlapX = minOf(foldXTop, foldXBottom)
+        val maxFlapX = maxOf(foldXTop, foldXBottom, curlXTop, curlXBottom, curlXMid)
+        val highlightColor = if (theme.isDark) Color(0x18FFFFFF) else Color(0x32FFFFFF)
+        val creaseShadowColor = Color.Black.copy(alpha = if (theme.isDark) 0.18f else 0.12f)
 
         if (maxFlapX > minFlapX) {
             drawPath(
@@ -1061,9 +1066,26 @@ private fun DrawScope.drawRealisticPageCurlBackward(
         // Edge contour stroke
         drawPath(
             path = flapPath,
-            color = Color(0x20000000),
+            color = Color(0x22000000),
             style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.2f)
         )
+
+        // Contact shadow onto the right side
+        val rightShadowWidth = min(pW * 0.12f, 32f)
+        if (maxFlapX < pRight) {
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(
+                        Color.Black.copy(alpha = 0.08f),
+                        Color.Transparent
+                    ),
+                    startX = maxFlapX,
+                    endX = (maxFlapX + rightShadowWidth).coerceAtMost(pRight)
+                ),
+                topLeft = Offset(maxFlapX, pTop),
+                size = Size((maxFlapX + rightShadowWidth).coerceAtMost(pRight) - maxFlapX, pH)
+            )
+        }
     }
 
     drawBookSpineGutter(metrics, theme)
