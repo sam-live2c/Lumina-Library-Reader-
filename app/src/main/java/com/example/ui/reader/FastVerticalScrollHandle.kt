@@ -249,14 +249,9 @@ fun FastVerticalScrollHandle(
                     Surface(
                         shape = RoundedCornerShape(14.dp),
                         color = badgeBg,
-                        shadowElevation = 4.dp,
+                        shadowElevation = 0.dp,
                         tonalElevation = 0.dp,
                         modifier = Modifier
-                            .border(
-                                width = 1.dp,
-                                color = badgeBorder,
-                                shape = RoundedCornerShape(14.dp)
-                            )
                             .testTag("page_indicator_badge")
                     ) {
                         Row(
@@ -320,16 +315,11 @@ fun FastVerticalScrollHandle(
                     Surface(
                         shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp),
                         color = if (isDragging) readerTheme.accentColor else defaultThumbBg,
-                        shadowElevation = if (isDragging) 6.dp else 3.dp,
+                        shadowElevation = 0.dp,
                         tonalElevation = 0.dp,
                         modifier = Modifier
                             .width(16.dp)
                             .height(44.dp)
-                            .border(
-                                width = 1.dp,
-                                color = if (isDragging) Color(0x55FFFFFF) else thumbBorder,
-                                shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)
-                            )
                     ) {
                         // Subtle grip indicator
                         Column(
