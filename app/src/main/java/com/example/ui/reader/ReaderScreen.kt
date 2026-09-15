@@ -145,7 +145,6 @@ fun ReaderScreen(
                     onToggleHud = { viewModel.toggleHud() },
                     onDoubleTap = { viewModel.summonPen() },
                     onPageClick = { targetPage ->
-                        soundManager.playPageTurnSound()
                         viewModel.switchToPageTurnMode(targetPage)
                     },
                     modifier = Modifier.fillMaxSize()
@@ -196,7 +195,6 @@ fun ReaderScreen(
                 readerTheme = uiState.readerTheme,
                 isHudVisible = uiState.isHudVisible,
                 onPageSelected = {
-                    soundManager.playPageTurnSound()
                     viewModel.goToPage(it)
                 },
                 onIndicatorClick = {
