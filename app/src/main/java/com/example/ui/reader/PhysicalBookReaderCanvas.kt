@@ -597,97 +597,43 @@ private fun DrawScope.drawRealisticPageCurlForward(
         Color(0xFF222834)
     } else {
         when (theme) {
-            ReaderThemeMode.CREAM -> Color(0xFFF7F3E8)
-            ReaderThemeMode.SEPIA -> Color(0xFFEFE6D6)
-            else -> Color(0xFFFBF9F5)
+            ReaderThemeMode.CREAM -> Color(0xFFF6F1E3)
+            ReaderThemeMode.SEPIA -> Color(0xFFECE1CE)
+            else -> Color(0xFFF7F4EE)
         }
     }
 
-    // 1. UNDERNEATH BASE LAYER (Blank book paper sheet + Next Page)
-    // Always draw an opaque physical paper sheet behind the turning page
-    drawRect(
-        color = Color(0x15000000),
-        topLeft = Offset(pLeft + 2f, pTop + 4f),
-        size = Size(pW, pH)
-    )
+    // 1. UNDERNEATH REVEALED PAGE (Next Page Base - Seamless with background)
     drawRect(
         color = paperColor,
         topLeft = Offset(pLeft, pTop),
         size = Size(pW, pH)
     )
-
     if (nextBitmap != null) {
         drawPageBitmap(nextBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
     }
     drawBookSpineGutter(metrics, theme)
     drawBookEdgeShadow(metrics, theme)
 
-    // 2. CORNER-PICKING & FOLD GEOMETRY
+    // 2. DYNAMIC FOLD CREASE GEOMETRY (Progressing from Right to Left with natural straight release)
     val yFrac = touchFractionY.coerceIn(0.05f, 0.95f)
-    val cornerPullBias = ((yFrac - 0.5f) * 2f).coerceIn(-1f, 1f) // -1 for top corner, 0 for center, +1 for bottom corner
+    val cornerPullBias = ((yFrac - 0.5f) * 2f).coerceIn(-1f, 1f) // -1 top corner, 0 center, +1 bottom corner
 
-    // Dynamic Fold Crease line (where paper bends)
-    // When top corner is pulled (cornerPullBias < 0), top edge is pulled left faster than bottom
-    val tiltSpread = (sin(p * PI) * pW * 0.16f * cornerPullBias).toFloat()
-    val foldXTop = (pRight - (p * pW * 1.05f) + tiltSpread).coerceIn(pLeft, pRight)
-    val foldXBottom = (pRight - (p * pW * 1.05f) - tiltSpread).coerceIn(pLeft, pRight)
+    // Natural tension and smooth fall-in after 2/3 page coverage
+    val fallInFraction = ((p - (2f / 3f)) / (1f / 3f)).coerceIn(0f, 1f)
+    val straightenDecay = (1f - fallInFraction * 0.75f).coerceIn(0.25f, 1f)
+    val tiltSpread = (sin(p * PI) * straightenDecay * pW * 0.045f * cornerPullBias).toFloat()
+    val foldX = pRight - (p * pW)
+    val foldXTop = (foldX + tiltSpread).coerceIn(pLeft, pRight)
+    val foldXBottom = (foldX - tiltSpread).coerceIn(pLeft, pRight)
+    val foldXMid = ((foldXTop + foldXBottom) / 2f).coerceIn(pLeft, pRight)
 
-    // Paper flexural bowing inwards towards the spine
-    val bowDisplacement = (sin(p * PI) * pW * 0.07f * (1f - 0.25f * abs(cornerPullBias))).toFloat()
-    val foldXMid = (((foldXTop + foldXBottom) / 2f) - bowDisplacement).coerceIn(pLeft, pRight)
-
-    // Smooth Bézier Control Points for organic curved fold
-    val c1x = foldXTop + (foldXMid - foldXTop) * 0.60f
+    val c1x = foldXTop + (foldXMid - foldXTop) * 0.15f
     val c1y = pTop + pH * 0.32f
-    val c2x = foldXBottom + (foldXMid - foldXBottom) * 0.60f
+    val c2x = foldXBottom + (foldXMid - foldXBottom) * 0.15f
     val c2y = pBottom - pH * 0.32f
 
-    // 3. CONTROLLED DROP SHADOW (Diffused on next revealed page)
-    if (p in 0.01f..0.99f) {
-        val maxShadowAlpha = (sin(p * PI) * (if (theme.isDark) 0.22f else 0.15f)).toFloat().coerceIn(0f, 0.22f)
-        val shadowSpread = min(pW * 0.24f * sin(p * PI).toFloat() + 16f, 52f)
-
-        if (maxShadowAlpha > 0.01f) {
-            val shadowPath = Path().apply {
-                moveTo(foldXTop, pTop + 2f)
-                cubicTo(c1x, c1y, c2x, c2y, foldXBottom, pBottom - 2f)
-                quadraticBezierTo(
-                    (foldXBottom + shadowSpread * 0.85f).coerceAtMost(pRight), pBottom - 1f,
-                    (foldXBottom + shadowSpread * 0.70f).coerceAtMost(pRight), pBottom - 12f
-                )
-                cubicTo(
-                    (c2x + shadowSpread).coerceAtMost(pRight), c2y,
-                    (c1x + shadowSpread).coerceAtMost(pRight), c1y,
-                    (foldXTop + shadowSpread * 0.70f).coerceAtMost(pRight), pTop + 12f
-                )
-                quadraticBezierTo(
-                    (foldXTop + shadowSpread * 0.85f).coerceAtMost(pRight), pTop + 1f,
-                    foldXTop, pTop + 2f
-                )
-                close()
-            }
-
-            val startShadowX = minOf(foldXTop, foldXBottom, foldXMid)
-            val endShadowX = (maxOf(foldXTop, foldXBottom, foldXMid) + shadowSpread).coerceAtMost(pRight)
-            if (endShadowX > startShadowX) {
-                drawPath(
-                    path = shadowPath,
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = maxShadowAlpha),
-                            Color.Black.copy(alpha = maxShadowAlpha * 0.35f),
-                            Color.Black.copy(alpha = maxShadowAlpha * 0.08f),
-                            Color.Transparent
-                        ),
-                        startX = startShadowX,
-                        endX = endShadowX
-                    )
-                )
-            }
-        }
-    }
-
-    // 4. FLAT UNCURLED PAGE (Current Page Recto on Spine Side)
+    // 3. CURRENT PAGE (Recto on Left / Spine side remaining flat and clean)
     if (p < 0.999f) {
         val flatPagePath = Path().apply {
             moveTo(pLeft, pTop)
@@ -699,7 +645,6 @@ private fun DrawScope.drawRealisticPageCurlForward(
 
         clipRect(left = pLeft, top = pTop, right = pRight, bottom = pBottom) {
             clipPath(flatPagePath) {
-                // Solid paper under current page
                 drawRect(
                     color = paperColor,
                     topLeft = Offset(pLeft, pTop),
@@ -709,59 +654,42 @@ private fun DrawScope.drawRealisticPageCurlForward(
                 if (currentBitmap != null) {
                     drawPageBitmap(currentBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
                 }
-
-                // Ambient crease shading approaching the fold
-                val ambientWidth = min(pW * 0.14f, 36f)
-                val minCreaseX = minOf(foldXTop, foldXBottom, foldXMid)
-                val ambientStart = (minCreaseX - ambientWidth).coerceAtLeast(pLeft)
-                if (minCreaseX > ambientStart) {
-                    drawRect(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.04f),
-                                Color.Black.copy(alpha = 0.11f)
-                            ),
-                            startX = ambientStart,
-                            endX = minCreaseX
-                        ),
-                        topLeft = Offset(ambientStart, pTop),
-                        size = Size(minCreaseX - ambientStart, pH)
-                    )
-                }
             }
         }
     }
 
-    // 5. THE 100% SOLID OPAQUE VERSO LEAF (The Turned Paper Flap)
+    // 4. 3D SOLID FOLDED VERSO LEAF WITH REAL PHYSICAL OPTICS INSIDE THE FOLD
     if (p in 0.005f..0.995f) {
+        // Full, realistic page folding size based on page width
         val wFoldedTop = (pRight - foldXTop).coerceAtLeast(0f)
         val wFoldedBottom = (pRight - foldXBottom).coerceAtLeast(0f)
 
-        val curlFactor = 0.96f
-        val curlXTop = (foldXTop - wFoldedTop * curlFactor).coerceIn(pLeft - 30f, pRight)
-        val curlXBottom = (foldXBottom - wFoldedBottom * curlFactor).coerceIn(pLeft - 30f, pRight)
+        // Generous, natural page curl factor that smoothly drapes flat in final 1/3 of navigation
+        val curlFactor = (0.92f - fallInFraction * 0.15f).coerceIn(0.70f, 0.95f)
 
-        val curlIntensity = sin(p * PI).toFloat()
+        val curlXTop = (foldXTop - wFoldedTop * curlFactor).coerceIn(pLeft, pRight)
+        val curlXBottom = (foldXBottom - wFoldedBottom * curlFactor).coerceIn(pLeft, pRight)
+
+        val curlIntensity = (sin(p * PI) * straightenDecay).toFloat()
         val curlYTop = if (cornerPullBias < 0f) {
-            pTop + (pH * 0.28f * curlIntensity * (-cornerPullBias).coerceIn(0f, 1f))
+            pTop + (pH * 0.09f * curlIntensity * (-cornerPullBias).coerceIn(0f, 1f) * (1f - fallInFraction))
         } else {
-            pTop + (pH * 0.03f * curlIntensity)
+            pTop
         }.coerceIn(pTop, pBottom - pH * 0.1f)
 
         val curlYBottom = if (cornerPullBias > 0f) {
-            pBottom - (pH * 0.28f * curlIntensity * cornerPullBias.coerceIn(0f, 1f))
+            pBottom - (pH * 0.09f * curlIntensity * cornerPullBias.coerceIn(0f, 1f) * (1f - fallInFraction))
         } else {
-            pBottom - (pH * 0.03f * curlIntensity)
+            pBottom
         }.coerceIn(pTop + pH * 0.1f, pBottom)
 
-        val curlXMid = (minOf(curlXTop, curlXBottom) - curlIntensity * pW * 0.08f).coerceIn(pLeft - 40f, pRight)
+        val curlXMid = ((curlXTop + curlXBottom) / 2f - (pW * 0.035f * curlIntensity * (1f - fallInFraction))).coerceIn(pLeft, pRight)
         val curlYMid = (curlYTop + curlYBottom) / 2f
 
-        val cOuter1X = curlXBottom + (curlXMid - curlXBottom) * 0.55f
-        val cOuter1Y = curlYBottom - (curlYBottom - curlYMid) * 0.55f
-        val cOuter2X = curlXTop + (curlXMid - curlXTop) * 0.55f
-        val cOuter2Y = curlYTop + (curlYMid - curlYTop) * 0.55f
+        val cOuter1X = curlXBottom + (curlXMid - curlXBottom) * 0.20f
+        val cOuter1Y = curlYBottom - (curlYBottom - curlYMid) * 0.50f
+        val cOuter2X = curlXTop + (curlXMid - curlXTop) * 0.20f
+        val cOuter2Y = curlYTop + (curlYMid - curlYTop) * 0.50f
 
         val flapPath = Path().apply {
             moveTo(foldXTop, pTop)
@@ -772,14 +700,17 @@ private fun DrawScope.drawRealisticPageCurlForward(
             close()
         }
 
-        // 100% Solid Opaque Blank Verso Paper Leaf (Never Transparent)
+        // 100% Solid Opaque Verso Paper Flap
         drawPath(path = flapPath, color = versoPaperColor)
 
-        // Realistic cylinder highlight and inner crease shading
+        // Physics-accurate optical lighting inside the 3D fold:
+        // - Deep dark occlusion shadow inside the fold crevice at maxFlapX
+        // - Specular reflection along the curved cylindrical crest (highlight)
+        // - Natural ambient falloff toward outer edge
         val minFlapX = minOf(foldXTop, foldXBottom, curlXTop, curlXBottom, curlXMid)
         val maxFlapX = maxOf(foldXTop, foldXBottom)
-        val highlightColor = if (theme.isDark) Color(0x18FFFFFF) else Color(0x32FFFFFF)
-        val creaseShadowColor = Color.Black.copy(alpha = if (theme.isDark) 0.18f else 0.12f)
+        val deepCreaseShadowAlpha = (curlIntensity * (if (theme.isDark) 0.52f else 0.42f)).coerceIn(0f, 0.65f)
+        val highlightAlpha = if (theme.isDark) 0.22f else 0.32f
 
         if (maxFlapX > minFlapX) {
             drawPath(
@@ -788,42 +719,18 @@ private fun DrawScope.drawRealisticPageCurlForward(
                     colors = listOf(
                         Color.Black.copy(alpha = 0.06f),
                         Color.Transparent,
-                        highlightColor,
+                        Color.White.copy(alpha = highlightAlpha),
                         Color.Transparent,
-                        creaseShadowColor
+                        Color.Black.copy(alpha = deepCreaseShadowAlpha)
                     ),
                     startX = minFlapX,
                     endX = maxFlapX
                 )
             )
         }
-
-        // Physical paper thickness edge contour
-        drawPath(
-            path = flapPath,
-            color = Color(0x22000000),
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.2f)
-        )
-
-        // Contact shadow under the curled flap onto the left side page
-        val leftShadowWidth = min(pW * 0.12f, 32f)
-        if (minFlapX > pLeft) {
-            drawRect(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        Color.Black.copy(alpha = 0.08f)
-                    ),
-                    startX = (minFlapX - leftShadowWidth).coerceAtLeast(pLeft),
-                    endX = minFlapX
-                ),
-                topLeft = Offset((minFlapX - leftShadowWidth).coerceAtLeast(pLeft), pTop),
-                size = Size(minFlapX - (minFlapX - leftShadowWidth).coerceAtLeast(pLeft), pH)
-            )
-        }
     }
 
-    // 6. PERMANENT BOOK BINDING SPINES & EDGES
+    // 5. PERMANENT BOOK BINDING SPINES & EDGES
     drawBookSpineGutter(metrics, theme)
     drawBookEdgeShadow(metrics, theme)
 }
@@ -866,49 +773,44 @@ private fun DrawScope.drawRealisticPageCurlBackward(
         Color(0xFF222834)
     } else {
         when (theme) {
-            ReaderThemeMode.CREAM -> Color(0xFFF7F3E8)
-            ReaderThemeMode.SEPIA -> Color(0xFFEFE6D6)
-            else -> Color(0xFFFBF9F5)
+            ReaderThemeMode.CREAM -> Color(0xFFF6F1E3)
+            ReaderThemeMode.SEPIA -> Color(0xFFECE1CE)
+            else -> Color(0xFFF7F4EE)
         }
     }
 
-    // 1. UNDERNEATH BASE LAYER (Blank book paper sheet + Current Page)
-    drawRect(
-        color = Color(0x15000000),
-        topLeft = Offset(pLeft + 2f, pTop + 4f),
-        size = Size(pW, pH)
-    )
+    // 1. UNDERNEATH BASE PAGE (Current Page - Seamless with background)
     drawRect(
         color = paperColor,
         topLeft = Offset(pLeft, pTop),
         size = Size(pW, pH)
     )
-
-    if (currentBitmap != null) {
-        drawPageBitmap(currentBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
+    val baseBitmap = currentBitmap ?: previousBitmap
+    if (baseBitmap != null) {
+        drawPageBitmap(baseBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
     }
     drawBookSpineGutter(metrics, theme)
     drawBookEdgeShadow(metrics, theme)
 
-    // 2. BACKWARD CORNER-PICKING & FOLD GEOMETRY (Unrolling from spine to right)
+    // 2. DYNAMIC FOLD CREASE GEOMETRY (Mirrored opposite: progressing from Left to Right with straight release)
     val yFrac = touchFractionY.coerceIn(0.05f, 0.95f)
-    val cornerPullBias = ((yFrac - 0.5f) * 2f).coerceIn(-1f, 1f) // -1 for top corner, 0 for center, +1 for bottom corner
+    val cornerPullBias = ((yFrac - 0.5f) * 2f).coerceIn(-1f, 1f) // -1 top corner, 0 center, +1 bottom corner
 
-    // Dynamic Fold Crease line unrolling from left
-    val tiltSpread = (sin(p * PI) * pW * 0.16f * cornerPullBias).toFloat()
-    val foldXTop = (pLeft + (p * pW * 1.05f) - tiltSpread).coerceIn(pLeft, pRight)
-    val foldXBottom = (pLeft + (p * pW * 1.05f) + tiltSpread).coerceIn(pLeft, pRight)
+    // Natural tension and smooth fall-in after 2/3 page coverage
+    val fallInFraction = ((p - (2f / 3f)) / (1f / 3f)).coerceIn(0f, 1f)
+    val straightenDecay = (1f - fallInFraction * 0.75f).coerceIn(0.25f, 1f)
+    val tiltSpread = (sin(p * PI) * straightenDecay * pW * 0.045f * cornerPullBias).toFloat()
+    val foldX = pLeft + (p * pW)
+    val foldXTop = (foldX - tiltSpread).coerceIn(pLeft, pRight)
+    val foldXBottom = (foldX + tiltSpread).coerceIn(pLeft, pRight)
+    val foldXMid = ((foldXTop + foldXBottom) / 2f).coerceIn(pLeft, pRight)
 
-    // Paper flexural bowing
-    val bowDisplacement = (sin(p * PI) * pW * 0.07f * (1f - 0.25f * abs(cornerPullBias))).toFloat()
-    val foldXMid = (((foldXTop + foldXBottom) / 2f) + bowDisplacement).coerceIn(pLeft, pRight)
-
-    val c1x = foldXTop + (foldXMid - foldXTop) * 0.60f
+    val c1x = foldXTop + (foldXMid - foldXTop) * 0.15f
     val c1y = pTop + pH * 0.32f
-    val c2x = foldXBottom + (foldXMid - foldXBottom) * 0.60f
+    val c2x = foldXBottom + (foldXMid - foldXBottom) * 0.15f
     val c2y = pBottom - pH * 0.32f
 
-    // 3. PREVIOUS PAGE BEING UNROLLED FROM LEFT (Flat portion on spine side)
+    // 3. PREVIOUS PAGE (Revealed on Left side from Spine to fold crease - Clean)
     if (p > 0.001f) {
         val prevLeafPath = Path().apply {
             moveTo(pLeft, pTop)
@@ -926,107 +828,46 @@ private fun DrawScope.drawRealisticPageCurlBackward(
                     size = Size(pW, pH)
                 )
 
-                if (previousBitmap != null) {
-                    drawPageBitmap(previousBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
-                }
-
-                // Ambient crease shading
-                val ambientWidth = min(pW * 0.14f, 36f)
-                val minCreaseX = minOf(foldXTop, foldXBottom, foldXMid)
-                val ambientStart = (minCreaseX - ambientWidth).coerceAtLeast(pLeft)
-                if (minCreaseX > ambientStart) {
-                    drawRect(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.04f),
-                                Color.Black.copy(alpha = 0.11f)
-                            ),
-                            startX = ambientStart,
-                            endX = minCreaseX
-                        ),
-                        topLeft = Offset(ambientStart, pTop),
-                        size = Size(minCreaseX - ambientStart, pH)
-                    )
+                val incomingBitmap = previousBitmap ?: currentBitmap
+                if (incomingBitmap != null) {
+                    drawPageBitmap(incomingBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
                 }
             }
         }
     }
 
-    // 4. CONTROLLED DROP SHADOW (Diffused on current page)
-    if (p in 0.01f..0.99f) {
-        val maxShadowAlpha = (sin(p * PI) * (if (theme.isDark) 0.22f else 0.15f)).toFloat().coerceIn(0f, 0.22f)
-        val shadowSpread = min(pW * 0.24f * sin(p * PI).toFloat() + 16f, 52f)
-
-        if (maxShadowAlpha > 0.01f) {
-            val shadowPath = Path().apply {
-                moveTo(foldXTop, pTop + 2f)
-                cubicTo(c1x, c1y, c2x, c2y, foldXBottom, pBottom - 2f)
-                quadraticBezierTo(
-                    (foldXBottom + shadowSpread * 0.85f).coerceAtMost(pRight), pBottom - 1f,
-                    (foldXBottom + shadowSpread * 0.70f).coerceAtMost(pRight), pBottom - 12f
-                )
-                cubicTo(
-                    (c2x + shadowSpread).coerceAtMost(pRight), c2y,
-                    (c1x + shadowSpread).coerceAtMost(pRight), c1y,
-                    (foldXTop + shadowSpread * 0.70f).coerceAtMost(pRight), pTop + 12f
-                )
-                quadraticBezierTo(
-                    (foldXTop + shadowSpread * 0.85f).coerceAtMost(pRight), pTop + 1f,
-                    foldXTop, pTop + 2f
-                )
-                close()
-            }
-
-            val startShadowX = minOf(foldXTop, foldXBottom, foldXMid)
-            val endShadowX = (maxOf(foldXTop, foldXBottom, foldXMid) + shadowSpread).coerceAtMost(pRight)
-            if (endShadowX > startShadowX) {
-                drawPath(
-                    path = shadowPath,
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = maxShadowAlpha),
-                            Color.Black.copy(alpha = maxShadowAlpha * 0.35f),
-                            Color.Black.copy(alpha = maxShadowAlpha * 0.08f),
-                            Color.Transparent
-                        ),
-                        startX = startShadowX,
-                        endX = endShadowX
-                    )
-                )
-            }
-        }
-    }
-
-    // 5. THE 100% SOLID OPAQUE UNROLLING VERSO FLAP (Top Layer)
+    // 4. 3D SOLID FOLDED VERSO LEAF WITH REAL PHYSICAL OPTICS INSIDE THE FOLD (Curling over to the Right)
     if (p in 0.005f..0.995f) {
+        // Full, realistic page folding size based on page width
         val wFoldedTop = (foldXTop - pLeft).coerceAtLeast(0f)
         val wFoldedBottom = (foldXBottom - pLeft).coerceAtLeast(0f)
 
-        val curlFactor = 0.96f
-        val curlXTop = (foldXTop + wFoldedTop * curlFactor).coerceIn(pLeft, pRight + 30f)
-        val curlXBottom = (foldXBottom + wFoldedBottom * curlFactor).coerceIn(pLeft, pRight + 30f)
+        // Generous, natural page curl factor that smoothly drapes flat in final 1/3 of navigation
+        val curlFactor = (0.92f - fallInFraction * 0.15f).coerceIn(0.70f, 0.95f)
 
-        val curlIntensity = sin(p * PI).toFloat()
+        val curlXTop = (foldXTop + wFoldedTop * curlFactor).coerceIn(pLeft, pRight)
+        val curlXBottom = (foldXBottom + wFoldedBottom * curlFactor).coerceIn(pLeft, pRight)
+
+        val curlIntensity = (sin(p * PI) * straightenDecay).toFloat()
         val curlYTop = if (cornerPullBias < 0f) {
-            pTop + (pH * 0.28f * curlIntensity * (-cornerPullBias).coerceIn(0f, 1f))
+            pTop + (pH * 0.09f * curlIntensity * (-cornerPullBias).coerceIn(0f, 1f) * (1f - fallInFraction))
         } else {
-            pTop + (pH * 0.03f * curlIntensity)
+            pTop
         }.coerceIn(pTop, pBottom - pH * 0.1f)
 
         val curlYBottom = if (cornerPullBias > 0f) {
-            pBottom - (pH * 0.28f * curlIntensity * cornerPullBias.coerceIn(0f, 1f))
+            pBottom - (pH * 0.09f * curlIntensity * cornerPullBias.coerceIn(0f, 1f) * (1f - fallInFraction))
         } else {
-            pBottom - (pH * 0.03f * curlIntensity)
+            pBottom
         }.coerceIn(pTop + pH * 0.1f, pBottom)
 
-        val curlXMid = (maxOf(curlXTop, curlXBottom) + curlIntensity * pW * 0.08f).coerceIn(pLeft, pRight + 40f)
+        val curlXMid = ((curlXTop + curlXBottom) / 2f + (pW * 0.035f * curlIntensity * (1f - fallInFraction))).coerceIn(pLeft, pRight)
         val curlYMid = (curlYTop + curlYBottom) / 2f
 
-        val cOuter1X = curlXBottom + (curlXMid - curlXBottom) * 0.55f
-        val cOuter1Y = curlYBottom - (curlYBottom - curlYMid) * 0.55f
-        val cOuter2X = curlXTop + (curlXMid - curlXTop) * 0.55f
-        val cOuter2Y = curlYTop + (curlYMid - curlYTop) * 0.55f
+        val cOuter1X = curlXBottom + (curlXMid - curlXBottom) * 0.20f
+        val cOuter1Y = curlYBottom - (curlYBottom - curlYMid) * 0.50f
+        val cOuter2X = curlXTop + (curlXMid - curlXTop) * 0.20f
+        val cOuter2Y = curlYTop + (curlYMid - curlYTop) * 0.50f
 
         val flapPath = Path().apply {
             moveTo(foldXTop, pTop)
@@ -1037,23 +878,26 @@ private fun DrawScope.drawRealisticPageCurlBackward(
             close()
         }
 
-        // 100% Solid Opaque Blank Paper
+        // 100% Solid Opaque Verso Paper Flap
         drawPath(path = flapPath, color = versoPaperColor)
 
-        // Realistic cylinder highlight and crease shadow
+        // Physics-accurate optical lighting inside the 3D fold (Opposite direction):
+        // - Deep dark occlusion shadow inside the fold crevice at minFlapX (the crease)
+        // - Specular reflection along the curved cylindrical crest (highlight)
+        // - Natural ambient falloff toward outer edge at maxFlapX
         val minFlapX = minOf(foldXTop, foldXBottom)
         val maxFlapX = maxOf(foldXTop, foldXBottom, curlXTop, curlXBottom, curlXMid)
-        val highlightColor = if (theme.isDark) Color(0x18FFFFFF) else Color(0x32FFFFFF)
-        val creaseShadowColor = Color.Black.copy(alpha = if (theme.isDark) 0.18f else 0.12f)
+        val deepCreaseShadowAlpha = (curlIntensity * (if (theme.isDark) 0.52f else 0.42f)).coerceIn(0f, 0.65f)
+        val highlightAlpha = if (theme.isDark) 0.22f else 0.32f
 
         if (maxFlapX > minFlapX) {
             drawPath(
                 path = flapPath,
                 brush = Brush.horizontalGradient(
                     colors = listOf(
-                        creaseShadowColor,
+                        Color.Black.copy(alpha = deepCreaseShadowAlpha),
                         Color.Transparent,
-                        highlightColor,
+                        Color.White.copy(alpha = highlightAlpha),
                         Color.Transparent,
                         Color.Black.copy(alpha = 0.06f)
                     ),
@@ -1062,38 +906,15 @@ private fun DrawScope.drawRealisticPageCurlBackward(
                 )
             )
         }
-
-        // Edge contour stroke
-        drawPath(
-            path = flapPath,
-            color = Color(0x22000000),
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.2f)
-        )
-
-        // Contact shadow onto the right side
-        val rightShadowWidth = min(pW * 0.12f, 32f)
-        if (maxFlapX < pRight) {
-            drawRect(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        Color.Black.copy(alpha = 0.08f),
-                        Color.Transparent
-                    ),
-                    startX = maxFlapX,
-                    endX = (maxFlapX + rightShadowWidth).coerceAtMost(pRight)
-                ),
-                topLeft = Offset(maxFlapX, pTop),
-                size = Size((maxFlapX + rightShadowWidth).coerceAtMost(pRight) - maxFlapX, pH)
-            )
-        }
     }
 
+    // 5. PERMANENT BOOK BINDING SPINES & EDGES
     drawBookSpineGutter(metrics, theme)
     drawBookEdgeShadow(metrics, theme)
 }
 
 // -------------------------------------------------------------
-// 3D APPLE-STYLE BOOK PAGE FLIP WITH AMBIENT GROUND SHADOWS
+// 3D APPLE-STYLE BOOK PAGE FLIP
 // -------------------------------------------------------------
 
 private fun DrawScope.draw3DPageFlipForward(
@@ -1117,97 +938,115 @@ private fun DrawScope.draw3DPageFlipForward(
     val pTop = metrics.top
     val p = progress.coerceIn(0f, 1f)
 
-    // 1. Underneath base page
-    if (nextBitmap != null) {
-        drawPageBitmap(nextBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
+    val paperColor = if (theme.isDark) {
+        Color(0xFF1E242E)
     } else {
-        drawRect(
-            color = if (theme.isDark) Color(0xFF1B202A) else Color(0xFFFAF8F5),
-            topLeft = Offset(pLeft, pTop),
-            size = Size(pW, pH)
-        )
+        when (theme) {
+            ReaderThemeMode.CREAM -> Color(0xFFF9F5EC)
+            ReaderThemeMode.SEPIA -> Color(0xFFF2EADC)
+            else -> Color(0xFFFCFAF7)
+        }
     }
 
-    // 2. Dynamic Lifting Ground Shadow (Diffuses as page lifts higher into the air towards 90deg)
-    val shadowSpread = (sin(p * PI) * pW * 0.35f + 14f).toFloat()
-    val shadowAlpha = (sin(p * PI) * (if (theme.isDark) 0.22f else 0.14f)).toFloat()
-    if (shadowAlpha > 0.01f) {
-        val shadowX = pLeft + pW * (1f - p)
-        val shadowStart = (shadowX - shadowSpread * 0.3f).coerceAtLeast(pLeft)
-        val shadowEnd = (shadowX + shadowSpread * 0.7f).coerceAtMost(pLeft + pW)
-        if (shadowEnd > shadowStart) {
+    val versoPaperColor = if (theme.isDark) {
+        Color(0xFF222834)
+    } else {
+        when (theme) {
+            ReaderThemeMode.CREAM -> Color(0xFFF6F1E3)
+            ReaderThemeMode.SEPIA -> Color(0xFFECE1CE)
+            else -> Color(0xFFF7F4EE)
+        }
+    }
+
+    // 1. Underneath revealed page base (Seamless with background)
+    drawRect(
+        color = paperColor,
+        topLeft = Offset(pLeft, pTop),
+        size = Size(pW, pH)
+    )
+    if (nextBitmap != null) {
+        drawPageBitmap(nextBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+
+    // 2. 3D Turning Page Leaf with True Perspective & Solid Opaque Paper
+    if (p < 0.5f) {
+        val scaleX = cos(p * Math.PI).toFloat().coerceIn(0f, 1f)
+        val camberScaleY = 1f - (sin(p * Math.PI) * 0.05f).toFloat()
+
+        withTransform({
+            scale(scaleX = scaleX, scaleY = camberScaleY, pivot = Offset(pLeft, pTop + pH / 2f))
+        }) {
+            drawRect(
+                color = paperColor,
+                topLeft = Offset(pLeft, pTop),
+                size = Size(pW, pH)
+            )
+            if (currentBitmap != null) {
+                drawPageBitmap(currentBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
+            }
+
+            // Spine crease depth shading on turning page inside the spine fold
+            val creaseWidth = min(pW * 0.12f, 30f)
             drawRect(
                 brush = Brush.horizontalGradient(
                     colors = listOf(
-                        Color.Transparent,
-                        Color.Black.copy(alpha = shadowAlpha),
-                        Color.Black.copy(alpha = shadowAlpha * 0.35f),
+                        Color.Black.copy(alpha = (p * 0.35f)),
                         Color.Transparent
                     ),
-                    startX = shadowStart,
-                    endX = shadowEnd
+                    startX = pLeft,
+                    endX = pLeft + creaseWidth
                 ),
-                topLeft = Offset(shadowStart, pTop),
-                size = Size(shadowEnd - shadowStart, pH)
-            )
-        }
-    }
-
-    // 3. 3D Turning Page Leaf with Perspective Camber
-    if (p < 0.5f) {
-        // Front face (Current Page turning toward 90deg)
-        val scaleX = cos(p * Math.PI).toFloat().coerceIn(0f, 1f)
-        val camberScaleY = 1f - (sin(p * Math.PI) * 0.04f).toFloat()
-        val shadingAlpha = (p * 0.40f).coerceIn(0f, 0.18f)
-
-        withTransform({
-            scale(scaleX = scaleX, scaleY = camberScaleY, pivot = Offset(pLeft, pTop + pH / 2f))
-        }) {
-            if (currentBitmap != null) {
-                drawPageBitmap(currentBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
-            } else {
-                drawRect(
-                    color = if (theme.isDark) Color(0xFF1E242E) else Color(0xFFFAF7F2),
-                    topLeft = Offset(pLeft, pTop),
-                    size = Size(pW, pH)
-                )
-            }
-
-            // Dynamic Lambertian Surface Shading
-            drawRect(
-                color = Color.Black.copy(alpha = shadingAlpha),
                 topLeft = Offset(pLeft, pTop),
-                size = Size(pW, pH)
+                size = Size(creaseWidth, pH)
             )
 
-            // Page Spine Crease Shadow on turning leaf
+            // Paper edge stroke
+            drawRect(
+                color = Color(0x30000000),
+                topLeft = Offset(pLeft, pTop),
+                size = Size(pW, pH),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.0f)
+            )
+
             drawBookSpineGutter(metrics, theme)
         }
     } else {
-        // Back face (Reverse Page leaf settling from 90deg to 180deg)
         val backProgress = 1f - p
         val scaleX = cos(backProgress * Math.PI).toFloat().coerceIn(0f, 1f)
-        val camberScaleY = 1f - (sin(backProgress * Math.PI) * 0.04f).toFloat()
-        val shadingAlpha = (backProgress * 0.40f).coerceIn(0f, 0.18f)
+        val camberScaleY = 1f - (sin(backProgress * Math.PI) * 0.05f).toFloat()
 
         withTransform({
             scale(scaleX = scaleX, scaleY = camberScaleY, pivot = Offset(pLeft, pTop + pH / 2f))
         }) {
-            if (nextBitmap != null) {
-                drawPageBitmap(nextBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
-            } else {
-                drawRect(
-                    color = if (theme.isDark) Color(0xFF1E242E) else Color(0xFFFAF7F2),
-                    topLeft = Offset(pLeft, pTop),
-                    size = Size(pW, pH)
-                )
-            }
-
-            // Shading as it settles down
+            // Solid Verso Leaf
             drawRect(
-                color = Color.Black.copy(alpha = shadingAlpha),
+                color = versoPaperColor,
                 topLeft = Offset(pLeft, pTop),
                 size = Size(pW, pH)
+            )
+
+            // Verso 3D paper cylinder lighting inside the fold
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(
+                        Color.Black.copy(alpha = (backProgress * 0.35f)),
+                        Color.Transparent,
+                        if (theme.isDark) Color(0x18FFFFFF) else Color(0x30FFFFFF),
+                        Color.Transparent
+                    ),
+                    startX = pLeft,
+                    endX = pLeft + pW
+                ),
+                topLeft = Offset(pLeft, pTop),
+                size = Size(pW, pH)
+            )
+
+            // Paper edge stroke
+            drawRect(
+                color = Color(0x30000000),
+                topLeft = Offset(pLeft, pTop),
+                size = Size(pW, pH),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.0f)
             )
 
             drawBookSpineGutter(metrics, theme)
@@ -1239,65 +1078,74 @@ private fun DrawScope.draw3DPageFlipBackward(
     val pTop = metrics.top
     val p = progress.coerceIn(0f, 1f)
 
-    // 1. Base current page
-    if (currentBitmap != null) {
-        drawPageBitmap(currentBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
+    val paperColor = if (theme.isDark) {
+        Color(0xFF1E242E)
     } else {
-        drawRect(
-            color = if (theme.isDark) Color(0xFF1B202A) else Color(0xFFFAF8F5),
-            topLeft = Offset(pLeft, pTop),
-            size = Size(pW, pH)
-        )
-    }
-
-    // 2. Dynamic Ground Shadow
-    val shadowSpread = (sin(p * PI) * pW * 0.35f + 14f).toFloat()
-    val shadowAlpha = (sin(p * PI) * (if (theme.isDark) 0.22f else 0.14f)).toFloat()
-    if (shadowAlpha > 0.01f) {
-        val shadowX = pLeft + pW * p
-        val shadowStart = (shadowX - shadowSpread * 0.7f).coerceAtLeast(pLeft)
-        val shadowEnd = (shadowX + shadowSpread * 0.3f).coerceAtMost(pLeft + pW)
-        if (shadowEnd > shadowStart) {
-            drawRect(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        Color.Black.copy(alpha = shadowAlpha * 0.35f),
-                        Color.Black.copy(alpha = shadowAlpha),
-                        Color.Transparent
-                    ),
-                    startX = shadowStart,
-                    endX = shadowEnd
-                ),
-                topLeft = Offset(shadowStart, pTop),
-                size = Size(shadowEnd - shadowStart, pH)
-            )
+        when (theme) {
+            ReaderThemeMode.CREAM -> Color(0xFFF9F5EC)
+            ReaderThemeMode.SEPIA -> Color(0xFFF2EADC)
+            else -> Color(0xFFFCFAF7)
         }
     }
 
-    // 3. 3D Turning Page Leaf
+    val versoPaperColor = if (theme.isDark) {
+        Color(0xFF222834)
+    } else {
+        when (theme) {
+            ReaderThemeMode.CREAM -> Color(0xFFF6F1E3)
+            ReaderThemeMode.SEPIA -> Color(0xFFECE1CE)
+            else -> Color(0xFFF7F4EE)
+        }
+    }
+
+    // 1. Base current page (Seamless with background)
+    drawRect(
+        color = paperColor,
+        topLeft = Offset(pLeft, pTop),
+        size = Size(pW, pH)
+    )
+    if (currentBitmap != null) {
+        drawPageBitmap(currentBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+
+    // 2. 3D Turning Page Leaf
     if (p < 0.5f) {
         val scaleX = cos(p * Math.PI).toFloat().coerceIn(0f, 1f)
-        val camberScaleY = 1f - (sin(p * Math.PI) * 0.04f).toFloat()
-        val shadingAlpha = (p * 0.40f).coerceIn(0f, 0.18f)
+        val camberScaleY = 1f - (sin(p * Math.PI) * 0.05f).toFloat()
 
         withTransform({
             scale(scaleX = scaleX, scaleY = camberScaleY, pivot = Offset(pLeft + pW, pTop + pH / 2f))
         }) {
-            if (currentBitmap != null) {
-                drawPageBitmap(currentBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
-            } else {
-                drawRect(
-                    color = if (theme.isDark) Color(0xFF1E242E) else Color(0xFFFAF7F2),
-                    topLeft = Offset(pLeft, pTop),
-                    size = Size(pW, pH)
-                )
-            }
-
             drawRect(
-                color = Color.Black.copy(alpha = shadingAlpha),
+                color = paperColor,
                 topLeft = Offset(pLeft, pTop),
                 size = Size(pW, pH)
+            )
+            if (currentBitmap != null) {
+                drawPageBitmap(currentBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
+            }
+
+            // Depth crease shading inside the fold
+            val creaseWidth = min(pW * 0.12f, 30f)
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        Color.Black.copy(alpha = (p * 0.35f))
+                    ),
+                    startX = pLeft + pW - creaseWidth,
+                    endX = pLeft + pW
+                ),
+                topLeft = Offset(pLeft + pW - creaseWidth, pTop),
+                size = Size(creaseWidth, pH)
+            )
+
+            // Paper edge stroke
+            drawRect(
+                color = Color(0x30000000),
+                topLeft = Offset(pLeft, pTop),
+                size = Size(pW, pH),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.0f)
             )
 
             drawBookSpineGutter(metrics, theme)
@@ -1305,26 +1153,26 @@ private fun DrawScope.draw3DPageFlipBackward(
     } else {
         val backProgress = 1f - p
         val scaleX = cos(backProgress * Math.PI).toFloat().coerceIn(0f, 1f)
-        val camberScaleY = 1f - (sin(backProgress * Math.PI) * 0.04f).toFloat()
-        val shadingAlpha = (backProgress * 0.40f).coerceIn(0f, 0.18f)
+        val camberScaleY = 1f - (sin(backProgress * Math.PI) * 0.05f).toFloat()
 
         withTransform({
             scale(scaleX = scaleX, scaleY = camberScaleY, pivot = Offset(pLeft + pW, pTop + pH / 2f))
         }) {
-            if (previousBitmap != null) {
-                drawPageBitmap(previousBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
-            } else {
-                drawRect(
-                    color = if (theme.isDark) Color(0xFF1E242E) else Color(0xFFFAF7F2),
-                    topLeft = Offset(pLeft, pTop),
-                    size = Size(pW, pH)
-                )
-            }
-
             drawRect(
-                color = Color.Black.copy(alpha = shadingAlpha),
+                color = paperColor,
                 topLeft = Offset(pLeft, pTop),
                 size = Size(pW, pH)
+            )
+            if (previousBitmap != null) {
+                drawPageBitmap(previousBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
+            }
+
+            // Paper edge stroke
+            drawRect(
+                color = Color(0x30000000),
+                topLeft = Offset(pLeft, pTop),
+                size = Size(pW, pH),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.0f)
             )
 
             drawBookSpineGutter(metrics, theme)
@@ -1369,26 +1217,8 @@ private fun DrawScope.drawSlideForward(
         nextBitmap?.let { drawPageBitmap(it, width, height, isSmartMarginFit, pageVerticalPosition) }
     }
 
-    // High-precision blurred drop shadow on sliding page edge
+    // Crisp paper thickness edge divider line
     val shadowX = pLeft + offsetX + pW
-    val shadowWidth = min(48f, pW * 0.12f)
-    drawRect(
-        brush = Brush.horizontalGradient(
-            colors = listOf(
-                Color(0x55000000),
-                Color(0x32000000),
-                Color(0x18000000),
-                Color(0x06000000),
-                Color.Transparent
-            ),
-            startX = shadowX,
-            endX = shadowX + shadowWidth
-        ),
-        topLeft = Offset(shadowX, pTop),
-        size = Size(shadowWidth, pH)
-    )
-
-    // Crisp paper thickness edge highlight line
     drawRect(
         color = Color(0x30000000),
         topLeft = Offset(shadowX - 1f, pTop),
@@ -1426,25 +1256,8 @@ private fun DrawScope.drawSlideBackward(
         currentBitmap?.let { drawPageBitmap(it, width, height, isSmartMarginFit, pageVerticalPosition) }
     }
 
-    // High-precision blurred drop shadow on incoming page edge
+    // Crisp paper thickness edge divider line
     val shadowX = pLeft + offsetX
-    val shadowWidth = min(48f, pW * 0.12f)
-    drawRect(
-        brush = Brush.horizontalGradient(
-            colors = listOf(
-                Color.Transparent,
-                Color(0x06000000),
-                Color(0x18000000),
-                Color(0x32000000),
-                Color(0x55000000)
-            ),
-            startX = shadowX - shadowWidth,
-            endX = shadowX
-        ),
-        topLeft = Offset(shadowX - shadowWidth, pTop),
-        size = Size(shadowWidth, pH)
-    )
-
     drawRect(
         color = Color(0x30000000),
         topLeft = Offset(shadowX - 1f, pTop),
@@ -1532,35 +1345,20 @@ private fun DrawScope.drawPageBitmap(
     val targetW = metrics.width
     val targetH = metrics.height
 
-    // 1. Subtle Paper Ambient Shadow underneath the page bounds
-    drawRect(
-        color = Color(0x18000000),
-        topLeft = Offset(left + 2f, top + 4f),
-        size = Size(targetW, targetH)
-    )
-
-    // 2. Realistic Crisp White / Ivory Paper Canvas
+    // 1. Realistic Crisp Paper Canvas
     drawRect(
         color = Color.White,
         topLeft = Offset(left, top),
         size = Size(targetW, targetH)
     )
 
-    // 3. Render Book Page Graphic with 100% natural proportions
+    // 2. Render Book Page Graphic with 100% natural proportions
     drawImage(
         image = imageBitmap,
         srcOffset = IntOffset.Zero,
         srcSize = IntSize(bitmap.width, bitmap.height),
         dstOffset = IntOffset(left.toInt(), top.toInt()),
         dstSize = IntSize(targetW.toInt(), targetH.toInt())
-    )
-
-    // 4. Subtle Page Border
-    drawRect(
-        color = Color(0x12000000),
-        topLeft = Offset(left, top),
-        size = Size(targetW, targetH),
-        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1f)
     )
 
     return metrics
@@ -1610,12 +1408,6 @@ private fun DrawScope.drawBookEdgeShadow(metrics: PageLayoutMetrics, theme: Read
         ),
         topLeft = Offset(metrics.left + metrics.width - edgeWidth, metrics.top),
         size = Size(edgeWidth, metrics.height)
-    )
-    // 1px stacked paper rim
-    drawRect(
-        color = Color(0x18000000),
-        topLeft = Offset(metrics.left + metrics.width - 1f, metrics.top),
-        size = Size(1f, metrics.height)
     )
 }
 
