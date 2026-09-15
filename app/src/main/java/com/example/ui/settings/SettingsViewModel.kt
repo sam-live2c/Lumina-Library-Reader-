@@ -104,6 +104,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update { it.copy(isFullScreenModeEnabled = isFs) }
             }
         }
+        viewModelScope.launch {
+            AppSettingsManager.currentAppTheme.collect { theme ->
+                _uiState.update { it.copy(defaultReaderTheme = theme) }
+            }
+        }
         calculateCacheSize()
     }
 
@@ -125,14 +130,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setDefaultReaderTheme(theme: ReaderThemeMode) {
-        prefs.edit().putString("pref_reader_theme", theme.name).apply()
+        AppSettingsManager.setAppTheme(theme)
         val themeLabel = when (theme) {
             ReaderThemeMode.WHITE -> "Clean White"
             ReaderThemeMode.CREAM -> "Warm Linen"
             ReaderThemeMode.SEPIA -> "Heritage Sepia"
             ReaderThemeMode.NIGHT -> "Velvet Night"
         }
-        _uiState.update { it.copy(defaultReaderTheme = theme, toastMessage = "Paper theme updated to $themeLabel") }
+        _uiState.update { it.copy(defaultReaderTheme = theme, toastMessage = "App theme updated to $themeLabel") }
     }
 
     fun setDefaultPageFlipStyle(style: PageFlipStyle) {

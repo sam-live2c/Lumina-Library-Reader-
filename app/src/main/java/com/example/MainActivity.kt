@@ -74,7 +74,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyFullScreenPreference() {
-        AppSettingsManager.applySystemBars(this, AppSettingsManager.isFullScreenModeEnabled.value)
+        AppSettingsManager.applySystemBars(
+            this,
+            AppSettingsManager.isFullScreenModeEnabled.value,
+            AppSettingsManager.currentAppTheme.value.isDark
+        )
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -121,13 +125,14 @@ fun LuminaApp(
     val context = LocalContext.current
     val activity = context as? Activity
     val isFullScreen by AppSettingsManager.isFullScreenModeEnabled.collectAsStateWithLifecycle()
+    val currentTheme by AppSettingsManager.currentAppTheme.collectAsStateWithLifecycle()
     var isSplashActive by remember { mutableStateOf(true) }
     var currentDestination by remember { mutableStateOf<AppDestination>(AppDestination.Library) }
 
     // Dynamic full-screen mode listener: toggles status bar immediately across all pages
-    LaunchedEffect(isFullScreen, currentDestination, isSplashActive) {
+    LaunchedEffect(isFullScreen, currentDestination, isSplashActive, currentTheme) {
         if (currentDestination !is AppDestination.Reader) {
-            AppSettingsManager.applySystemBars(activity, isFullScreen, isDarkTheme = false)
+            AppSettingsManager.applySystemBars(activity, isFullScreen, isDarkTheme = currentTheme.isDark)
         }
     }
 

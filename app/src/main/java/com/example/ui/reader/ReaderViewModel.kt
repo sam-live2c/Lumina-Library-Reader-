@@ -85,6 +85,7 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     private val prefs: SharedPreferences = application.getSharedPreferences("lumina_settings_prefs", Context.MODE_PRIVATE)
     private val _uiState = MutableStateFlow(
         ReaderUiState(
+            readerTheme = AppSettingsManager.currentAppTheme.value,
             isFullScreenModeEnabled = prefs.getBoolean("pref_full_screen_mode", false),
             pageVerticalPosition = try {
                 PageVerticalPosition.valueOf(
@@ -104,6 +105,11 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             AppSettingsManager.isFullScreenModeEnabled.collect { isFs ->
                 _uiState.update { it.copy(isFullScreenModeEnabled = isFs) }
+            }
+        }
+        viewModelScope.launch {
+            AppSettingsManager.currentAppTheme.collect { theme ->
+                _uiState.update { it.copy(readerTheme = theme) }
             }
         }
     }
@@ -338,7 +344,8 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun setReaderTheme(theme: ReaderThemeMode) {
-        _uiState.update { it.copy(readerTheme = theme, isThemeDialogOpen = false) }
+        AppSettingsManager.setAppTheme(theme)
+        _uiState.update { it.copy(readerTheme = theme) }
     }
 
     fun setFlipStyle(style: PageFlipStyle) {

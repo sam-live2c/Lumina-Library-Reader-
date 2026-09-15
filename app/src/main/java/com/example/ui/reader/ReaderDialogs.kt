@@ -102,17 +102,48 @@ fun ReaderThemeAppearanceDialog(
     var brightnessLevel by remember { mutableFloatStateOf(0.85f) }
     val accentColor = currentTheme.accentColor
 
+    val sheetBg = when (currentTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+        ReaderThemeMode.NIGHT -> Color(0xFF161D28)
+    }
+
+    val cardBg = when (currentTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFF4F6F8)
+        ReaderThemeMode.CREAM -> Color(0xFFEFE8DB)
+        ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
+        ReaderThemeMode.NIGHT -> Color(0xFF1F2837)
+    }
+
+    val textColor = currentTheme.textColor
+    val textSecondary = currentTheme.textSecondaryColor
+
+    val switchColors = SwitchDefaults.colors(
+        checkedThumbColor = Color.White,
+        checkedTrackColor = accentColor,
+        checkedBorderColor = Color.Transparent,
+        uncheckedThumbColor = if (currentTheme.isDark) Color(0xFF94A3B8) else Color.White,
+        uncheckedTrackColor = when (currentTheme) {
+            ReaderThemeMode.WHITE -> Color(0xFFCBD5E1)
+            ReaderThemeMode.CREAM -> Color(0xFFD8CEBD)
+            ReaderThemeMode.SEPIA -> Color(0xFFD0C0A7)
+            ReaderThemeMode.NIGHT -> Color(0xFF334155)
+        },
+        uncheckedBorderColor = Color.Transparent
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = if (currentTheme.isDark) Color(0xFF161D28) else Color(0xFFFAF8F5),
+        containerColor = sheetBg,
         dragHandle = {
             Surface(
                 modifier = Modifier
                     .padding(vertical = 10.dp)
                     .size(width = 36.dp, height = 4.dp),
                 shape = CircleShape,
-                color = if (currentTheme.isDark) Color(0xFF334155) else Color(0xFFD6CEBF)
+                color = textSecondary.copy(alpha = 0.35f)
             ) {}
         }
     ) {
@@ -154,7 +185,7 @@ fun ReaderThemeAppearanceDialog(
                             fontWeight = FontWeight.SemiBold,
                             letterSpacing = 0.3.sp
                         ),
-                        color = if (currentTheme.isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+                        color = textColor
                     )
                 }
 
@@ -165,7 +196,7 @@ fun ReaderThemeAppearanceDialog(
                     Icon(
                         imageVector = Icons.Outlined.Close,
                         contentDescription = "Close",
-                        tint = if (currentTheme.isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                        tint = textSecondary
                     )
                 }
             }
@@ -175,7 +206,7 @@ fun ReaderThemeAppearanceDialog(
             // 1. Ambient Brightness Regulator
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = if (currentTheme.isDark) Color(0xFF1F2837) else Color(0xFFF0EAE1),
+                color = cardBg,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -188,7 +219,7 @@ fun ReaderThemeAppearanceDialog(
                     Icon(
                         imageVector = Icons.Outlined.LightMode,
                         contentDescription = "Dim",
-                        tint = if (currentTheme.isDark) Color(0xFF94A3B8) else Color(0xFF78716C),
+                        tint = textSecondary,
                         modifier = Modifier.size(18.dp)
                     )
 
@@ -197,14 +228,14 @@ fun ReaderThemeAppearanceDialog(
                         onValueChange = { brightnessLevel = it },
                         modifier = Modifier.weight(1f),
                         accentColor = accentColor,
-                        inactiveTrackColor = if (currentTheme.isDark) Color(0xFF334155) else Color(0xFFD6CEBF),
+                        inactiveTrackColor = if (currentTheme.isDark) Color(0xFF334155) else textSecondary.copy(alpha = 0.25f),
                         isDark = currentTheme.isDark
                     )
 
                     Icon(
                         imageVector = Icons.Filled.WbSunny,
                         contentDescription = "Bright",
-                        tint = if (currentTheme.isDark) Color(0xFFF1F5F9) else Color(0xFF292524),
+                        tint = textColor,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -219,7 +250,7 @@ fun ReaderThemeAppearanceDialog(
                     letterSpacing = 1.2.sp,
                     fontWeight = FontWeight.Bold
                 ),
-                color = if (currentTheme.isDark) Color(0xFF94A3B8) else Color(0xFF78716C)
+                color = textSecondary
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -248,14 +279,14 @@ fun ReaderThemeAppearanceDialog(
                     letterSpacing = 1.2.sp,
                     fontWeight = FontWeight.Bold
                 ),
-                color = if (currentTheme.isDark) Color(0xFF94A3B8) else Color(0xFF78716C)
+                color = textSecondary
             )
 
             Spacer(modifier = Modifier.height(10.dp))
 
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = if (currentTheme.isDark) Color(0xFF1F2837) else Color(0xFFF0EAE1),
+                color = cardBg,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -269,6 +300,7 @@ fun ReaderThemeAppearanceDialog(
                         icon = Icons.Outlined.MenuBook,
                         isSelected = currentFlipStyle == PageFlipStyle.REALISTIC_CURL,
                         isDarkTheme = currentTheme.isDark,
+                        themeMode = currentTheme,
                         accentColor = accentColor,
                         onClick = { onSelectFlipStyle(PageFlipStyle.REALISTIC_CURL) },
                         testTag = "flip_style_curl",
@@ -280,6 +312,7 @@ fun ReaderThemeAppearanceDialog(
                         icon = Icons.Outlined.StayCurrentLandscape,
                         isSelected = currentFlipStyle == PageFlipStyle.BOOK_3D_FLIP,
                         isDarkTheme = currentTheme.isDark,
+                        themeMode = currentTheme,
                         accentColor = accentColor,
                         onClick = { onSelectFlipStyle(PageFlipStyle.BOOK_3D_FLIP) },
                         testTag = "flip_style_3d_flip",
@@ -291,6 +324,7 @@ fun ReaderThemeAppearanceDialog(
                         icon = Icons.Outlined.Swipe,
                         isSelected = currentFlipStyle == PageFlipStyle.SMOOTH_SLIDE,
                         isDarkTheme = currentTheme.isDark,
+                        themeMode = currentTheme,
                         accentColor = accentColor,
                         onClick = { onSelectFlipStyle(PageFlipStyle.SMOOTH_SLIDE) },
                         testTag = "flip_style_slide",
@@ -308,14 +342,14 @@ fun ReaderThemeAppearanceDialog(
                     letterSpacing = 1.2.sp,
                     fontWeight = FontWeight.Bold
                 ),
-                color = if (currentTheme.isDark) Color(0xFF94A3B8) else Color(0xFF78716C)
+                color = textSecondary
             )
 
             Spacer(modifier = Modifier.height(10.dp))
 
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = if (currentTheme.isDark) Color(0xFF1F2837) else Color(0xFFF0EAE1),
+                color = cardBg,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -329,6 +363,7 @@ fun ReaderThemeAppearanceDialog(
                         icon = Icons.Outlined.VerticalAlignTop,
                         isSelected = pageVerticalPosition == PageVerticalPosition.TOP,
                         isDarkTheme = currentTheme.isDark,
+                        themeMode = currentTheme,
                         accentColor = accentColor,
                         onClick = { onSelectPageVerticalPosition(PageVerticalPosition.TOP) },
                         testTag = "page_pos_top",
@@ -340,6 +375,7 @@ fun ReaderThemeAppearanceDialog(
                         icon = Icons.Outlined.VerticalAlignCenter,
                         isSelected = pageVerticalPosition == PageVerticalPosition.CENTER,
                         isDarkTheme = currentTheme.isDark,
+                        themeMode = currentTheme,
                         accentColor = accentColor,
                         onClick = { onSelectPageVerticalPosition(PageVerticalPosition.CENTER) },
                         testTag = "page_pos_center",
@@ -351,6 +387,7 @@ fun ReaderThemeAppearanceDialog(
                         icon = Icons.Outlined.VerticalAlignBottom,
                         isSelected = pageVerticalPosition == PageVerticalPosition.BOTTOM,
                         isDarkTheme = currentTheme.isDark,
+                        themeMode = currentTheme,
                         accentColor = accentColor,
                         onClick = { onSelectPageVerticalPosition(PageVerticalPosition.BOTTOM) },
                         testTag = "page_pos_bottom",
@@ -368,14 +405,14 @@ fun ReaderThemeAppearanceDialog(
                     letterSpacing = 1.2.sp,
                     fontWeight = FontWeight.Bold
                 ),
-                color = if (currentTheme.isDark) Color(0xFF94A3B8) else Color(0xFF78716C)
+                color = textSecondary
             )
 
             Spacer(modifier = Modifier.height(10.dp))
 
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = if (currentTheme.isDark) Color(0xFF1F2837) else Color(0xFFF0EAE1),
+                color = cardBg,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -401,12 +438,12 @@ fun ReaderThemeAppearanceDialog(
                                     text = "Smart Margin Fit",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = if (currentTheme.isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+                                    color = textColor
                                 )
                                 Text(
                                     text = "Trim excess margins so text is large & legible by default",
                                     fontSize = 12.sp,
-                                    color = if (currentTheme.isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                                    color = textSecondary
                                 )
                             }
                         }
@@ -414,10 +451,7 @@ fun ReaderThemeAppearanceDialog(
                         Switch(
                             checked = isSmartMarginFitEnabled,
                             onCheckedChange = { onToggleSmartMarginFit() },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = accentColor
-                            ),
+                            colors = switchColors,
                             modifier = Modifier.testTag("smart_margin_fit_switch")
                         )
                     }
@@ -444,12 +478,12 @@ fun ReaderThemeAppearanceDialog(
                                     text = "High Contrast Text",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = if (currentTheme.isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+                                    color = textColor
                                 )
                                 Text(
                                     text = "Enhances ink density and anti-aliasing sharpness",
                                     fontSize = 12.sp,
-                                    color = if (currentTheme.isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                                    color = textSecondary
                                 )
                             }
                         }
@@ -457,10 +491,7 @@ fun ReaderThemeAppearanceDialog(
                         Switch(
                             checked = isEnhancedContrastEnabled,
                             onCheckedChange = { onToggleEnhancedContrast() },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = accentColor
-                            ),
+                            colors = switchColors,
                             modifier = Modifier.testTag("enhanced_contrast_switch")
                         )
                     }
@@ -487,12 +518,12 @@ fun ReaderThemeAppearanceDialog(
                                     text = "Full Screen Mode",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = if (currentTheme.isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+                                    color = textColor
                                 )
                                 Text(
                                     text = if (isFullScreenModeEnabled) "Distraction-free immersive view (Status bar hidden)" else "Standard system status bar visible",
                                     fontSize = 12.sp,
-                                    color = if (currentTheme.isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                                    color = textSecondary
                                 )
                             }
                         }
@@ -500,10 +531,7 @@ fun ReaderThemeAppearanceDialog(
                         Switch(
                             checked = isFullScreenModeEnabled,
                             onCheckedChange = { onToggleFullScreenMode() },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = accentColor
-                            ),
+                            colors = switchColors,
                             modifier = Modifier.testTag("reader_fullscreen_mode_switch")
                         )
                     }
@@ -594,17 +622,27 @@ private fun FlipPillOption(
     icon: ImageVector,
     isSelected: Boolean,
     isDarkTheme: Boolean,
+    themeMode: ReaderThemeMode = ReaderThemeMode.WHITE,
     accentColor: Color,
     onClick: () -> Unit,
     testTag: String,
     modifier: Modifier = Modifier
 ) {
+    val selectedBg = if (isDarkTheme) {
+        Color(0xFF2C3749)
+    } else {
+        when (themeMode) {
+            ReaderThemeMode.WHITE -> Color.White
+            ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+            ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+            ReaderThemeMode.NIGHT -> Color(0xFF2C3749)
+        }
+    }
+
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
-        color = if (isSelected) {
-            if (isDarkTheme) Color(0xFF2C3749) else Color.White
-        } else Color.Transparent,
+        color = if (isSelected) selectedBg else Color.Transparent,
         shadowElevation = if (isSelected) 2.dp else 0.dp,
         modifier = modifier
             .height(42.dp)
