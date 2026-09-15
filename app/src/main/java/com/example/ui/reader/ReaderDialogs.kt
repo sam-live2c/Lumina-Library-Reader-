@@ -704,7 +704,7 @@ fun BookmarksBottomSheet(
         Color(0xFF222B3A)
     } else {
         when (readerTheme) {
-            ReaderThemeMode.WHITE -> Color(0xFFF5F7FA)
+            ReaderThemeMode.WHITE -> Color(0xFFF1F5F9)
             ReaderThemeMode.CREAM -> Color(0xFFF1EBE0)
             ReaderThemeMode.SEPIA -> Color(0xFFE5D8C3)
             ReaderThemeMode.NIGHT -> Color(0xFF222B3A)
@@ -869,9 +869,20 @@ fun JumpToPageDialog(
     var selectedPage by remember { mutableFloatStateOf(currentPage.toFloat()) }
     val accentColor = readerTheme.accentColor
     val isDark = readerTheme.isDark
-    val cardBg = if (isDark) Color(0xFF19202C) else Color(0xFFFAF8F5)
-    val cardText = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
-    val cardSubtext = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val cardBg = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+        ReaderThemeMode.NIGHT -> Color(0xFF161D28)
+    }
+    val showcaseBg = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFF1F5F9)
+        ReaderThemeMode.CREAM -> Color(0xFFEFE8DB)
+        ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
+        ReaderThemeMode.NIGHT -> Color(0xFF222C3D)
+    }
+    val cardText = readerTheme.textColor
+    val cardSubtext = readerTheme.textSecondaryColor
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -939,7 +950,7 @@ fun JumpToPageDialog(
                 // Page Number Showcase
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = if (isDark) Color(0xFF222C3D) else Color(0xFFF0EBE2),
+                    color = showcaseBg,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -1004,7 +1015,7 @@ fun JumpToPageDialog(
                     onValueChange = { selectedPage = it },
                     valueRange = 1f..totalPages.toFloat().coerceAtLeast(1f),
                     accentColor = accentColor,
-                    inactiveTrackColor = if (isDark) Color(0xFF334155) else Color(0xFFDDD6CA),
+                    inactiveTrackColor = if (isDark) Color(0xFF334155) else cardSubtext.copy(alpha = 0.25f),
                     isDark = isDark,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1020,28 +1031,28 @@ fun JumpToPageDialog(
                     QuickStepButton(
                         text = "« 1",
                         enabled = selectedPage.toInt() > 1,
-                        isDark = isDark,
+                        themeMode = readerTheme,
                         onClick = { selectedPage = 1f }
                     )
 
                     QuickStepButton(
                         text = "−1",
                         enabled = selectedPage.toInt() > 1,
-                        isDark = isDark,
+                        themeMode = readerTheme,
                         onClick = { selectedPage = (selectedPage - 1f).coerceAtLeast(1f) }
                     )
 
                     QuickStepButton(
                         text = "+1",
                         enabled = selectedPage.toInt() < totalPages,
-                        isDark = isDark,
+                        themeMode = readerTheme,
                         onClick = { selectedPage = (selectedPage + 1f).coerceAtMost(totalPages.toFloat()) }
                     )
 
                     QuickStepButton(
                         text = "$totalPages »",
                         enabled = selectedPage.toInt() < totalPages,
-                        isDark = isDark,
+                        themeMode = readerTheme,
                         onClick = { selectedPage = totalPages.toFloat() }
                     )
                 }
@@ -1085,14 +1096,22 @@ fun JumpToPageDialog(
 private fun QuickStepButton(
     text: String,
     enabled: Boolean,
-    isDark: Boolean,
+    themeMode: ReaderThemeMode,
     onClick: () -> Unit
 ) {
+    val isDark = themeMode.isDark
+    val btnBg = when (themeMode) {
+        ReaderThemeMode.WHITE -> Color(0xFFF1F5F9)
+        ReaderThemeMode.CREAM -> Color(0xFFEFE8DB)
+        ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
+        ReaderThemeMode.NIGHT -> Color(0xFF222C3D)
+    }
+
     Surface(
         onClick = onClick,
         enabled = enabled,
         shape = RoundedCornerShape(10.dp),
-        color = if (isDark) Color(0xFF222C3D) else Color(0xFFECE5D9),
+        color = btnBg,
         modifier = Modifier.height(32.dp)
     ) {
         Box(
@@ -1103,9 +1122,9 @@ private fun QuickStepButton(
                 text = text,
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                 color = if (enabled) {
-                    if (isDark) Color(0xFFE2E8F0) else Color(0xFF292524)
+                    themeMode.textColor
                 } else {
-                    if (isDark) Color(0xFF475569) else Color(0xFFA8A29E)
+                    themeMode.textSecondaryColor.copy(alpha = 0.5f)
                 }
             )
         }

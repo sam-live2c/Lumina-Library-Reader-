@@ -46,10 +46,10 @@ enum class ReaderThemeMode(
     WHITE(
         title = "Clean White",
         background = Color(0xFFFFFFFF),
-        surface = Color(0xFFF8F9FA),
-        textColor = Color(0xFF161B22),
-        textSecondaryColor = Color(0xFF57606A),
-        accentColor = Color(0xFF1E293B),
+        surface = Color(0xFFFFFFFF),
+        textColor = Color(0xFF0F172A),
+        textSecondaryColor = Color(0xFF475569),
+        accentColor = Color(0xFF2563EB),
         spineShadowColor = Color(0x18000000),
         isDark = false
     ),

@@ -70,7 +70,7 @@ fun LuminaLuxurySlider(
                         brush = Brush.radialGradient(
                             colors = listOf(
                                 Color.White,
-                                if (isDark) Color(0xFFE2E8F0) else Color(0xFFFAF7F2)
+                                if (isDark) Color(0xFFE2E8F0) else Color(0xFFF1F5F9)
                             )
                         ),
                         shape = CircleShape

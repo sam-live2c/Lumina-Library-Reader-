@@ -22,22 +22,22 @@ import com.example.data.repository.AppSettingsManager
 private val WhiteColorScheme = lightColorScheme(
     primary = LuminaAccentPrimary,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFF7EFE5),
-    onPrimaryContainer = Color(0xFFA66D35),
+    primaryContainer = Color(0xFFF1F5F9),
+    onPrimaryContainer = Color(0xFF0F172A),
     secondary = DeepSlate,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFF1F5F9),
+    secondaryContainer = Color(0xFFF8FAFC),
     onSecondaryContainer = DeepSlate,
     tertiary = LuminaAccentLight,
     onTertiary = DeepSlate,
-    background = Color(0xFFFBFBFB),
-    onBackground = Color(0xFF181D26),
+    background = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF0F172A),
     surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF181D26),
-    surfaceVariant = Color(0xFFF4F6F8),
-    onSurfaceVariant = Color(0xFF5A6679),
+    onSurface = Color(0xFF0F172A),
+    surfaceVariant = Color(0xFFF1F5F9),
+    onSurfaceVariant = Color(0xFF475569),
     outline = Color(0xFFE2E8F0),
-    outlineVariant = Color(0xFFEDE8E1)
+    outlineVariant = Color(0xFFF1F5F9)
 )
 
 // 2. Warm Linen Cream Color Scheme

@@ -210,9 +210,20 @@ fun ReaderBottomBar(
     onOpenJumpDialog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val barBg = if (readerTheme.isDark) Color(0xEE1A1C20) else Color(0xF8FFFFFF)
-    val barText = if (readerTheme.isDark) Color(0xFFF1F3F5) else Color(0xFF181A1E)
-    val barSubtext = if (readerTheme.isDark) Color(0xFFA0A5AE) else Color(0xFF6A707C)
+    val barBg = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+        ReaderThemeMode.NIGHT -> Color(0xEE1A1C20)
+    }
+    val buttonBg = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFF1F5F9)
+        ReaderThemeMode.CREAM -> Color(0xFFEFE8DB)
+        ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
+        ReaderThemeMode.NIGHT -> Color(0xFF272A32)
+    }
+    val barText = readerTheme.textColor
+    val barSubtext = readerTheme.textSecondaryColor
     val accentColor = readerTheme.accentColor
 
     Surface(
@@ -264,7 +275,7 @@ fun ReaderBottomBar(
                     Surface(
                         onClick = onToggleOverviewMode,
                         shape = RoundedCornerShape(18.dp),
-                        color = if (isOverviewMode) accentColor else (if (readerTheme.isDark) Color(0xFF272A32) else Color(0xFFF2ECE3)),
+                        color = if (isOverviewMode) accentColor else buttonBg,
                         modifier = Modifier
                             .height(36.dp)
                             .testTag("reader_overview_button")
@@ -299,7 +310,7 @@ fun ReaderBottomBar(
                     Surface(
                         onClick = onOpenBookmarks,
                         shape = RoundedCornerShape(18.dp),
-                        color = if (readerTheme.isDark) Color(0xFF272A32) else Color(0xFFF2ECE3),
+                        color = buttonBg,
                         modifier = Modifier
                             .height(36.dp)
                             .testTag("reader_bookmarks_toc_button")
@@ -332,7 +343,7 @@ fun ReaderBottomBar(
                     Surface(
                         onClick = onOpenJumpDialog,
                         shape = RoundedCornerShape(18.dp),
-                        color = if (readerTheme.isDark) Color(0xFF272A32) else Color(0xFFF2ECE3),
+                        color = buttonBg,
                         modifier = Modifier
                             .height(36.dp)
                             .testTag("reader_jump_dialog_button")
