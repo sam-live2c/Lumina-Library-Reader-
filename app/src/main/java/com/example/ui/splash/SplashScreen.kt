@@ -34,21 +34,13 @@ import com.example.ui.theme.LuminaAccentPrimary
 
 @Composable
 fun SplashScreen(
-    isFullScreen: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val insetsModifier = if (isFullScreen) {
-        Modifier.fillMaxSize()
-    } else {
-        Modifier
+    Box(
+        modifier = modifier
             .fillMaxSize()
             .statusBarsPadding()
             .navigationBarsPadding()
-    }
-
-    Box(
-        modifier = modifier
-            .then(insetsModifier)
             .background(MaterialTheme.colorScheme.background)
             .testTag("app_splash_screen"),
         contentAlignment = Alignment.Center

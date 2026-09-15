@@ -64,10 +64,10 @@ fun PrivacyPolicyScreen(
     val isFullScreen by AppSettingsManager.isFullScreenModeEnabled.collectAsStateWithLifecycle()
 
     Scaffold(
-        contentWindowInsets = if (isFullScreen) WindowInsets(0, 0, 0, 0) else WindowInsets.statusBars,
+        contentWindowInsets = WindowInsets.statusBars,
         topBar = {
             TopAppBar(
-                windowInsets = if (isFullScreen) WindowInsets(0, 0, 0, 0) else TopAppBarDefaults.windowInsets,
+                windowInsets = TopAppBarDefaults.windowInsets,
                 title = {
                     Text(
                         text = "Privacy Policy",

@@ -296,10 +296,10 @@ private fun MainSettingsContent(
     val clipboardManager = LocalClipboardManager.current
 
     Scaffold(
-        contentWindowInsets = if (uiState.isFullScreenModeEnabled) WindowInsets(0, 0, 0, 0) else WindowInsets.statusBars,
+        contentWindowInsets = WindowInsets.statusBars,
         topBar = {
             TopAppBar(
-                windowInsets = if (uiState.isFullScreenModeEnabled) WindowInsets(0, 0, 0, 0) else TopAppBarDefaults.windowInsets,
+                windowInsets = TopAppBarDefaults.windowInsets,
                 title = {
                     Text(
                         text = "Settings",
@@ -747,12 +747,6 @@ private fun MainSettingsContent(
                         text = "Lumina Reader • Made by Sahanur Molla",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "GitHub: sam-live2c/sam-live29",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 }
             }

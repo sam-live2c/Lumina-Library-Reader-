@@ -131,7 +131,7 @@ fun HelpAndSupportScreen(
         listOf(
             FaqItem(
                 question = "Who created Lumina Reader and how do I contact support?",
-                answer = "Lumina Reader was created by Sahanur Molla (GitHub: sam-live2c/sam-live29). For inquiries, support, or bug reports, tap the 'Send Feedback' button below to compose an email directly.",
+                answer = "Lumina Reader was created by Sahanur Molla. For inquiries, support, or bug reports, tap the 'Send Feedback' button below to compose an email directly.",
                 category = "General"
             ),
             FaqItem(
@@ -184,11 +184,11 @@ fun HelpAndSupportScreen(
     val isFullScreen by AppSettingsManager.isFullScreenModeEnabled.collectAsStateWithLifecycle()
 
     Scaffold(
-        contentWindowInsets = if (isFullScreen) WindowInsets(0, 0, 0, 0) else WindowInsets.statusBars,
+        contentWindowInsets = WindowInsets.statusBars,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                windowInsets = if (isFullScreen) WindowInsets(0, 0, 0, 0) else TopAppBarDefaults.windowInsets,
+                windowInsets = TopAppBarDefaults.windowInsets,
                 title = {
                     Text(
                         text = "Help & Support",
@@ -450,12 +450,6 @@ fun HelpAndSupportScreen(
                         icon = Icons.Outlined.Person,
                         label = "Developer",
                         value = "Sahanur Molla",
-                        statusColor = Color(0xFF34C759)
-                    )
-                    DiagnosticRow(
-                        icon = Icons.Outlined.Code,
-                        label = "GitHub",
-                        value = "sam-live2c/sam-live29",
                         statusColor = Color(0xFF34C759)
                     )
                     DiagnosticRow(

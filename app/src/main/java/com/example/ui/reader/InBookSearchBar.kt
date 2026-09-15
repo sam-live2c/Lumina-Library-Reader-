@@ -113,7 +113,7 @@ fun InBookSearchBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(if (!isFullScreenModeEnabled) Modifier.statusBarsPadding() else Modifier.padding(top = 4.dp))
+                    .statusBarsPadding()
                     .padding(horizontal = 4.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)

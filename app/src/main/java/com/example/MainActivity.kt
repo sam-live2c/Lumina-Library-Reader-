@@ -163,7 +163,7 @@ fun LuminaApp(
     }
 
     if (isSplashActive) {
-        SplashScreen(isFullScreen = isFullScreen)
+        SplashScreen()
     } else {
         when (val destination = currentDestination) {
             is AppDestination.Library -> {

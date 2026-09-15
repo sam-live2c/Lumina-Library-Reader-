@@ -188,7 +188,7 @@ fun LibraryScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
-            contentWindowInsets = if (isFullScreenModeEnabled) WindowInsets(0, 0, 0, 0) else WindowInsets.statusBars,
+            contentWindowInsets = WindowInsets.statusBars,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             floatingActionButton = {
                 ExtendedFloatingActionButton(
@@ -233,7 +233,7 @@ fun LibraryScreen(
                     contentPadding = PaddingValues(
                         start = 14.dp,
                         end = 14.dp,
-                        top = 10.dp,
+                        top = 6.dp,
                         bottom = 100.dp
                     ),
                     horizontalArrangement = Arrangement.spacedBy(if (uiState.viewMode == LibraryViewMode.GRID) 12.dp else 0.dp),
@@ -669,7 +669,7 @@ private fun LibraryHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 12.dp, bottom = 4.dp),
+            .padding(top = 4.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

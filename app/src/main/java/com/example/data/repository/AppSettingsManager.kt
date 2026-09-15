@@ -76,10 +76,11 @@ object AppSettingsManager {
         if (isFullScreen) {
             insetsController.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            insetsController.hide(WindowInsetsCompat.Type.statusBars())
+            insetsController.hide(WindowInsetsCompat.Type.systemBars())
         } else {
-            insetsController.show(WindowInsetsCompat.Type.statusBars())
+            insetsController.show(WindowInsetsCompat.Type.systemBars())
             insetsController.isAppearanceLightStatusBars = !isDarkTheme
+            insetsController.isAppearanceLightNavigationBars = !isDarkTheme
         }
     }
 }
