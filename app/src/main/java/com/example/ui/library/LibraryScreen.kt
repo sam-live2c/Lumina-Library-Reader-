@@ -1318,14 +1318,22 @@ private fun BookCardItem(
             ) {
                 Text(
                     text = book.title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        lineHeight = 18.sp
+                    ),
+                    minLines = 2,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = book.author,
-                    style = MaterialTheme.typography.labelSmall,
+                    text = if (book.author.isNotBlank()) book.author else " ",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        lineHeight = 14.sp
+                    ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    minLines = 1,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1478,9 +1486,10 @@ private fun BookListItem(
                 }
             }
             Text(
-                text = book.author,
+                text = if (book.author.isNotBlank()) book.author else " ",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                minLines = 1,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
