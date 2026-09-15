@@ -370,7 +370,7 @@ fun PhysicalBookReaderCanvas(
                     progress == 0f || activeDirection == FlipDirection.NONE -> {
                         val activeBmp = currentPageBitmap ?: nextPageBitmap ?: previousPageBitmap
                         val metrics = activeBmp?.let { bmp ->
-                            drawPageBitmap(bmp, w, h, isSmartMarginFit, pageVerticalPosition)
+                            drawPageBitmap(bmp, w, h, isSmartMarginFit, pageVerticalPosition, readerTheme)
                         } ?: calculatePageLayoutMetrics(w, h, w, h, isSmartMarginFit, pageVerticalPosition)
                         drawBookSpineGutter(metrics, readerTheme)
                         drawBookEdgeShadow(metrics, readerTheme)
@@ -1332,7 +1332,8 @@ private fun DrawScope.drawPageBitmap(
     width: Float,
     height: Float,
     isSmartMarginFit: Boolean = true,
-    pageVerticalPosition: PageVerticalPosition = PageVerticalPosition.CENTER
+    pageVerticalPosition: PageVerticalPosition = PageVerticalPosition.CENTER,
+    theme: ReaderThemeMode = ReaderThemeMode.WHITE
 ): PageLayoutMetrics {
     val bmpW = bitmap.width.toFloat()
     val bmpH = bitmap.height.toFloat()
@@ -1345,9 +1346,16 @@ private fun DrawScope.drawPageBitmap(
     val targetW = metrics.width
     val targetH = metrics.height
 
+    val paperColor = when (theme) {
+        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+        ReaderThemeMode.NIGHT -> Color(0xFF1E242E)
+    }
+
     // 1. Realistic Crisp Paper Canvas
     drawRect(
-        color = Color.White,
+        color = paperColor,
         topLeft = Offset(left, top),
         size = Size(targetW, targetH)
     )

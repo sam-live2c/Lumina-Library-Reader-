@@ -406,9 +406,16 @@ private fun VerticalPdfPageCard(
         }
     }
 
+    val pageBgColor = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+        ReaderThemeMode.NIGHT -> Color(0xFF1E242E)
+    }
+
     Surface(
         shape = RoundedCornerShape(6.dp),
-        color = Color.White,
+        color = pageBgColor,
         shadowElevation = 5.dp,
         border = BorderStroke(
             width = 0.5.dp,
@@ -510,9 +517,15 @@ private fun VerticalPdfPageCard(
             }
 
             // Minimalist Page Number Pill
+            val pillBg = when (readerTheme) {
+                ReaderThemeMode.WHITE -> Color(0xCC0F172A)
+                ReaderThemeMode.CREAM -> Color(0xD65A422D)
+                ReaderThemeMode.SEPIA -> Color(0xD64E3723)
+                ReaderThemeMode.NIGHT -> Color(0xDD161D28)
+            }
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xCC2C2622),
+                color = pillBg,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(8.dp)
@@ -523,7 +536,7 @@ private fun VerticalPdfPageCard(
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium
                     ),
-                    color = Color.White,
+                    color = if (readerTheme.isDark) Color(0xFFE8EDF5) else Color.White,
                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
                 )
             }

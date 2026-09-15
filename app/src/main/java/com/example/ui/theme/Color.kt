@@ -56,7 +56,7 @@ enum class ReaderThemeMode(
     CREAM(
         title = "Warm Linen",
         background = Color(0xFFF7F3E9),
-        surface = Color(0xFFEFE8DB),
+        surface = Color(0xFFFAF6EE),
         textColor = Color(0xFF26211B),
         textSecondaryColor = Color(0xFF6B6256),
         accentColor = Color(0xFF8C5E2D),
@@ -66,7 +66,7 @@ enum class ReaderThemeMode(
     SEPIA(
         title = "Heritage Sepia",
         background = Color(0xFFEFE5D3),
-        surface = Color(0xFFE3D6BE),
+        surface = Color(0xFFF5EBD9),
         textColor = Color(0xFF2E2419),
         textSecondaryColor = Color(0xFF756550),
         accentColor = Color(0xFF7C4F22),

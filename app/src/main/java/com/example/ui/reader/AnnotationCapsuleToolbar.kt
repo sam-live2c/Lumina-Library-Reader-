@@ -99,6 +99,19 @@ fun FloatingPenDismissTarget(
         modifier = modifier
     ) {
         val targetSize = if (isTargetActive) 60.dp else 50.dp
+        val targetBg = when (readerTheme) {
+            ReaderThemeMode.WHITE -> Color(0xF0FFFFFF)
+            ReaderThemeMode.CREAM -> Color(0xF0FAF6EE)
+            ReaderThemeMode.SEPIA -> Color(0xF0F5EBD9)
+            ReaderThemeMode.NIGHT -> Color(0xEE161D28)
+        }
+        val targetBorder = when (readerTheme) {
+            ReaderThemeMode.WHITE -> Color(0x22000000)
+            ReaderThemeMode.CREAM -> Color(0x338C5E2D)
+            ReaderThemeMode.SEPIA -> Color(0x337C4F22)
+            ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
+        }
+
         Box(
             modifier = Modifier
                 .size(targetSize)
@@ -110,14 +123,11 @@ fun FloatingPenDismissTarget(
                 .clip(CircleShape)
                 .background(
                     if (isTargetActive) Color(0xFFEF4444)
-                    else if (readerTheme.isDark) Color(0xDD2A2624)
-                    else Color(0xDDEAE4D8)
+                    else targetBg
                 )
                 .border(
                     width = 1.5.dp,
-                    color = if (isTargetActive) Color.White
-                    else if (readerTheme.isDark) Color(0x55FFFFFF)
-                    else Color(0x44000000),
+                    color = if (isTargetActive) Color.White else targetBorder,
                     shape = CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -148,6 +158,19 @@ fun AnnotationFloatingFab(
     var isDragging by remember { mutableStateOf(false) }
     var isOverDismissZone by remember { mutableStateOf(false) }
 
+    val fabBg = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+        ReaderThemeMode.NIGHT -> Color(0xFF161D28)
+    }
+    val fabBorder = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0x22000000)
+        ReaderThemeMode.CREAM -> Color(0x338C5E2D)
+        ReaderThemeMode.SEPIA -> Color(0x337C4F22)
+        ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
+    }
+
     Box(
         modifier = modifier
             .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
@@ -159,15 +182,12 @@ fun AnnotationFloatingFab(
             )
             .clip(CircleShape)
             .background(
-                if (isAnnotationMode) LuminaAccentPrimary
-                else if (readerTheme.isDark) Color(0xFF22201E)
-                else Color(0xFFFAF7F2)
+                if (isAnnotationMode) readerTheme.accentColor
+                else fabBg
             )
             .border(
                 width = 1.dp,
-                color = if (isAnnotationMode) Color.Transparent
-                else if (readerTheme.isDark) Color(0x33FFFFFF)
-                else Color(0x22000000),
+                color = if (isAnnotationMode) Color.Transparent else fabBorder,
                 shape = CircleShape
             )
             .pointerInput(Unit) {
@@ -273,15 +293,28 @@ fun AnnotationCapsuleToolbar(
             enter = fadeIn() + scaleIn(),
             exit = fadeOut() + scaleOut()
         ) {
+            val popoverBg = when (readerTheme) {
+                ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+                ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+                ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+                ReaderThemeMode.NIGHT -> Color(0xFF161D28)
+            }
+            val popoverBorder = when (readerTheme) {
+                ReaderThemeMode.WHITE -> Color(0x1F000000)
+                ReaderThemeMode.CREAM -> Color(0x288C5E2D)
+                ReaderThemeMode.SEPIA -> Color(0x287C4F22)
+                ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
+            }
+
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = if (readerTheme.isDark) Color(0xFF1E1C1A) else Color(0xFFFFFFFF),
+                color = popoverBg,
                 shadowElevation = 10.dp,
                 modifier = Modifier
                     .padding(bottom = 8.dp)
                     .border(
                         width = 1.dp,
-                        color = if (readerTheme.isDark) Color(0x22FFFFFF) else Color(0x15000000),
+                        color = popoverBorder,
                         shape = RoundedCornerShape(20.dp)
                     )
             ) {
@@ -299,7 +332,7 @@ fun AnnotationCapsuleToolbar(
                                 .background(color)
                                 .border(
                                     width = if (isSelected) 2.5.dp else 1.dp,
-                                    color = if (isSelected) LuminaAccentPrimary else Color(0x22000000),
+                                    color = if (isSelected) readerTheme.accentColor else Color(0x22000000),
                                     shape = CircleShape
                                 )
                                 .clickable {
@@ -313,20 +346,21 @@ fun AnnotationCapsuleToolbar(
         }
 
         // Main Sleek Capsule Toolbar
-        val capsuleBg = if (readerTheme.isDark) {
-            Color(0xF0181A20)
-        } else {
-            when (readerTheme) {
-                ReaderThemeMode.WHITE -> Color(0xF5FFFFFF)
-                ReaderThemeMode.CREAM -> Color(0xF5FAF6EE)
-                ReaderThemeMode.SEPIA -> Color(0xF5EFE4D0)
-                ReaderThemeMode.NIGHT -> Color(0xF0181A20)
-            }
+        val capsuleBg = when (readerTheme) {
+            ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+            ReaderThemeMode.CREAM -> Color(0xFFEFE8DB)
+            ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
+            ReaderThemeMode.NIGHT -> Color(0xFF161D28)
         }
-        val capsuleBorder = if (readerTheme.isDark) Color(0x33C68A4C) else Color(0x288C5E2D)
-        val iconInactive = if (readerTheme.isDark) Color(0xCCFFFFFF) else Color(0xDD23272F)
-        val iconDisabled = if (readerTheme.isDark) Color(0x44FFFFFF) else Color(0x3823272F)
-        val dividerColor = if (readerTheme.isDark) Color(0x33FFFFFF) else Color(0x20000000)
+        val capsuleBorder = when (readerTheme) {
+            ReaderThemeMode.WHITE -> Color(0x1F000000)
+            ReaderThemeMode.CREAM -> Color(0x338C5E2D)
+            ReaderThemeMode.SEPIA -> Color(0x387C4F22)
+            ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
+        }
+        val iconInactive = readerTheme.textColor
+        val iconDisabled = readerTheme.textSecondaryColor.copy(alpha = 0.4f)
+        val dividerColor = readerTheme.textSecondaryColor.copy(alpha = 0.2f)
 
         Surface(
             shape = RoundedCornerShape(26.dp),

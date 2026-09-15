@@ -882,7 +882,7 @@ private fun MainSettingsContent(
             },
             shape = RoundedCornerShape(26.dp),
             containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+            tonalElevation = 0.dp
         )
     }
 
@@ -1008,7 +1008,7 @@ private fun MainSettingsContent(
             },
             shape = RoundedCornerShape(26.dp),
             containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+            tonalElevation = 0.dp
         )
     }
 
@@ -1215,7 +1215,7 @@ private fun MainSettingsContent(
             },
             shape = RoundedCornerShape(26.dp),
             containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+            tonalElevation = 0.dp
         )
     }
 
@@ -1343,7 +1343,7 @@ private fun MainSettingsContent(
             },
             shape = RoundedCornerShape(26.dp),
             containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+            tonalElevation = 0.dp
         )
     }
 }

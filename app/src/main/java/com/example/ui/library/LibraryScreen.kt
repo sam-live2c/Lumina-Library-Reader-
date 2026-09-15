@@ -563,7 +563,9 @@ fun LibraryScreen(
                             Text("Cancel")
                         }
                     },
-                    shape = RoundedCornerShape(20.dp)
+                    shape = RoundedCornerShape(20.dp),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp
                 )
             }
 
@@ -575,6 +577,9 @@ fun LibraryScreen(
                     modifier = Modifier
                         .fillMaxWidth(0.92f)
                         .widthIn(max = 560.dp),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp,
+                    shape = RoundedCornerShape(20.dp),
                     title = {
                         Text(
                             text = "Remove Book?",
@@ -926,7 +931,7 @@ private fun LibraryHeader(
             },
             shape = RoundedCornerShape(26.dp),
             containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+            tonalElevation = 0.dp
         )
     }
 }

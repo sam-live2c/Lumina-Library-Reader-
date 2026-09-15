@@ -233,14 +233,28 @@ fun FastVerticalScrollHandle(
                     enter = fadeIn() + scaleIn(),
                     exit = fadeOut() + scaleOut()
                 ) {
+                    val badgeBg = when (readerTheme) {
+                        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+                        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+                        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+                        ReaderThemeMode.NIGHT -> Color(0xFF161D28)
+                    }
+                    val badgeBorder = when (readerTheme) {
+                        ReaderThemeMode.WHITE -> Color(0x18000000)
+                        ReaderThemeMode.CREAM -> Color(0x288C5E2D)
+                        ReaderThemeMode.SEPIA -> Color(0x307C4F22)
+                        ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
+                    }
+
                     Surface(
                         shape = RoundedCornerShape(14.dp),
-                        color = if (readerTheme.isDark) Color(0xF0181A1E) else Color(0xF8FBF8F4),
-                        shadowElevation = 6.dp,
+                        color = badgeBg,
+                        shadowElevation = 4.dp,
+                        tonalElevation = 0.dp,
                         modifier = Modifier
                             .border(
                                 width = 1.dp,
-                                color = if (readerTheme.isDark) Color(0x33FFFFFF) else Color(0x22000000),
+                                color = badgeBorder,
                                 shape = RoundedCornerShape(14.dp)
                             )
                             .testTag("page_indicator_badge")
@@ -290,16 +304,30 @@ fun FastVerticalScrollHandle(
                     enter = fadeIn(),
                     exit = fadeOut()
                 ) {
+                    val defaultThumbBg = when (readerTheme) {
+                        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+                        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+                        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+                        ReaderThemeMode.NIGHT -> Color(0xFF1E2634)
+                    }
+                    val thumbBorder = when (readerTheme) {
+                        ReaderThemeMode.WHITE -> Color(0x18000000)
+                        ReaderThemeMode.CREAM -> Color(0x288C5E2D)
+                        ReaderThemeMode.SEPIA -> Color(0x307C4F22)
+                        ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
+                    }
+
                     Surface(
                         shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp),
-                        color = if (isDragging) readerTheme.accentColor else if (readerTheme.isDark) Color(0x992B2E36) else Color(0xBBD6CFBE),
-                        shadowElevation = if (isDragging) 6.dp else 2.dp,
+                        color = if (isDragging) readerTheme.accentColor else defaultThumbBg,
+                        shadowElevation = if (isDragging) 6.dp else 3.dp,
+                        tonalElevation = 0.dp,
                         modifier = Modifier
                             .width(16.dp)
                             .height(44.dp)
                             .border(
                                 width = 1.dp,
-                                color = if (isDragging) Color(0x55FFFFFF) else if (readerTheme.isDark) Color(0x22FFFFFF) else Color(0x22000000),
+                                color = if (isDragging) Color(0x55FFFFFF) else thumbBorder,
                                 shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)
                             )
                     ) {
@@ -309,17 +337,19 @@ fun FastVerticalScrollHandle(
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
+                            val gripColor = when {
+                                isDragging -> Color.White
+                                readerTheme.isDark -> Color(0xAAFFFFFF)
+                                readerTheme == ReaderThemeMode.WHITE -> Color(0x55000000)
+                                else -> Color(0x668C5E2D)
+                            }
                             repeat(3) {
                                 Box(
                                     modifier = Modifier
                                         .padding(vertical = 2.dp)
                                         .size(width = 6.dp, height = 2.dp)
                                         .clip(RoundedCornerShape(1.dp))
-                                        .background(
-                                            if (isDragging) Color.White
-                                            else if (readerTheme.isDark) Color(0xAAFFFFFF)
-                                            else Color(0x884A443D)
-                                        )
+                                        .background(gripColor)
                                 )
                             }
                         }

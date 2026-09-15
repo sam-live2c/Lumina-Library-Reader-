@@ -92,17 +92,27 @@ fun InBookSearchBar(
         }
     }
 
-    val barBg = if (readerTheme.isDark) Color(0xF21C1E22) else Color(0xF8FFFFFF)
-    val barText = if (readerTheme.isDark) Color(0xFFF1F3F5) else Color(0xFF181A1E)
-    val barSubtext = if (readerTheme.isDark) Color(0xFFA0A5AE) else Color(0xFF6A707C)
-    val cardBg = if (readerTheme.isDark) Color(0xFF26282E) else Color(0xFFF3F4F6)
+    val barBg = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+        ReaderThemeMode.NIGHT -> Color(0xFF161D28)
+    }
+    val barText = readerTheme.textColor
+    val barSubtext = readerTheme.textSecondaryColor
+    val cardBg = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFF1F5F9)
+        ReaderThemeMode.CREAM -> Color(0xFFE5DBCB)
+        ReaderThemeMode.SEPIA -> Color(0xFFD6C6A8)
+        ReaderThemeMode.NIGHT -> Color(0xFF222B3A)
+    }
 
     Surface(
         color = barBg,
-        tonalElevation = 6.dp,
+        tonalElevation = 0.dp,
         modifier = modifier
             .fillMaxWidth()
-            .shadow(elevation = 10.dp, spotColor = Color(0x33000000))
+            .shadow(elevation = 10.dp, spotColor = if (readerTheme.isDark) Color(0x66000000) else Color(0x22000000))
             .testTag("in_book_search_bar")
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {

@@ -90,17 +90,22 @@ fun ReaderTopBar(
     onOpenThemeDialog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val barBg = if (readerTheme.isDark) Color(0xEE1A1C20) else Color(0xF8FFFFFF)
-    val barText = if (readerTheme.isDark) Color(0xFFF1F3F5) else Color(0xFF181A1E)
-    val barSubtext = if (readerTheme.isDark) Color(0xFFA0A5AE) else Color(0xFF6A707C)
+    val barBg = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+        ReaderThemeMode.NIGHT -> Color(0xFF161D28)
+    }
+    val barText = readerTheme.textColor
+    val barSubtext = readerTheme.textSecondaryColor
     val accentColor = readerTheme.accentColor
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(elevation = 8.dp, spotColor = Color(0x33000000)),
+            .shadow(elevation = 8.dp, spotColor = if (readerTheme.isDark) Color(0x66000000) else Color(0x22000000)),
         color = barBg,
-        tonalElevation = 4.dp
+        tonalElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
@@ -214,13 +219,19 @@ fun ReaderBottomBar(
         ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
         ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
         ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
-        ReaderThemeMode.NIGHT -> Color(0xEE1A1C20)
+        ReaderThemeMode.NIGHT -> Color(0xFF161D28)
     }
     val buttonBg = when (readerTheme) {
-        ReaderThemeMode.WHITE -> Color(0xFFF1F5F9)
-        ReaderThemeMode.CREAM -> Color(0xFFEFE8DB)
-        ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
-        ReaderThemeMode.NIGHT -> Color(0xFF272A32)
+        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+        ReaderThemeMode.CREAM -> Color(0xFFE5DBCB)
+        ReaderThemeMode.SEPIA -> Color(0xFFD6C6A8)
+        ReaderThemeMode.NIGHT -> Color(0xFF222B3A)
+    }
+    val buttonBorder = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0x1F000000)
+        ReaderThemeMode.CREAM -> Color(0x338C5E2D)
+        ReaderThemeMode.SEPIA -> Color(0x387C4F22)
+        ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
     }
     val barText = readerTheme.textColor
     val barSubtext = readerTheme.textSecondaryColor
@@ -229,9 +240,9 @@ fun ReaderBottomBar(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(elevation = 12.dp, spotColor = Color(0x33000000)),
+            .shadow(elevation = 12.dp, spotColor = if (readerTheme.isDark) Color(0x66000000) else Color(0x22000000)),
         color = barBg,
-        tonalElevation = 4.dp
+        tonalElevation = 0.dp
     ) {
         BoxWithConstraints(
             modifier = Modifier
@@ -276,6 +287,7 @@ fun ReaderBottomBar(
                         onClick = onToggleOverviewMode,
                         shape = RoundedCornerShape(18.dp),
                         color = if (isOverviewMode) accentColor else buttonBg,
+                        border = BorderStroke(1.dp, if (isOverviewMode) Color.Transparent else buttonBorder),
                         modifier = Modifier
                             .height(36.dp)
                             .testTag("reader_overview_button")
@@ -311,6 +323,7 @@ fun ReaderBottomBar(
                         onClick = onOpenBookmarks,
                         shape = RoundedCornerShape(18.dp),
                         color = buttonBg,
+                        border = BorderStroke(1.dp, buttonBorder),
                         modifier = Modifier
                             .height(36.dp)
                             .testTag("reader_bookmarks_toc_button")
@@ -339,11 +352,12 @@ fun ReaderBottomBar(
                         }
                     }
 
-                    // Jump to Page Button
+                    // Jump to Page / Progression Indicator Button
                     Surface(
                         onClick = onOpenJumpDialog,
                         shape = RoundedCornerShape(18.dp),
                         color = buttonBg,
+                        border = BorderStroke(1.dp, buttonBorder),
                         modifier = Modifier
                             .height(36.dp)
                             .testTag("reader_jump_dialog_button")
@@ -355,16 +369,21 @@ fun ReaderBottomBar(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.FindInPage,
-                                contentDescription = null,
+                                contentDescription = "Jump to Page",
                                 modifier = Modifier.size(17.dp),
-                                tint = barText
+                                tint = accentColor
                             )
                             val percent = if (totalPages > 0) ((currentPage.toFloat() / totalPages.toFloat()) * 100).toInt() else 0
+                            val label = when {
+                                isUltraCompactWidth -> "$percent%"
+                                isCompactWidth -> "Jump"
+                                else -> "Jump ($percent%)"
+                            }
                             Text(
-                                text = "$percent%",
+                                text = label,
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.SemiBold
                                 ),
                                 maxLines = 1,
                                 softWrap = false,
@@ -410,14 +429,27 @@ fun FloatingPageIndicator(
     ) {
         val percent = if (totalPages > 0) ((currentPage.toFloat() / totalPages.toFloat()) * 100).toInt() else 0
         val pillShape = RoundedCornerShape(24.dp)
+        val pillBg = when (readerTheme) {
+            ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+            ReaderThemeMode.CREAM -> Color(0xFFEFE8DB)
+            ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
+            ReaderThemeMode.NIGHT -> Color(0xFF161D28)
+        }
+        val pillBorder = when (readerTheme) {
+            ReaderThemeMode.WHITE -> Color(0x1F000000)
+            ReaderThemeMode.CREAM -> Color(0x338C5E2D)
+            ReaderThemeMode.SEPIA -> Color(0x387C4F22)
+            ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
+        }
+
         Box(
             modifier = Modifier
                 .shadow(elevation = 6.dp, shape = pillShape, clip = false)
                 .clip(pillShape)
-                .background(if (readerTheme.isDark) Color(0xEE1E2026) else Color(0xF2FAF7F2))
+                .background(pillBg)
                 .border(
                     width = 0.75.dp,
-                    color = if (readerTheme.isDark) Color(0x33FFFFFF) else Color(0x22000000),
+                    color = pillBorder,
                     shape = pillShape
                 )
                 .clickable { onClick() }

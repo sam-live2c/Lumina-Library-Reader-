@@ -1,6 +1,7 @@
 package com.example.ui.reader
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -110,7 +111,7 @@ fun ReaderThemeAppearanceDialog(
     }
 
     val cardBg = when (currentTheme) {
-        ReaderThemeMode.WHITE -> Color(0xFFF4F6F8)
+        ReaderThemeMode.WHITE -> Color(0xFFF1F5F9)
         ReaderThemeMode.CREAM -> Color(0xFFEFE8DB)
         ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
         ReaderThemeMode.NIGHT -> Color(0xFF1F2837)
@@ -137,6 +138,7 @@ fun ReaderThemeAppearanceDialog(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = sheetBg,
+        tonalElevation = 0.dp,
         dragHandle = {
             Surface(
                 modifier = Modifier
@@ -689,26 +691,18 @@ fun BookmarksBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState()
 
-    val sheetBg = if (readerTheme.isDark) {
-        Color(0xFF161D28)
-    } else {
-        when (readerTheme) {
-            ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
-            ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
-            ReaderThemeMode.SEPIA -> Color(0xFFEFE4D0)
-            ReaderThemeMode.NIGHT -> Color(0xFF161D28)
-        }
+    val sheetBg = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+        ReaderThemeMode.NIGHT -> Color(0xFF161D28)
     }
 
-    val cardBg = if (readerTheme.isDark) {
-        Color(0xFF222B3A)
-    } else {
-        when (readerTheme) {
-            ReaderThemeMode.WHITE -> Color(0xFFF1F5F9)
-            ReaderThemeMode.CREAM -> Color(0xFFF1EBE0)
-            ReaderThemeMode.SEPIA -> Color(0xFFE5D8C3)
-            ReaderThemeMode.NIGHT -> Color(0xFF222B3A)
-        }
+    val cardBg = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFF1F5F9)
+        ReaderThemeMode.CREAM -> Color(0xFFEFE8DB)
+        ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
+        ReaderThemeMode.NIGHT -> Color(0xFF1F2837)
     }
 
     val textColor = readerTheme.textColor
@@ -718,6 +712,7 @@ fun BookmarksBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = sheetBg,
+        tonalElevation = 0.dp,
         dragHandle = {
             Surface(
                 modifier = Modifier
@@ -881,6 +876,12 @@ fun JumpToPageDialog(
         ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
         ReaderThemeMode.NIGHT -> Color(0xFF222C3D)
     }
+    val showcaseBorder = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0x1F000000)
+        ReaderThemeMode.CREAM -> Color(0x338C5E2D)
+        ReaderThemeMode.SEPIA -> Color(0x387C4F22)
+        ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
+    }
     val cardText = readerTheme.textColor
     val cardSubtext = readerTheme.textSecondaryColor
 
@@ -891,6 +892,7 @@ fun JumpToPageDialog(
             .fillMaxWidth(0.92f)
             .widthIn(max = 560.dp),
         containerColor = cardBg,
+        tonalElevation = 0.dp,
         shape = RoundedCornerShape(24.dp),
         title = {
             Row(
@@ -951,6 +953,7 @@ fun JumpToPageDialog(
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = showcaseBg,
+                    border = BorderStroke(1.dp, showcaseBorder),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -1069,8 +1072,8 @@ fun JumpToPageDialog(
                 modifier = Modifier.testTag("jump_confirm_button")
             ) {
                 Text(
-                    text = "Go to Page",
-                    color = Color.White,
+                    text = "Jump to Page",
+                    color = if (readerTheme.isDark) Color(0xFF161D28) else Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
@@ -1106,12 +1109,19 @@ private fun QuickStepButton(
         ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
         ReaderThemeMode.NIGHT -> Color(0xFF222C3D)
     }
+    val btnBorder = when (themeMode) {
+        ReaderThemeMode.WHITE -> Color(0x1F000000)
+        ReaderThemeMode.CREAM -> Color(0x338C5E2D)
+        ReaderThemeMode.SEPIA -> Color(0x387C4F22)
+        ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
+    }
 
     Surface(
         onClick = onClick,
         enabled = enabled,
         shape = RoundedCornerShape(10.dp),
         color = btnBg,
+        border = BorderStroke(1.dp, if (enabled) btnBorder else btnBorder.copy(alpha = 0.5f)),
         modifier = Modifier.height(32.dp)
     ) {
         Box(
@@ -1124,7 +1134,7 @@ private fun QuickStepButton(
                 color = if (enabled) {
                     themeMode.textColor
                 } else {
-                    themeMode.textSecondaryColor.copy(alpha = 0.5f)
+                    themeMode.textSecondaryColor.copy(alpha = 0.4f)
                 }
             )
         }
