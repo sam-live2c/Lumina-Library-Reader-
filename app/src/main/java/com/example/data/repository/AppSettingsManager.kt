@@ -45,6 +45,7 @@ object AppSettingsManager {
     fun applySystemBars(activity: Activity?, isFullScreen: Boolean, isDarkTheme: Boolean = false) {
         if (activity == null) return
         val window = activity.window ?: return
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
         if (isFullScreen) {
             insetsController.systemBarsBehavior =

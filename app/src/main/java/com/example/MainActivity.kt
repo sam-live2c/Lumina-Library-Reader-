@@ -48,9 +48,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         AppSettingsManager.init(this)
+        enableEdgeToEdge()
         applyFullScreenPreference()
+        window.decorView.post {
+            applyFullScreenPreference()
+        }
         extractPdfUriFromIntent(intent)
 
         setContent {
@@ -122,7 +125,7 @@ fun LuminaApp(
     var currentDestination by remember { mutableStateOf<AppDestination>(AppDestination.Library) }
 
     // Dynamic full-screen mode listener: toggles status bar immediately across all pages
-    LaunchedEffect(isFullScreen, currentDestination) {
+    LaunchedEffect(isFullScreen, currentDestination, isSplashActive) {
         if (currentDestination !is AppDestination.Reader) {
             AppSettingsManager.applySystemBars(activity, isFullScreen, isDarkTheme = false)
         }
@@ -155,7 +158,7 @@ fun LuminaApp(
     }
 
     if (isSplashActive) {
-        SplashScreen()
+        SplashScreen(isFullScreen = isFullScreen)
     } else {
         when (val destination = currentDestination) {
             is AppDestination.Library -> {
