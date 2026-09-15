@@ -145,6 +145,7 @@ fun ReaderScreen(
                     onToggleHud = { viewModel.toggleHud() },
                     onDoubleTap = { viewModel.summonPen() },
                     onPageClick = { targetPage ->
+                        soundManager.playPageTurnSound()
                         viewModel.switchToPageTurnMode(targetPage)
                     },
                     modifier = Modifier.fillMaxSize()
@@ -377,11 +378,15 @@ fun ReaderScreen(
                 currentPage = uiState.currentPageIndex,
                 totalPages = uiState.totalPages,
                 readerTheme = uiState.readerTheme,
-                onSelectPage = { viewModel.goToPage(it) },
+                onSelectPage = {
+                    soundManager.playPageTurnSound()
+                    viewModel.goToPage(it)
+                },
                 onToggleBookmark = { page ->
                     if (page == uiState.currentPageIndex) {
                         viewModel.toggleBookmark()
                     } else {
+                        soundManager.playPageTurnSound()
                         viewModel.goToPage(page)
                     }
                 },
@@ -395,7 +400,10 @@ fun ReaderScreen(
                 currentPage = uiState.currentPageIndex,
                 totalPages = uiState.totalPages,
                 readerTheme = uiState.readerTheme,
-                onJump = { viewModel.goToPage(it) },
+                onJump = {
+                    soundManager.playPageTurnSound()
+                    viewModel.goToPage(it)
+                },
                 onDismiss = { viewModel.closeJumpDialog() }
             )
         }

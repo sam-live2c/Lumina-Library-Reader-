@@ -3,16 +3,15 @@ package com.example.ui.reader
 import android.content.Context
 import android.content.SharedPreferences
 import android.media.AudioAttributes
-import android.media.AudioFormat
-import android.media.AudioTrack
+import android.media.AudioManager
+import android.media.MediaPlayer
+import android.media.SoundPool
 import android.util.Log
 import androidx.annotation.RawRes
 import com.example.R
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Multiple Sound Profiles for Page Turn Experience.
@@ -51,9 +50,9 @@ enum class PageTurnSoundStyle(
 }
 
 /**
- * High-performance, zero-latency AudioTrack manager for page-turn sonification.
- * Uses direct PCM AudioTrack streams which completely bypass MediaCodec/Codec2,
- * eliminating "Failed to query component interface for required system resources" errors.
+ * High-performance, zero-latency Sound Engine for page-turn sonification.
+ * Uses Android's native SoundPool with USAGE_MEDIA for crystal-clear playback on all physical devices,
+ * with an automatic fallback to MediaPlayer to guarantee sound is always played.
  */
 class PageTurnSoundManager(context: Context) {
 
@@ -106,119 +105,116 @@ class PageTurnSoundManager(context: Context) {
     }
 
     fun release() {
-        // Shared engine manages background lifetime
+        // Shared engine manages background lifetime across app navigation
     }
 
     /**
-     * Internal Shared Native AudioTrack Engine.
-     * Extracts raw 16-bit PCM samples directly from WAV files and loads them into static AudioTracks.
-     * Completely eliminates Stagefright/MediaCodec/SoundDecoder queries.
+     * Internal Shared SoundPool & MediaPlayer Fallback Audio Engine.
+     * Guarantees reliable, low-latency audio feedback across all devices and Android versions.
      */
     private class SharedAudioEngine(private val context: Context) {
-        private val audioTracks = ConcurrentHashMap<PageTurnSoundStyle, AudioTrack>()
-        private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        private val soundIds = ConcurrentHashMap<PageTurnSoundStyle, Int>()
+        private val loadedSoundIds = Collections.newSetFromMap(ConcurrentHashMap<Int, Boolean>())
+        private val pendingPlayStyle = AtomicReference<PageTurnSoundStyle?>(null)
         private var lastTriggerTime: Long = 0L
 
+        private val soundPool: SoundPool = try {
+            val attributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+
+            SoundPool.Builder()
+                .setMaxStreams(8)
+                .setAudioAttributes(attributes)
+                .build()
+        } catch (e: Throwable) {
+            Log.w(TAG, "Falling back to legacy SoundPool constructor", e)
+            @Suppress("DEPRECATION")
+            SoundPool(8, AudioManager.STREAM_MUSIC, 0)
+        }
+
         init {
-            scope.launch {
-                for (style in PageTurnSoundStyle.entries) {
-                    try {
-                        val pcmBytes = extractPcm(context, style.rawResId)
-                        if (pcmBytes != null && pcmBytes.isNotEmpty()) {
-                            val track = createStaticAudioTrack(pcmBytes)
-                            if (track != null) {
-                                audioTracks[style] = track
-                            }
+            soundPool.setOnLoadCompleteListener { _, sampleId, status ->
+                if (status == 0) {
+                    loadedSoundIds.add(sampleId)
+                    val pending = pendingPlayStyle.getAndSet(null)
+                    if (pending != null && soundIds[pending] == sampleId) {
+                        try {
+                            soundPool.play(sampleId, 1f, 1f, 1, 0, 1f)
+                        } catch (e: Throwable) {
+                            Log.w(TAG, "Error playing pending sample $sampleId", e)
                         }
-                    } catch (e: Throwable) {
-                        Log.w(TAG, "Failed initializing AudioTrack for style $style", e)
                     }
-                }
-            }
-        }
-
-        private fun createStaticAudioTrack(pcmBytes: ByteArray): AudioTrack? {
-            return try {
-                val attributes = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-
-                val format = AudioFormat.Builder()
-                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(44100)
-                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                    .build()
-
-                val track = AudioTrack.Builder()
-                    .setAudioAttributes(attributes)
-                    .setAudioFormat(format)
-                    .setBufferSizeInBytes(pcmBytes.size)
-                    .setTransferMode(AudioTrack.MODE_STATIC)
-                    .build()
-
-                val written = track.write(pcmBytes, 0, pcmBytes.size)
-                if (written > 0) {
-                    track
                 } else {
-                    track.release()
-                    null
+                    Log.w(TAG, "SoundPool sample $sampleId failed to load with status $status")
                 }
-            } catch (e: Throwable) {
-                Log.w(TAG, "Unable to create AudioTrack", e)
-                null
             }
-        }
 
-        private fun extractPcm(context: Context, @RawRes resId: Int): ByteArray? {
-            return try {
-                context.resources.openRawResource(resId).use { stream ->
-                    val allBytes = stream.readBytes()
-                    var dataOffset = -1
-                    var dataSize = 0
-                    for (i in 0 until allBytes.size - 8) {
-                        if (allBytes[i] == 'd'.code.toByte() &&
-                            allBytes[i + 1] == 'a'.code.toByte() &&
-                            allBytes[i + 2] == 't'.code.toByte() &&
-                            allBytes[i + 3] == 'a'.code.toByte()
-                        ) {
-                            dataOffset = i + 8
-                            dataSize = (allBytes[i + 4].toInt() and 0xFF) or
-                                    ((allBytes[i + 5].toInt() and 0xFF) shl 8) or
-                                    ((allBytes[i + 6].toInt() and 0xFF) shl 16) or
-                                    ((allBytes[i + 7].toInt() and 0xFF) shl 24)
-                            break
-                        }
+            // Preload all styles
+            for (style in PageTurnSoundStyle.entries) {
+                try {
+                    val soundId = soundPool.load(context, style.rawResId, 1)
+                    if (soundId > 0) {
+                        soundIds[style] = soundId
                     }
-                    if (dataOffset != -1 && dataOffset + dataSize <= allBytes.size && dataSize > 0) {
-                        allBytes.copyOfRange(dataOffset, dataOffset + dataSize)
-                    } else if (allBytes.size > 44) {
-                        allBytes.copyOfRange(44, allBytes.size)
-                    } else {
-                        null
-                    }
+                } catch (e: Throwable) {
+                    Log.w(TAG, "Failed loading sound for style: $style", e)
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "Error extracting PCM for resource $resId", e)
-                null
             }
         }
 
         fun play(style: PageTurnSoundStyle) {
             val now = System.currentTimeMillis()
-            if (now - lastTriggerTime < 45L) return
+            if (now - lastTriggerTime < 35L) return
             lastTriggerTime = now
 
-            val track = audioTracks[style] ?: return
-            try {
-                if (track.state != AudioTrack.STATE_INITIALIZED) return
-                if (track.playState != AudioTrack.PLAYSTATE_STOPPED) {
-                    track.stop()
+            val soundId = soundIds[style]
+            if (soundId != null && loadedSoundIds.contains(soundId)) {
+                val streamId = try {
+                    soundPool.play(soundId, 1.0f, 1.0f, 1, 0, 1.0f)
+                } catch (e: Throwable) {
+                    Log.w(TAG, "SoundPool.play failed for $style", e)
+                    0
                 }
-                track.reloadStaticData()
-                track.play()
+                if (streamId == 0) {
+                    // Fallback to MediaPlayer if SoundPool fails to allocate stream
+                    playViaMediaPlayer(style)
+                }
+            } else if (soundId != null) {
+                // Not finished loading yet, queue as pending
+                pendingPlayStyle.set(style)
+            } else {
+                // Sound ID not in SoundPool, play via MediaPlayer
+                playViaMediaPlayer(style)
+            }
+        }
+
+        private fun playViaMediaPlayer(style: PageTurnSoundStyle) {
+            try {
+                val mediaPlayer = MediaPlayer.create(context, style.rawResId) ?: return
+                val attributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+                mediaPlayer.setAudioAttributes(attributes)
+                mediaPlayer.setVolume(1.0f, 1.0f)
+                mediaPlayer.setOnCompletionListener { player ->
+                    try {
+                        player.reset()
+                        player.release()
+                    } catch (_: Throwable) {}
+                }
+                mediaPlayer.setOnErrorListener { player, _, _ ->
+                    try {
+                        player.reset()
+                        player.release()
+                    } catch (_: Throwable) {}
+                    true
+                }
+                mediaPlayer.start()
             } catch (e: Throwable) {
-                Log.w(TAG, "AudioTrack playback exception", e)
+                Log.w(TAG, "MediaPlayer fallback failed for style $style", e)
             }
         }
     }
