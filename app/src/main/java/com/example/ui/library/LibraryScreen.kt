@@ -1240,7 +1240,7 @@ private fun BookCardItem(
                     }
                 }
 
-                // Options Menu Button with clean circular backdrop (no white border or shadow artifact)
+                // Options Menu Button with theme-adapted backdrop
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -1248,7 +1248,9 @@ private fun BookCardItem(
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = Color.Black.copy(alpha = 0.55f),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                        shadowElevation = 2.dp,
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
                         modifier = Modifier.size(30.dp)
                     ) {
                         IconButton(
@@ -1260,7 +1262,7 @@ private fun BookCardItem(
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
                                 contentDescription = "Options",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -1268,10 +1270,19 @@ private fun BookCardItem(
 
                     DropdownMenu(
                         expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surface)
                     ) {
                         DropdownMenuItem(
-                            text = { Text(if (book.isPinned) "Unpin Book" else "Pin Book") },
+                            text = {
+                                Text(
+                                    text = if (book.isPinned) "Unpin Book" else "Pin Book",
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
                             onClick = {
                                 showMenu = false
                                 onTogglePin()
@@ -1286,7 +1297,13 @@ private fun BookCardItem(
                             modifier = Modifier.testTag("menu_pin_card_${book.id}")
                         )
                         DropdownMenuItem(
-                            text = { Text("Copy Book") },
+                            text = {
+                                Text(
+                                    text = "Copy Book",
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
                             onClick = {
                                 showMenu = false
                                 onCopy()
@@ -1301,7 +1318,13 @@ private fun BookCardItem(
                             modifier = Modifier.testTag("menu_copy_card_${book.id}")
                         )
                         DropdownMenuItem(
-                            text = { Text("Delete Book", color = LuminaAccentPrimary) },
+                            text = {
+                                Text(
+                                    text = "Delete Book",
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            },
                             onClick = {
                                 showMenu = false
                                 onDelete()
@@ -1310,7 +1333,7 @@ private fun BookCardItem(
                                 Icon(
                                     imageVector = Icons.Outlined.DeleteOutline,
                                     contentDescription = null,
-                                    tint = LuminaAccentPrimary
+                                    tint = MaterialTheme.colorScheme.error
                                 )
                             },
                             modifier = Modifier.testTag("menu_delete_card_${book.id}")
@@ -1551,10 +1574,19 @@ private fun BookListItem(
 
             DropdownMenu(
                 expanded = showMenu,
-                onDismissRequest = { showMenu = false }
+                onDismissRequest = { showMenu = false },
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surface)
             ) {
                 DropdownMenuItem(
-                    text = { Text(if (book.isPinned) "Unpin Book" else "Pin Book") },
+                    text = {
+                        Text(
+                            text = if (book.isPinned) "Unpin Book" else "Pin Book",
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    },
                     onClick = {
                         showMenu = false
                         onTogglePin()
@@ -1569,7 +1601,13 @@ private fun BookListItem(
                     modifier = Modifier.testTag("menu_pin_list_${book.id}")
                 )
                 DropdownMenuItem(
-                    text = { Text("Copy Book") },
+                    text = {
+                        Text(
+                            text = "Copy Book",
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    },
                     onClick = {
                         showMenu = false
                         onCopy()
@@ -1584,7 +1622,13 @@ private fun BookListItem(
                     modifier = Modifier.testTag("menu_copy_list_${book.id}")
                 )
                 DropdownMenuItem(
-                    text = { Text("Delete Book", color = LuminaAccentPrimary) },
+                    text = {
+                        Text(
+                            text = "Delete Book",
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    },
                     onClick = {
                         showMenu = false
                         onDelete()
@@ -1593,7 +1637,7 @@ private fun BookListItem(
                         Icon(
                             imageVector = Icons.Outlined.DeleteOutline,
                             contentDescription = null,
-                            tint = LuminaAccentPrimary
+                            tint = MaterialTheme.colorScheme.error
                         )
                     },
                     modifier = Modifier.testTag("menu_delete_list_${book.id}")

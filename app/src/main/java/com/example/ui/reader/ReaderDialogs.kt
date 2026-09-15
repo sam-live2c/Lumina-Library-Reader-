@@ -876,12 +876,6 @@ fun JumpToPageDialog(
         ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
         ReaderThemeMode.NIGHT -> Color(0xFF222C3D)
     }
-    val showcaseBorder = when (readerTheme) {
-        ReaderThemeMode.WHITE -> Color(0x1F000000)
-        ReaderThemeMode.CREAM -> Color(0x338C5E2D)
-        ReaderThemeMode.SEPIA -> Color(0x387C4F22)
-        ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
-    }
     val cardText = readerTheme.textColor
     val cardSubtext = readerTheme.textSecondaryColor
 
@@ -953,7 +947,6 @@ fun JumpToPageDialog(
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = showcaseBg,
-                    border = BorderStroke(1.dp, showcaseBorder),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -1102,18 +1095,11 @@ private fun QuickStepButton(
     themeMode: ReaderThemeMode,
     onClick: () -> Unit
 ) {
-    val isDark = themeMode.isDark
     val btnBg = when (themeMode) {
         ReaderThemeMode.WHITE -> Color(0xFFF1F5F9)
         ReaderThemeMode.CREAM -> Color(0xFFEFE8DB)
         ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
         ReaderThemeMode.NIGHT -> Color(0xFF222C3D)
-    }
-    val btnBorder = when (themeMode) {
-        ReaderThemeMode.WHITE -> Color(0x1F000000)
-        ReaderThemeMode.CREAM -> Color(0x338C5E2D)
-        ReaderThemeMode.SEPIA -> Color(0x387C4F22)
-        ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
     }
 
     Surface(
@@ -1121,7 +1107,6 @@ private fun QuickStepButton(
         enabled = enabled,
         shape = RoundedCornerShape(10.dp),
         color = btnBg,
-        border = BorderStroke(1.dp, if (enabled) btnBorder else btnBorder.copy(alpha = 0.5f)),
         modifier = Modifier.height(32.dp)
     ) {
         Box(

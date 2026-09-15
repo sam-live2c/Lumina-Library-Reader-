@@ -90,20 +90,13 @@ fun ReaderTopBar(
     onOpenThemeDialog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val barBg = when (readerTheme) {
-        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
-        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
-        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
-        ReaderThemeMode.NIGHT -> Color(0xFF161D28)
-    }
+    val barBg = readerTheme.background
     val barText = readerTheme.textColor
     val barSubtext = readerTheme.textSecondaryColor
     val accentColor = readerTheme.accentColor
 
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(elevation = 8.dp, spotColor = if (readerTheme.isDark) Color(0x66000000) else Color(0x22000000)),
+        modifier = modifier.fillMaxWidth(),
         color = barBg,
         tonalElevation = 0.dp
     ) {
@@ -215,132 +208,124 @@ fun ReaderBottomBar(
     onOpenJumpDialog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val barBg = when (readerTheme) {
-        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
-        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
-        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
-        ReaderThemeMode.NIGHT -> Color(0xFF161D28)
+    val barBg = readerTheme.background
+
+    // Theme-tailored container colors for footer action pills
+    val pillBgInactive = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFF1F5F9)
+        ReaderThemeMode.CREAM -> Color(0xFFEBE2D3)
+        ReaderThemeMode.SEPIA -> Color(0xFFE2D3BB)
+        ReaderThemeMode.NIGHT -> Color(0xFF1E2634)
     }
-    val buttonBg = when (readerTheme) {
-        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
-        ReaderThemeMode.CREAM -> Color(0xFFE5DBCB)
-        ReaderThemeMode.SEPIA -> Color(0xFFD6C6A8)
-        ReaderThemeMode.NIGHT -> Color(0xFF222B3A)
+    val pillBgActive = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFF2563EB)
+        ReaderThemeMode.CREAM -> Color(0xFF8C5E2D)
+        ReaderThemeMode.SEPIA -> Color(0xFF7C4F22)
+        ReaderThemeMode.NIGHT -> Color(0xFFDFAB72)
     }
-    val buttonBorder = when (readerTheme) {
-        ReaderThemeMode.WHITE -> Color(0x1F000000)
-        ReaderThemeMode.CREAM -> Color(0x338C5E2D)
-        ReaderThemeMode.SEPIA -> Color(0x387C4F22)
-        ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
-    }
+
     val barText = readerTheme.textColor
     val barSubtext = readerTheme.textSecondaryColor
-    val accentColor = readerTheme.accentColor
+    val activeTextColor = if (readerTheme == ReaderThemeMode.NIGHT) Color(0xFF0F141C) else Color.White
 
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(elevation = 12.dp, spotColor = if (readerTheme.isDark) Color(0x66000000) else Color(0x22000000)),
+        modifier = modifier.fillMaxWidth(),
         color = barBg,
         tonalElevation = 0.dp
     ) {
-        BoxWithConstraints(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
         ) {
-            val isCompactWidth = maxWidth < 380.dp
-            val isUltraCompactWidth = maxWidth < 340.dp
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 2.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                IconButton(
+                // Previous Page Button
+                Surface(
                     onClick = onPreviousPage,
                     enabled = currentPage > 1,
+                    shape = CircleShape,
+                    color = pillBgInactive,
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(40.dp)
                         .testTag("reader_prev_page_button")
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.ChevronLeft,
-                        contentDescription = "Previous Page",
-                        modifier = Modifier.size(24.dp),
-                        tint = if (currentPage > 1) barText else barSubtext.copy(alpha = 0.4f)
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.ChevronLeft,
+                            contentDescription = "Previous Page",
+                            modifier = Modifier.size(22.dp),
+                            tint = if (currentPage > 1) barText else barSubtext.copy(alpha = 0.35f)
+                        )
+                    }
                 }
 
+                // Middle Action Options Row (Fixed, non-sliding layout)
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.Start),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .horizontalScroll(rememberScrollState())
-                        .padding(start = 1.dp, end = 4.dp)
+                    modifier = Modifier.padding(horizontal = 2.dp)
                 ) {
-                    // Book Overview Mode Toggle Button
+                    // 1. Overview Mode Toggle Pill
                     Surface(
                         onClick = onToggleOverviewMode,
-                        shape = RoundedCornerShape(18.dp),
-                        color = if (isOverviewMode) accentColor else buttonBg,
-                        border = BorderStroke(1.dp, if (isOverviewMode) Color.Transparent else buttonBorder),
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isOverviewMode) pillBgActive else pillBgInactive,
                         modifier = Modifier
-                            .height(36.dp)
+                            .height(38.dp)
                             .testTag("reader_overview_button")
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = if (isCompactWidth) 7.dp else 9.dp, vertical = 5.dp),
+                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.AutoStories,
                                 contentDescription = "Book Overview Mode",
                                 modifier = Modifier.size(17.dp),
-                                tint = if (isOverviewMode) Color.White else barText
+                                tint = if (isOverviewMode) activeTextColor else barText
                             )
-                            if (!isUltraCompactWidth) {
-                                Text(
-                                    text = "Overview",
-                                    style = MaterialTheme.typography.labelLarge.copy(
-                                        fontSize = 12.5.sp,
-                                        fontWeight = if (isOverviewMode) FontWeight.Bold else FontWeight.SemiBold
-                                    ),
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    color = if (isOverviewMode) Color.White else barText
-                                )
-                            }
+                            Text(
+                                text = "Overview",
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontSize = 12.5.sp,
+                                    fontWeight = if (isOverviewMode) FontWeight.Bold else FontWeight.SemiBold
+                                ),
+                                maxLines = 1,
+                                softWrap = false,
+                                color = if (isOverviewMode) activeTextColor else barText
+                            )
                         }
                     }
 
-                    // Bookmarks / TOC Button
+                    // 2. Bookmarks / Table of Contents Pill
                     Surface(
                         onClick = onOpenBookmarks,
-                        shape = RoundedCornerShape(18.dp),
-                        color = buttonBg,
-                        border = BorderStroke(1.dp, buttonBorder),
+                        shape = RoundedCornerShape(20.dp),
+                        color = pillBgInactive,
                         modifier = Modifier
-                            .height(36.dp)
+                            .height(38.dp)
                             .testTag("reader_bookmarks_toc_button")
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = if (isCompactWidth) 7.dp else 9.dp, vertical = 5.dp),
+                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Outlined.List,
-                                contentDescription = null,
+                                contentDescription = "Bookmarks",
                                 modifier = Modifier.size(17.dp),
                                 tint = barText
                             )
                             Text(
-                                text = if (isCompactWidth) "Marks" else "Bookmarks",
+                                text = "Bookmarks",
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontSize = 12.5.sp,
                                     fontWeight = FontWeight.SemiBold
@@ -352,33 +337,28 @@ fun ReaderBottomBar(
                         }
                     }
 
-                    // Jump to Page / Progression Indicator Button
+                    // 3. Jump to Page / Progression Pill
+                    val percent = if (totalPages > 0) ((currentPage.toFloat() / totalPages.toFloat()) * 100).toInt() else 0
                     Surface(
                         onClick = onOpenJumpDialog,
-                        shape = RoundedCornerShape(18.dp),
-                        color = buttonBg,
-                        border = BorderStroke(1.dp, buttonBorder),
+                        shape = RoundedCornerShape(20.dp),
+                        color = pillBgInactive,
                         modifier = Modifier
-                            .height(36.dp)
+                            .height(38.dp)
                             .testTag("reader_jump_dialog_button")
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = if (isCompactWidth) 7.dp else 9.dp, vertical = 5.dp),
+                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.FindInPage,
                                 contentDescription = "Jump to Page",
                                 modifier = Modifier.size(17.dp),
-                                tint = accentColor
+                                tint = pillBgActive
                             )
-                            val percent = if (totalPages > 0) ((currentPage.toFloat() / totalPages.toFloat()) * 100).toInt() else 0
-                            val label = when {
-                                isUltraCompactWidth -> "$percent%"
-                                isCompactWidth -> "Jump"
-                                else -> "Jump ($percent%)"
-                            }
+                            val label = "$percent%"
                             Text(
                                 text = label,
                                 style = MaterialTheme.typography.labelLarge.copy(
@@ -393,19 +373,24 @@ fun ReaderBottomBar(
                     }
                 }
 
-                IconButton(
+                // Next Page Button
+                Surface(
                     onClick = onNextPage,
                     enabled = currentPage < totalPages,
+                    shape = CircleShape,
+                    color = pillBgInactive,
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(40.dp)
                         .testTag("reader_next_page_button")
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.ChevronRight,
-                        contentDescription = "Next Page",
-                        modifier = Modifier.size(24.dp),
-                        tint = if (currentPage < totalPages) barText else barSubtext.copy(alpha = 0.4f)
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.ChevronRight,
+                            contentDescription = "Next Page",
+                            modifier = Modifier.size(22.dp),
+                            tint = if (currentPage < totalPages) barText else barSubtext.copy(alpha = 0.35f)
+                        )
+                    }
                 }
             }
         }

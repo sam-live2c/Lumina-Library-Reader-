@@ -118,49 +118,62 @@ class PageTurnSoundManager(context: Context) {
         private val pendingPlayStyle = AtomicReference<PageTurnSoundStyle?>(null)
         private var lastTriggerTime: Long = 0L
 
-        private val soundPool: SoundPool = try {
-            val attributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
+        private var soundPool: SoundPool? = null
+        private var soundPoolInitAttempted = false
 
-            SoundPool.Builder()
-                .setMaxStreams(8)
-                .setAudioAttributes(attributes)
-                .build()
-        } catch (e: Throwable) {
-            Log.w(TAG, "Falling back to legacy SoundPool constructor", e)
-            @Suppress("DEPRECATION")
-            SoundPool(8, AudioManager.STREAM_MUSIC, 0)
-        }
+        private fun getSoundPool(): SoundPool? {
+            if (soundPoolInitAttempted) return soundPool
+            synchronized(this) {
+                if (soundPoolInitAttempted) return soundPool
+                soundPoolInitAttempted = true
+                soundPool = try {
+                    val attributes = AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
 
-        init {
-            soundPool.setOnLoadCompleteListener { _, sampleId, status ->
-                if (status == 0) {
-                    loadedSoundIds.add(sampleId)
-                    val pending = pendingPlayStyle.getAndSet(null)
-                    if (pending != null && soundIds[pending] == sampleId) {
-                        try {
-                            soundPool.play(sampleId, 1f, 1f, 1, 0, 1f)
-                        } catch (e: Throwable) {
-                            Log.w(TAG, "Error playing pending sample $sampleId", e)
+                    SoundPool.Builder()
+                        .setMaxStreams(4)
+                        .setAudioAttributes(attributes)
+                        .build().apply {
+                            setOnLoadCompleteListener { _, sampleId, status ->
+                                if (status == 0) {
+                                    loadedSoundIds.add(sampleId)
+                                    val pending = pendingPlayStyle.getAndSet(null)
+                                    if (pending != null && soundIds[pending] == sampleId) {
+                                        try {
+                                            play(sampleId, 1f, 1f, 1, 0, 1f)
+                                        } catch (e: Throwable) {
+                                            Log.w(TAG, "Error playing pending sample $sampleId", e)
+                                        }
+                                    }
+                                } else {
+                                    Log.w(TAG, "SoundPool sample $sampleId failed to load with status $status")
+                                }
+                            }
                         }
-                    }
-                } else {
-                    Log.w(TAG, "SoundPool sample $sampleId failed to load with status $status")
+                } catch (e: Throwable) {
+                    Log.w(TAG, "SoundPool initialization skipped", e)
+                    null
                 }
             }
+            return soundPool
+        }
 
-            // Preload all styles
-            for (style in PageTurnSoundStyle.entries) {
-                try {
-                    val soundId = soundPool.load(context, style.rawResId, 1)
-                    if (soundId > 0) {
-                        soundIds[style] = soundId
-                    }
-                } catch (e: Throwable) {
-                    Log.w(TAG, "Failed loading sound for style: $style", e)
+        private fun ensureSoundLoaded(style: PageTurnSoundStyle): Int? {
+            soundIds[style]?.let { return it }
+            val pool = getSoundPool() ?: return null
+            return try {
+                val soundId = pool.load(context, style.rawResId, 1)
+                if (soundId > 0) {
+                    soundIds[style] = soundId
+                    soundId
+                } else {
+                    null
                 }
+            } catch (e: Throwable) {
+                Log.w(TAG, "Failed loading sound for style: $style", e)
+                null
             }
         }
 
@@ -169,23 +182,21 @@ class PageTurnSoundManager(context: Context) {
             if (now - lastTriggerTime < 35L) return
             lastTriggerTime = now
 
-            val soundId = soundIds[style]
-            if (soundId != null && loadedSoundIds.contains(soundId)) {
+            val pool = getSoundPool()
+            val soundId = ensureSoundLoaded(style)
+            if (pool != null && soundId != null && loadedSoundIds.contains(soundId)) {
                 val streamId = try {
-                    soundPool.play(soundId, 1.0f, 1.0f, 1, 0, 1.0f)
+                    pool.play(soundId, 1.0f, 1.0f, 1, 0, 1.0f)
                 } catch (e: Throwable) {
                     Log.w(TAG, "SoundPool.play failed for $style", e)
                     0
                 }
                 if (streamId == 0) {
-                    // Fallback to MediaPlayer if SoundPool fails to allocate stream
                     playViaMediaPlayer(style)
                 }
             } else if (soundId != null) {
-                // Not finished loading yet, queue as pending
                 pendingPlayStyle.set(style)
             } else {
-                // Sound ID not in SoundPool, play via MediaPlayer
                 playViaMediaPlayer(style)
             }
         }

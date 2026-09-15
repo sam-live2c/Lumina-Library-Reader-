@@ -92,19 +92,14 @@ fun InBookSearchBar(
         }
     }
 
-    val barBg = when (readerTheme) {
-        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
-        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
-        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
-        ReaderThemeMode.NIGHT -> Color(0xFF161D28)
-    }
+    val barBg = readerTheme.background
     val barText = readerTheme.textColor
     val barSubtext = readerTheme.textSecondaryColor
     val cardBg = when (readerTheme) {
         ReaderThemeMode.WHITE -> Color(0xFFF1F5F9)
-        ReaderThemeMode.CREAM -> Color(0xFFE5DBCB)
-        ReaderThemeMode.SEPIA -> Color(0xFFD6C6A8)
-        ReaderThemeMode.NIGHT -> Color(0xFF222B3A)
+        ReaderThemeMode.CREAM -> Color(0xFFEBE2D3)
+        ReaderThemeMode.SEPIA -> Color(0xFFE2D3BB)
+        ReaderThemeMode.NIGHT -> Color(0xFF1E2634)
     }
 
     Surface(
@@ -112,7 +107,6 @@ fun InBookSearchBar(
         tonalElevation = 0.dp,
         modifier = modifier
             .fillMaxWidth()
-            .shadow(elevation = 10.dp, spotColor = if (readerTheme.isDark) Color(0x66000000) else Color(0x22000000))
             .testTag("in_book_search_bar")
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
