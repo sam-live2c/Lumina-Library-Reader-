@@ -258,7 +258,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
             if (result.importedCount > 0) {
                 val msg = if (result.skippedCount > 0) {
-                    "Imported ${result.importedCount} PDF${if (result.importedCount > 1) "s" else ""} (${result.skippedCount} duplicate${if (result.skippedCount > 1) "s" else ""} skipped)"
+                    "Imported ${result.importedCount} PDF${if (result.importedCount > 1) "s" else ""} (${result.skippedCount} invalid file${if (result.skippedCount > 1) "s" else ""} skipped)"
                 } else {
                     "Imported ${result.importedCount} PDF${if (result.importedCount > 1) "s" else ""} successfully"
                 }
@@ -267,15 +267,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                     onSingleSuccess?.invoke(result.lastImportedBookId)
                 }
             } else if (result.skippedCount > 0) {
-                val skipDetail = if (result.skippedFileNames.size == 1) {
-                    "\"${result.skippedFileNames.first()}\" is already in your library"
-                } else {
-                    "${result.skippedCount} files were already in your library"
-                }
-                _importToastMessageState.value = skipDetail
-                if (uris.size == 1 && result.lastImportedBookId != null) {
-                    onSingleSuccess?.invoke(result.lastImportedBookId)
-                }
+                _importErrorState.value = "Could not read the selected PDF file${if (result.skippedCount > 1) "s" else ""}"
             } else {
                 _importErrorState.value = "Could not import the selected PDF documents"
             }

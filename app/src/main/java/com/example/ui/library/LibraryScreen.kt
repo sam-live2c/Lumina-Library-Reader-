@@ -1012,12 +1012,16 @@ private fun ContinueReadingHero(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Text(
-                            text = book.author,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
+                        val displayAuthor = book.author.takeIf { it.isNotBlank() && !it.equals("Imported Document", ignoreCase = true) }
+                        if (displayAuthor != null) {
+                            Text(
+                                text = displayAuthor,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(10.dp))
 
@@ -1310,7 +1314,7 @@ private fun BookCardItem(
                 }
             }
 
-            // Info Section
+            // Info Section with fixed deterministic dimensions
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1326,79 +1330,44 @@ private fun BookCardItem(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = if (book.author.isNotBlank()) book.author else " ",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        lineHeight = 14.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    minLines = 1,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                if (book.hasBeenOpened) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "p. ${book.currentPage}/${book.totalPages}",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "${(book.progressPercent * 100).toInt()}%",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold),
-                            color = LuminaAccentPrimary
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    LinearProgressIndicator(
-                        progress = { book.progressPercent },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(3.dp)
-                            .clip(CircleShape),
-                        color = LuminaAccentPrimary,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (book.hasBeenOpened) "p. ${book.currentPage}/${book.totalPages}" else "${book.totalPages} pages",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "${book.totalPages} pages",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Unread",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    LinearProgressIndicator(
-                        progress = { 0f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(3.dp)
-                            .clip(CircleShape),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    Text(
+                        text = if (book.hasBeenOpened) "${(book.progressPercent * 100).toInt()}%" else "Unread",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp,
+                            fontWeight = if (book.hasBeenOpened) FontWeight.Bold else FontWeight.Medium
+                        ),
+                        color = if (book.hasBeenOpened) LuminaAccentPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                LinearProgressIndicator(
+                    progress = { if (book.hasBeenOpened) book.progressPercent else 0f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(CircleShape),
+                    color = if (book.hasBeenOpened) LuminaAccentPrimary else MaterialTheme.colorScheme.surfaceVariant,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
             }
         }
     }
@@ -1485,14 +1454,16 @@ private fun BookListItem(
                     )
                 }
             }
-            Text(
-                text = if (book.author.isNotBlank()) book.author else " ",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                minLines = 1,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            val displayAuthor = book.author.takeIf { it.isNotBlank() && !it.equals("Imported Document", ignoreCase = true) }
+            if (displayAuthor != null) {
+                Text(
+                    text = displayAuthor,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
             Spacer(modifier = Modifier.height(6.dp))
 

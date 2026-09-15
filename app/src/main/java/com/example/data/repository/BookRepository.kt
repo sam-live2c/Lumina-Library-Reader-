@@ -99,6 +99,9 @@ class BookRepository(
             if (!coversDir.exists()) coversDir.mkdirs()
 
             for (book in allCurrentBooks) {
+                if (book.author.equals("Imported Document", ignoreCase = true)) {
+                    bookDao.updateBook(book.copy(author = ""))
+                }
                 val hasValidCover = !book.coverImagePath.isNullOrBlank() &&
                         File(book.coverImagePath).exists() &&
                         File(book.coverImagePath).length() > 500
@@ -128,15 +131,6 @@ class BookRepository(
         var lastImportedId: Long? = null
         val skippedNames = mutableListOf<String>()
 
-        val existingBooks = bookDao.getAllBooksList()
-        // Map existing books with their file size and sha256
-        val existingFilesInfo = existingBooks.mapNotNull { b ->
-            val f = File(b.filePath)
-            if (f.exists() && f.length() > 0) {
-                Triple(b.title.trim().lowercase(), f.length(), calculateFileSha256(f))
-            } else null
-        }
-
         val booksDir = File(context.filesDir, "imported_books")
         if (!booksDir.exists()) booksDir.mkdirs()
 
@@ -160,34 +154,13 @@ class BookRepository(
                     continue
                 }
 
-                val (fileHash, fileSize) = calculateStreamSha256AndCopy(inputStream, tempFile)
+                val (_, fileSize) = calculateStreamSha256AndCopy(inputStream, tempFile)
                 inputStream.close()
 
                 if (fileSize == 0L) {
                     tempFile.delete()
                     skippedCount++
                     skippedNames.add(fileName)
-                    continue
-                }
-
-                // Check for duplicate in existing books
-                val duplicateBook = existingBooks.find { b ->
-                    val f = File(b.filePath)
-                    if (!f.exists() || f.length() != fileSize) false
-                    else {
-                        val existingHash = calculateFileSha256(f)
-                        (existingHash != null && existingHash == fileHash) ||
-                        (b.title.trim().equals(cleanTitle.trim(), ignoreCase = true))
-                    }
-                }
-
-                if (duplicateBook != null) {
-                    tempFile.delete()
-                    skippedCount++
-                    skippedNames.add(fileName)
-                    if (lastImportedId == null) {
-                        lastImportedId = duplicateBook.id
-                    }
                     continue
                 }
 
@@ -213,7 +186,7 @@ class BookRepository(
 
                 val book = BookEntity(
                     title = cleanTitle,
-                    author = "Imported Document",
+                    author = "",
                     filePath = permFile.absolutePath,
                     totalPages = totalPages,
                     currentPage = 1,
