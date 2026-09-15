@@ -185,9 +185,11 @@ fun FastVerticalScrollHandle(
                                         indicatorYAnim.snapTo(clampedVisualY)
                                     }
 
-                                    // Extended pull range allows continuous page progression while pulling & holding further down
-                                    val scrubEffectiveHeight = usableHeightPx + with(density) { 50.dp.toPx() }
-                                    val fraction = ((nextY - topPaddingPx) / scrubEffectiveHeight).coerceIn(0f, 1f)
+                                    // Direct linear progression mapping across the usable track height
+                                    // When the handle reaches the bottom visual position, it directly goes to the last page (totalPages)
+                                    val fraction = if (usableHeightPx > 0f) {
+                                        ((nextY - topPaddingPx) / usableHeightPx).coerceIn(0f, 1f)
+                                    } else 0f
                                     val targetPage = (1 + fraction * (totalPages - 1)).roundToInt().coerceIn(1, totalPages)
                                     if (targetPage != lastDispatchedPage) {
                                         lastDispatchedPage = targetPage
@@ -249,7 +251,7 @@ fun FastVerticalScrollHandle(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
-                                text = "$currentPage",
+                                text = if (isDragging) "$lastScrubbedPage" else "$currentPage",
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp
