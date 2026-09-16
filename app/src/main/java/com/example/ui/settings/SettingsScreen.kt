@@ -297,47 +297,65 @@ private fun MainSettingsContent(
 
     Scaffold(
         contentWindowInsets = WindowInsets.statusBars,
-        topBar = {
-            TopAppBar(
-                windowInsets = TopAppBarDefaults.windowInsets,
-                title = {
-                    Text(
-                        text = "Settings",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onNavigateBack,
-                        modifier = Modifier.testTag("settings_back_btn")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "Back to Library"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
-        },
         containerColor = MaterialTheme.colorScheme.background,
         modifier = modifier.fillMaxSize()
     ) { paddingValues ->
         LazyColumn(
             contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = paddingValues.calculateTopPadding() + 6.dp,
-                bottom = paddingValues.calculateBottomPadding() + 24.dp
+                start = 14.dp,
+                end = 14.dp,
+                top = 6.dp,
+                bottom = 100.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
                 .fillMaxSize()
+                .padding(paddingValues)
                 .navigationBarsPadding()
         ) {
+            // Settings Header (matching Library Screen Header style and alignment)
+            item(key = "settings_header") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = onNavigateBack,
+                        modifier = Modifier
+                            .size(42.dp)
+                            .testTag("settings_back_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = "Back to Library",
+                            tint = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Column {
+                        Text(
+                            text = "PREFERENCES",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                letterSpacing = 2.5.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = LuminaAccentPrimary
+                        )
+                        Text(
+                            text = "Settings",
+                            style = MaterialTheme.typography.displayLarge.copy(
+                                fontSize = 34.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                }
+            }
+
             // Search Settings Pill Field (Matching Reference UI)
             item(key = "search_field") {
                 OutlinedTextField(
@@ -1351,7 +1369,7 @@ private fun SettingsSectionHeader(title: String) {
             fontWeight = FontWeight.Bold
         ),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 6.dp)
+        modifier = Modifier.padding(start = 4.dp)
     )
 }
 

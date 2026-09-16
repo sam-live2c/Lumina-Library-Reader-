@@ -101,10 +101,14 @@ fun ReaderScreen(
     var isDraggingPen by remember { mutableStateOf(false) }
     var isOverDismissTarget by remember { mutableStateOf(false) }
 
-    val canvasInsetsModifier = Modifier
-        .fillMaxSize()
-        .statusBarsPadding()
-        .navigationBarsPadding()
+    val canvasInsetsModifier = if (uiState.isFullScreenModeEnabled) {
+        Modifier.fillMaxSize()
+    } else {
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+    }
 
     Box(
         modifier = modifier

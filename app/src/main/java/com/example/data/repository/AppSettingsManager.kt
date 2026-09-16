@@ -71,16 +71,18 @@ object AppSettingsManager {
     fun applySystemBars(activity: Activity?, isFullScreen: Boolean, isDarkTheme: Boolean = false) {
         if (activity == null) return
         val window = activity.window ?: return
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        if (isFullScreen) {
-            insetsController.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            insetsController.hide(WindowInsetsCompat.Type.systemBars())
-        } else {
-            insetsController.show(WindowInsetsCompat.Type.systemBars())
+        activity.runOnUiThread {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            val insetsController = WindowCompat.getInsetsController(window, window.decorView)
             insetsController.isAppearanceLightStatusBars = !isDarkTheme
             insetsController.isAppearanceLightNavigationBars = !isDarkTheme
+            if (isFullScreen) {
+                insetsController.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                insetsController.hide(WindowInsetsCompat.Type.navigationBars())
+            } else {
+                insetsController.show(WindowInsetsCompat.Type.navigationBars())
+            }
         }
     }
 }

@@ -220,7 +220,7 @@ fun HelpAndSupportScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp)
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {

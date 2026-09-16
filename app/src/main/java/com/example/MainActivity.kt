@@ -19,6 +19,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -41,6 +43,34 @@ sealed interface AppDestination {
     data class Reader(val bookId: Long) : AppDestination
     data class Settings(val initialSubpage: SettingsSubpage? = null) : AppDestination
 }
+
+val AppDestinationSaver = Saver<AppDestination, String>(
+    save = { dest ->
+        when (dest) {
+            is AppDestination.Library -> "library"
+            is AppDestination.Reader -> "reader:${dest.bookId}"
+            is AppDestination.Settings -> "settings:${dest.initialSubpage?.name ?: ""}"
+        }
+    },
+    restore = { str ->
+        val parts = str.split(":")
+        when (parts[0]) {
+            "library" -> AppDestination.Library
+            "reader" -> {
+                val id = parts.getOrNull(1)?.toLongOrNull() ?: 0L
+                AppDestination.Reader(id)
+            }
+            "settings" -> {
+                val subpageName = parts.getOrNull(1)
+                val subpage = if (!subpageName.isNullOrEmpty()) {
+                    try { SettingsSubpage.valueOf(subpageName) } catch (_: Exception) { null }
+                } else null
+                AppDestination.Settings(subpage)
+            }
+            else -> AppDestination.Library
+        }
+    }
+)
 
 class MainActivity : ComponentActivity() {
 
@@ -71,6 +101,13 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         applyFullScreenPreference()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            applyFullScreenPreference()
+        }
     }
 
     private fun applyFullScreenPreference() {
@@ -126,8 +163,8 @@ fun LuminaApp(
     val activity = context as? Activity
     val isFullScreen by AppSettingsManager.isFullScreenModeEnabled.collectAsStateWithLifecycle()
     val currentTheme by AppSettingsManager.currentAppTheme.collectAsStateWithLifecycle()
-    var isSplashActive by remember { mutableStateOf(true) }
-    var currentDestination by remember { mutableStateOf<AppDestination>(AppDestination.Library) }
+    var isSplashActive by rememberSaveable { mutableStateOf(true) }
+    var currentDestination by rememberSaveable(stateSaver = AppDestinationSaver) { mutableStateOf<AppDestination>(AppDestination.Library) }
 
     // Dynamic full-screen mode listener: toggles status bar immediately across all pages
     LaunchedEffect(isFullScreen, currentDestination, isSplashActive, currentTheme) {
