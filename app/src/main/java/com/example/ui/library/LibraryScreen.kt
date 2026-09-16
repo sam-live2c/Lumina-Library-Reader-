@@ -830,9 +830,12 @@ private fun LibraryHeader(
             DropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false },
-                modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surface)
+                shape = RoundedCornerShape(16.dp),
+                containerColor = MaterialTheme.colorScheme.surface,
+                shadowElevation = 0.dp,
+                tonalElevation = 0.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                modifier = Modifier.clip(RoundedCornerShape(16.dp))
             ) {
                 // 1. Grid/List Toggle
                 DropdownMenuItem(
@@ -1359,7 +1362,7 @@ private fun BookCardItem(
                     }
                 }
 
-                // Options Menu Button with theme-adapted backdrop
+                // Options Menu Button with theme-adapted backdrop (No shadow)
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -1368,7 +1371,7 @@ private fun BookCardItem(
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                        shadowElevation = 2.dp,
+                        shadowElevation = 0.dp,
                         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
                         modifier = Modifier.size(30.dp)
                     ) {
@@ -1390,9 +1393,12 @@ private fun BookCardItem(
                     DropdownMenu(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false },
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.surface)
+                        shape = RoundedCornerShape(16.dp),
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        shadowElevation = 0.dp,
+                        tonalElevation = 0.dp,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                        modifier = Modifier.clip(RoundedCornerShape(16.dp))
                     ) {
                         DropdownMenuItem(
                             text = {
@@ -1694,9 +1700,12 @@ private fun BookListItem(
             DropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false },
-                modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surface)
+                shape = RoundedCornerShape(16.dp),
+                containerColor = MaterialTheme.colorScheme.surface,
+                shadowElevation = 0.dp,
+                tonalElevation = 0.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                modifier = Modifier.clip(RoundedCornerShape(16.dp))
             ) {
                 DropdownMenuItem(
                     text = {

@@ -119,6 +119,52 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     private var targetRenderWidth: Int = 1080
     private var targetRenderHeight: Int = 1920
 
+    fun prepareForBook(bookId: Long) {
+        if (_uiState.value.book?.id != bookId) {
+            renderJob?.cancel()
+            searchJob?.cancel()
+            _uiState.update {
+                it.copy(
+                    book = null,
+                    currentPageBitmap = null,
+                    nextPageBitmap = null,
+                    previousPageBitmap = null,
+                    currentPageStrokes = emptyList(),
+                    undoHistory = emptyList(),
+                    redoHistory = emptyList(),
+                    canUndo = false,
+                    canRedo = false,
+                    isLoading = true,
+                    isSearchOpen = false,
+                    searchQuery = "",
+                    searchResults = emptyList()
+                )
+            }
+        }
+    }
+
+    fun clearCurrentBook() {
+        renderJob?.cancel()
+        searchJob?.cancel()
+        _uiState.update {
+            it.copy(
+                book = null,
+                currentPageBitmap = null,
+                nextPageBitmap = null,
+                previousPageBitmap = null,
+                currentPageStrokes = emptyList(),
+                undoHistory = emptyList(),
+                redoHistory = emptyList(),
+                canUndo = false,
+                canRedo = false,
+                isLoading = true,
+                isSearchOpen = false,
+                searchQuery = "",
+                searchResults = emptyList()
+            )
+        }
+    }
+
     fun loadBook(bookId: Long) {
         renderJob?.cancel()
         searchJob?.cancel()
@@ -145,6 +191,14 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val book = repository.getBookByIdSync(bookId)
             if (book != null) {
+                // 1. Immediately store book metadata so title and author are stable and never flicker
+                _uiState.update {
+                    it.copy(
+                        book = book,
+                        currentPageIndex = book.currentPage.coerceAtLeast(1)
+                    )
+                }
+
                 val totalPages = pdfRendererManager.openFile(book.filePath).coerceAtLeast(book.totalPages)
                 val initialPage = book.currentPage.coerceIn(1, totalPages)
                 val bookmarks = book.getBookmarkPages().toList().sorted()
@@ -154,12 +208,14 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
 
                 // 2. Render initial page FIRST before dismissing loading screen to guarantee zero flash
                 val page0 = initialPage - 1
-                val currentBmp = pdfRendererManager.renderPage(
-                    filePath = book.filePath,
-                    pageIndex = page0,
-                    targetWidth = targetRenderWidth,
-                    targetHeight = targetRenderHeight
-                )
+                val currentBmp = withContext(Dispatchers.IO) {
+                    pdfRendererManager.renderPage(
+                        filePath = book.filePath,
+                        pageIndex = page0,
+                        targetWidth = targetRenderWidth,
+                        targetHeight = targetRenderHeight
+                    )
+                }
 
                 _uiState.update {
                     it.copy(
@@ -175,20 +231,24 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
 
                 loadAnnotationsForPage(book.id, initialPage)
 
-                // 3. Pre-render adjacent pages in background
-                val nextBmp = if (initialPage < totalPages) {
-                    pdfRendererManager.renderPage(book.filePath, page0 + 1, targetRenderWidth, targetRenderHeight)
-                } else null
+                // 3. Pre-render adjacent pages asynchronously in background without delaying UI reveal
+                viewModelScope.launch(Dispatchers.IO) {
+                    val nextBmp = if (initialPage < totalPages) {
+                        pdfRendererManager.renderPage(book.filePath, page0 + 1, targetRenderWidth, targetRenderHeight)
+                    } else null
 
-                val prevBmp = if (initialPage > 1) {
-                    pdfRendererManager.renderPage(book.filePath, page0 - 1, targetRenderWidth, targetRenderHeight)
-                } else null
+                    val prevBmp = if (initialPage > 1) {
+                        pdfRendererManager.renderPage(book.filePath, page0 - 1, targetRenderWidth, targetRenderHeight)
+                    } else null
 
-                _uiState.update {
-                    it.copy(
-                        nextPageBitmap = nextBmp,
-                        previousPageBitmap = prevBmp
-                    )
+                    withContext(Dispatchers.Main) {
+                        _uiState.update {
+                            it.copy(
+                                nextPageBitmap = nextBmp,
+                                previousPageBitmap = prevBmp
+                            )
+                        }
+                    }
                 }
             } else {
                 _uiState.update { it.copy(isLoading = false) }

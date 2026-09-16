@@ -9,14 +9,25 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -36,7 +47,11 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import com.example.data.repository.AppSettingsManager
 import androidx.core.view.WindowInsetsCompat
@@ -67,14 +82,13 @@ fun ReaderScreen(
         )
     }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(bookId) {
+        viewModel.prepareForBook(bookId)
+        viewModel.loadBook(bookId)
         onDispose {
             soundManager.release()
+            viewModel.clearCurrentBook()
         }
-    }
-
-    LaunchedEffect(bookId) {
-        viewModel.loadBook(bookId)
     }
 
     BackHandler {
@@ -210,8 +224,9 @@ fun ReaderScreen(
             )
         }
 
-        // Loading spinner during initial book opening
-        if (uiState.isLoading || (uiState.currentPageBitmap == null && !uiState.isContinuousScrollMode)) {
+        // Clean PDF Open Loading Screen with a circle (guarantees zero flash of previous books)
+        val isCurrentBookReady = !uiState.isLoading && uiState.book?.id == bookId && (uiState.currentPageBitmap != null || uiState.isContinuousScrollMode)
+        if (!isCurrentBookReady) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -220,7 +235,10 @@ fun ReaderScreen(
             ) {
                 CircularProgressIndicator(
                     color = uiState.readerTheme.accentColor,
-                    modifier = Modifier.testTag("reader_loading_spinner")
+                    strokeWidth = 3.dp,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("reader_loading_spinner")
                 )
             }
         }
