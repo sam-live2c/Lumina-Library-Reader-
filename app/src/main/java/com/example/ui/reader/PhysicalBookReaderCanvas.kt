@@ -579,10 +579,14 @@ private fun DrawScope.drawRealisticPageCurlForward(
     isSmartMarginFit: Boolean = true,
     pageVerticalPosition: PageVerticalPosition = PageVerticalPosition.CENTER
 ) {
-    val sampleBmp = currentBitmap ?: nextBitmap
-    val metrics = sampleBmp?.let { bmp ->
+    // Dynamically compute layout metrics for current and next page
+    val currentMetrics = currentBitmap?.let { bmp ->
         calculatePageLayoutMetrics(bmp.width.toFloat(), bmp.height.toFloat(), width, height, isSmartMarginFit, pageVerticalPosition)
-    } ?: calculatePageLayoutMetrics(width, height, width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+    val nextMetrics = nextBitmap?.let { bmp ->
+        calculatePageLayoutMetrics(bmp.width.toFloat(), bmp.height.toFloat(), width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+    val metrics = currentMetrics ?: nextMetrics ?: calculatePageLayoutMetrics(width, height, width, height, isSmartMarginFit, pageVerticalPosition)
 
     val pLeft = metrics.left
     val pRight = metrics.left + metrics.width
@@ -591,6 +595,10 @@ private fun DrawScope.drawRealisticPageCurlForward(
     val pW = metrics.width
     val pH = metrics.height
     val p = progress.coerceIn(0f, 1f)
+
+    // Dynamic aspect ratio correction for arbitrary, square, or landscape page sizes
+    val pageAspectRatio = pW / max(1f, pH)
+    val aspectTiltCorrection = (1f / pageAspectRatio.coerceIn(0.4f, 2.5f)).coerceIn(0.5f, 1.6f)
 
     val paperColor = if (theme.isDark) {
         Color(0xFF1E242E)
@@ -612,17 +620,18 @@ private fun DrawScope.drawRealisticPageCurlForward(
         }
     }
 
-    // 1. UNDERNEATH REVEALED PAGE (Next Page Base - Seamless with background)
+    // 1. UNDERNEATH REVEALED PAGE (Next Page Base - using its own natural layout metrics)
+    val underlyingMetrics = nextMetrics ?: metrics
     drawRect(
         color = paperColor,
-        topLeft = Offset(pLeft, pTop),
-        size = Size(pW, pH)
+        topLeft = Offset(underlyingMetrics.left, underlyingMetrics.top),
+        size = Size(underlyingMetrics.width, underlyingMetrics.height)
     )
     if (nextBitmap != null) {
         drawPageBitmap(nextBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
     }
-    drawBookSpineGutter(metrics, theme)
-    drawBookEdgeShadow(metrics, theme)
+    drawBookSpineGutter(underlyingMetrics, theme)
+    drawBookEdgeShadow(underlyingMetrics, theme)
 
     // 2. DYNAMIC FOLD CREASE GEOMETRY (Progressing from Right to Left with natural straight release)
     val yFrac = touchFractionY.coerceIn(0.05f, 0.95f)
@@ -631,7 +640,7 @@ private fun DrawScope.drawRealisticPageCurlForward(
     // Natural tension and smooth fall-in after 2/3 page coverage
     val fallInFraction = ((p - (2f / 3f)) / (1f / 3f)).coerceIn(0f, 1f)
     val straightenDecay = (1f - fallInFraction * 0.75f).coerceIn(0.25f, 1f)
-    val tiltSpread = (sin(p * PI) * straightenDecay * pW * 0.045f * cornerPullBias).toFloat()
+    val tiltSpread = (sin(p * PI) * straightenDecay * pW * 0.045f * aspectTiltCorrection * cornerPullBias).toFloat()
     val foldX = pRight - (p * pW)
     val foldXTop = (foldX + tiltSpread).coerceIn(pLeft, pRight)
     val foldXBottom = (foldX - tiltSpread).coerceIn(pLeft, pRight)
@@ -712,10 +721,7 @@ private fun DrawScope.drawRealisticPageCurlForward(
         // 100% Solid Opaque Verso Paper Flap
         drawPath(path = flapPath, color = versoPaperColor)
 
-        // Physics-accurate optical lighting inside the 3D fold:
-        // - Deep dark occlusion shadow inside the fold crevice at maxFlapX
-        // - Specular reflection along the curved cylindrical crest (highlight)
-        // - Natural ambient falloff toward outer edge
+        // Physics-accurate optical lighting inside the 3D fold
         val minFlapX = minOf(foldXTop, foldXBottom, curlXTop, curlXBottom, curlXMid)
         val maxFlapX = maxOf(foldXTop, foldXBottom)
         val deepCreaseShadowAlpha = (curlIntensity * (if (theme.isDark) 0.52f else 0.42f)).coerceIn(0f, 0.65f)
@@ -755,10 +761,13 @@ private fun DrawScope.drawRealisticPageCurlBackward(
     isSmartMarginFit: Boolean = true,
     pageVerticalPosition: PageVerticalPosition = PageVerticalPosition.CENTER
 ) {
-    val sampleBmp = currentBitmap ?: previousBitmap
-    val metrics = sampleBmp?.let { bmp ->
+    val currentMetrics = currentBitmap?.let { bmp ->
         calculatePageLayoutMetrics(bmp.width.toFloat(), bmp.height.toFloat(), width, height, isSmartMarginFit, pageVerticalPosition)
-    } ?: calculatePageLayoutMetrics(width, height, width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+    val previousMetrics = previousBitmap?.let { bmp ->
+        calculatePageLayoutMetrics(bmp.width.toFloat(), bmp.height.toFloat(), width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+    val metrics = previousMetrics ?: currentMetrics ?: calculatePageLayoutMetrics(width, height, width, height, isSmartMarginFit, pageVerticalPosition)
 
     val pLeft = metrics.left
     val pRight = metrics.left + metrics.width
@@ -767,6 +776,9 @@ private fun DrawScope.drawRealisticPageCurlBackward(
     val pW = metrics.width
     val pH = metrics.height
     val p = progress.coerceIn(0f, 1f)
+
+    val pageAspectRatio = pW / max(1f, pH)
+    val aspectTiltCorrection = (1f / pageAspectRatio.coerceIn(0.4f, 2.5f)).coerceIn(0.5f, 1.6f)
 
     val paperColor = if (theme.isDark) {
         Color(0xFF1E242E)
@@ -788,27 +800,26 @@ private fun DrawScope.drawRealisticPageCurlBackward(
         }
     }
 
-    // 1. UNDERNEATH BASE PAGE (Current Page - Seamless with background)
+    // 1. UNDERNEATH BASE PAGE (Current Page - using its own natural layout metrics)
+    val underlyingMetrics = currentMetrics ?: metrics
     drawRect(
         color = paperColor,
-        topLeft = Offset(pLeft, pTop),
-        size = Size(pW, pH)
+        topLeft = Offset(underlyingMetrics.left, underlyingMetrics.top),
+        size = Size(underlyingMetrics.width, underlyingMetrics.height)
     )
-    val baseBitmap = currentBitmap ?: previousBitmap
-    if (baseBitmap != null) {
-        drawPageBitmap(baseBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
+    if (currentBitmap != null) {
+        drawPageBitmap(currentBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
     }
-    drawBookSpineGutter(metrics, theme)
-    drawBookEdgeShadow(metrics, theme)
+    drawBookSpineGutter(underlyingMetrics, theme)
+    drawBookEdgeShadow(underlyingMetrics, theme)
 
-    // 2. DYNAMIC FOLD CREASE GEOMETRY (Mirrored opposite: progressing from Left to Right with straight release)
+    // 2. DYNAMIC FOLD CREASE GEOMETRY (Progressing from Left to Right with straight release)
     val yFrac = touchFractionY.coerceIn(0.05f, 0.95f)
-    val cornerPullBias = ((yFrac - 0.5f) * 2f).coerceIn(-1f, 1f) // -1 top corner, 0 center, +1 bottom corner
+    val cornerPullBias = ((yFrac - 0.5f) * 2f).coerceIn(-1f, 1f)
 
-    // Natural tension and smooth fall-in after 2/3 page coverage
     val fallInFraction = ((p - (2f / 3f)) / (1f / 3f)).coerceIn(0f, 1f)
     val straightenDecay = (1f - fallInFraction * 0.75f).coerceIn(0.25f, 1f)
-    val tiltSpread = (sin(p * PI) * straightenDecay * pW * 0.045f * cornerPullBias).toFloat()
+    val tiltSpread = (sin(p * PI) * straightenDecay * pW * 0.045f * aspectTiltCorrection * cornerPullBias).toFloat()
     val foldX = pLeft + (p * pW)
     val foldXTop = (foldX - tiltSpread).coerceIn(pLeft, pRight)
     val foldXBottom = (foldX + tiltSpread).coerceIn(pLeft, pRight)
@@ -819,7 +830,7 @@ private fun DrawScope.drawRealisticPageCurlBackward(
     val c2x = foldXBottom + (foldXMid - foldXBottom) * 0.15f
     val c2y = pBottom - pH * 0.32f
 
-    // 3. PREVIOUS PAGE (Revealed on Left side from Spine to fold crease - Clean)
+    // 3. PREVIOUS PAGE (Revealed on Left side from Spine to fold crease)
     if (p > 0.001f) {
         val prevLeafPath = Path().apply {
             moveTo(pLeft, pTop)
@@ -837,9 +848,8 @@ private fun DrawScope.drawRealisticPageCurlBackward(
                     size = Size(pW, pH)
                 )
 
-                val incomingBitmap = previousBitmap ?: currentBitmap
-                if (incomingBitmap != null) {
-                    drawPageBitmap(incomingBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
+                if (previousBitmap != null) {
+                    drawPageBitmap(previousBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
                 }
             }
         }
@@ -847,11 +857,9 @@ private fun DrawScope.drawRealisticPageCurlBackward(
 
     // 4. 3D SOLID FOLDED VERSO LEAF WITH REAL PHYSICAL OPTICS INSIDE THE FOLD (Curling over to the Right)
     if (p in 0.005f..0.995f) {
-        // Full, realistic page folding size based on page width
         val wFoldedTop = (foldXTop - pLeft).coerceAtLeast(0f)
         val wFoldedBottom = (foldXBottom - pLeft).coerceAtLeast(0f)
 
-        // Generous, natural page curl factor that smoothly drapes flat in final 1/3 of navigation
         val curlFactor = (0.92f - fallInFraction * 0.15f).coerceIn(0.70f, 0.95f)
 
         val curlXTop = (foldXTop + wFoldedTop * curlFactor).coerceIn(pLeft, pRight)
@@ -887,13 +895,8 @@ private fun DrawScope.drawRealisticPageCurlBackward(
             close()
         }
 
-        // 100% Solid Opaque Verso Paper Flap
         drawPath(path = flapPath, color = versoPaperColor)
 
-        // Physics-accurate optical lighting inside the 3D fold (Opposite direction):
-        // - Deep dark occlusion shadow inside the fold crevice at minFlapX (the crease)
-        // - Specular reflection along the curved cylindrical crest (highlight)
-        // - Natural ambient falloff toward outer edge at maxFlapX
         val minFlapX = minOf(foldXTop, foldXBottom)
         val maxFlapX = maxOf(foldXTop, foldXBottom, curlXTop, curlXBottom, curlXMid)
         val deepCreaseShadowAlpha = (curlIntensity * (if (theme.isDark) 0.52f else 0.42f)).coerceIn(0f, 0.65f)
@@ -936,10 +939,13 @@ private fun DrawScope.draw3DPageFlipForward(
     isSmartMarginFit: Boolean = true,
     pageVerticalPosition: PageVerticalPosition = PageVerticalPosition.CENTER
 ) {
-    val sampleBmp = currentBitmap ?: nextBitmap
-    val metrics = sampleBmp?.let { bmp ->
+    val currentMetrics = currentBitmap?.let { bmp ->
         calculatePageLayoutMetrics(bmp.width.toFloat(), bmp.height.toFloat(), width, height, isSmartMarginFit, pageVerticalPosition)
-    } ?: calculatePageLayoutMetrics(width, height, width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+    val nextMetrics = nextBitmap?.let { bmp ->
+        calculatePageLayoutMetrics(bmp.width.toFloat(), bmp.height.toFloat(), width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+    val metrics = currentMetrics ?: nextMetrics ?: calculatePageLayoutMetrics(width, height, width, height, isSmartMarginFit, pageVerticalPosition)
 
     val pLeft = metrics.left
     val pW = metrics.width
@@ -967,11 +973,12 @@ private fun DrawScope.draw3DPageFlipForward(
         }
     }
 
-    // 1. Underneath revealed page base (Seamless with background)
+    // 1. Underneath revealed page base (using its natural metrics)
+    val underlyingMetrics = nextMetrics ?: metrics
     drawRect(
         color = paperColor,
-        topLeft = Offset(pLeft, pTop),
-        size = Size(pW, pH)
+        topLeft = Offset(underlyingMetrics.left, underlyingMetrics.top),
+        size = Size(underlyingMetrics.width, underlyingMetrics.height)
     )
     if (nextBitmap != null) {
         drawPageBitmap(nextBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
@@ -1076,10 +1083,13 @@ private fun DrawScope.draw3DPageFlipBackward(
     isSmartMarginFit: Boolean = true,
     pageVerticalPosition: PageVerticalPosition = PageVerticalPosition.CENTER
 ) {
-    val sampleBmp = currentBitmap ?: previousBitmap
-    val metrics = sampleBmp?.let { bmp ->
+    val currentMetrics = currentBitmap?.let { bmp ->
         calculatePageLayoutMetrics(bmp.width.toFloat(), bmp.height.toFloat(), width, height, isSmartMarginFit, pageVerticalPosition)
-    } ?: calculatePageLayoutMetrics(width, height, width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+    val previousMetrics = previousBitmap?.let { bmp ->
+        calculatePageLayoutMetrics(bmp.width.toFloat(), bmp.height.toFloat(), width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+    val metrics = previousMetrics ?: currentMetrics ?: calculatePageLayoutMetrics(width, height, width, height, isSmartMarginFit, pageVerticalPosition)
 
     val pLeft = metrics.left
     val pW = metrics.width
@@ -1107,11 +1117,12 @@ private fun DrawScope.draw3DPageFlipBackward(
         }
     }
 
-    // 1. Base current page (Seamless with background)
+    // 1. Base current page (using its natural metrics)
+    val underlyingMetrics = currentMetrics ?: metrics
     drawRect(
         color = paperColor,
-        topLeft = Offset(pLeft, pTop),
-        size = Size(pW, pH)
+        topLeft = Offset(underlyingMetrics.left, underlyingMetrics.top),
+        size = Size(underlyingMetrics.width, underlyingMetrics.height)
     )
     if (currentBitmap != null) {
         drawPageBitmap(currentBitmap, width, height, isSmartMarginFit, pageVerticalPosition)
@@ -1206,10 +1217,13 @@ private fun DrawScope.drawSlideForward(
     isSmartMarginFit: Boolean = true,
     pageVerticalPosition: PageVerticalPosition = PageVerticalPosition.CENTER
 ) {
-    val sampleBmp = currentBitmap ?: nextBitmap
-    val metrics = sampleBmp?.let { bmp ->
+    val currentMetrics = currentBitmap?.let { bmp ->
         calculatePageLayoutMetrics(bmp.width.toFloat(), bmp.height.toFloat(), width, height, isSmartMarginFit, pageVerticalPosition)
-    } ?: calculatePageLayoutMetrics(width, height, width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+    val nextMetrics = nextBitmap?.let { bmp ->
+        calculatePageLayoutMetrics(bmp.width.toFloat(), bmp.height.toFloat(), width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+    val metrics = currentMetrics ?: nextMetrics ?: calculatePageLayoutMetrics(width, height, width, height, isSmartMarginFit, pageVerticalPosition)
 
     val pLeft = metrics.left
     val pW = metrics.width
@@ -1245,10 +1259,13 @@ private fun DrawScope.drawSlideBackward(
     isSmartMarginFit: Boolean = true,
     pageVerticalPosition: PageVerticalPosition = PageVerticalPosition.CENTER
 ) {
-    val sampleBmp = currentBitmap ?: previousBitmap
-    val metrics = sampleBmp?.let { bmp ->
+    val currentMetrics = currentBitmap?.let { bmp ->
         calculatePageLayoutMetrics(bmp.width.toFloat(), bmp.height.toFloat(), width, height, isSmartMarginFit, pageVerticalPosition)
-    } ?: calculatePageLayoutMetrics(width, height, width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+    val previousMetrics = previousBitmap?.let { bmp ->
+        calculatePageLayoutMetrics(bmp.width.toFloat(), bmp.height.toFloat(), width, height, isSmartMarginFit, pageVerticalPosition)
+    }
+    val metrics = previousMetrics ?: currentMetrics ?: calculatePageLayoutMetrics(width, height, width, height, isSmartMarginFit, pageVerticalPosition)
 
     val pLeft = metrics.left
     val pW = metrics.width

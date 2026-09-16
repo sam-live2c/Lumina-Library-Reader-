@@ -425,8 +425,7 @@ private fun MainSettingsContent(
                             if (settingsSearchQuery.isNotBlank()) {
                                 IconButton(onClick = { 
                                     settingsSearchQuery = ""
-                                    focusManager.clearFocus(force = true)
-                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
                                 }) {
                                     Icon(
                                         imageVector = Icons.Outlined.Close,
@@ -439,8 +438,7 @@ private fun MainSettingsContent(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(
                             onSearch = {
-                                focusManager.clearFocus(force = true)
-                                keyboardController?.hide()
+                                focusManager.clearFocus()
                             }
                         ),
                         shape = RoundedCornerShape(24.dp),

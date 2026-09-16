@@ -712,8 +712,7 @@ private fun LibraryHeaderSection(
                 if (uiState.searchQuery.isNotBlank()) {
                     IconButton(onClick = {
                         viewModel.setSearchQuery("")
-                        focusManager.clearFocus(force = true)
-                        keyboardController?.hide()
+                        focusManager.clearFocus()
                         onToast("Search cleared")
                     }) {
                         Icon(
@@ -727,8 +726,7 @@ private fun LibraryHeaderSection(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
                 onSearch = {
-                    focusManager.clearFocus(force = true)
-                    keyboardController?.hide()
+                    focusManager.clearFocus()
                 }
             ),
             shape = RoundedCornerShape(24.dp),

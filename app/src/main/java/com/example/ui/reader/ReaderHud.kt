@@ -241,7 +241,7 @@ fun ReaderBottomBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -250,7 +250,7 @@ fun ReaderBottomBar(
                     onClick = onPreviousPage,
                     enabled = currentPage > 1,
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(40.dp)
                         .testTag("reader_prev_page_button")
                 ) {
                     Icon(
@@ -261,21 +261,22 @@ fun ReaderBottomBar(
                     )
                 }
 
-                // Middle Action Options Row - Free, unconstrained option labels
+                // Middle Action Options Row - Evenly weighted so all options fit freely without clipping
                 Row(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 4.dp),
+                        .padding(horizontal = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     // 1. Overview Mode Toggle Option
                     Box(
                         modifier = Modifier
+                            .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isOverviewMode) pillBgActive.copy(alpha = 0.15f) else Color.Transparent)
                             .clickable { onToggleOverviewMode() }
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .padding(vertical = 8.dp, horizontal = 2.dp)
                             .testTag("reader_overview_button"),
                         contentAlignment = Alignment.Center
                     ) {
@@ -286,14 +287,14 @@ fun ReaderBottomBar(
                             Icon(
                                 imageVector = Icons.Outlined.AutoStories,
                                 contentDescription = "Overview Mode",
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(18.dp),
                                 tint = if (isOverviewMode) readerTheme.accentColor else barText
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "Pages",
                                 style = MaterialTheme.typography.labelLarge.copy(
-                                    fontSize = 14.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = if (isOverviewMode) FontWeight.Bold else FontWeight.Medium
                                 ),
                                 maxLines = 1,
@@ -306,10 +307,11 @@ fun ReaderBottomBar(
                     // 2. Bookmarks / Table of Contents Option
                     Box(
                         modifier = Modifier
+                            .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color.Transparent)
                             .clickable { onOpenBookmarks() }
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .padding(vertical = 8.dp, horizontal = 2.dp)
                             .testTag("reader_bookmarks_toc_button"),
                         contentAlignment = Alignment.Center
                     ) {
@@ -320,14 +322,14 @@ fun ReaderBottomBar(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Outlined.List,
                                 contentDescription = "Bookmarks",
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(18.dp),
                                 tint = barText
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "Marks",
                                 style = MaterialTheme.typography.labelLarge.copy(
-                                    fontSize = 14.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 ),
                                 maxLines = 1,
@@ -337,14 +339,15 @@ fun ReaderBottomBar(
                         }
                     }
 
-                    // 3. Jump to Page / Progression Option
+                    // 3. Jump to Page / Progression Option (xx%)
                     val percent = if (totalPages > 0) ((currentPage.toFloat() / totalPages.toFloat()) * 100).toInt() else 0
                     Box(
                         modifier = Modifier
+                            .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color.Transparent)
                             .clickable { onOpenJumpDialog() }
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .padding(vertical = 8.dp, horizontal = 2.dp)
                             .testTag("reader_jump_dialog_button"),
                         contentAlignment = Alignment.Center
                     ) {
@@ -355,16 +358,16 @@ fun ReaderBottomBar(
                             Icon(
                                 imageVector = Icons.Outlined.FindInPage,
                                 contentDescription = "Jump to Page",
-                                modifier = Modifier.size(20.dp),
-                                tint = readerTheme.accentColor
+                                modifier = Modifier.size(18.dp),
+                                tint = barText
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             val label = "$percent%"
                             Text(
                                 text = label,
                                 style = MaterialTheme.typography.labelLarge.copy(
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
                                 ),
                                 maxLines = 1,
                                 softWrap = false,
@@ -379,7 +382,7 @@ fun ReaderBottomBar(
                     onClick = onNextPage,
                     enabled = currentPage < totalPages,
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(40.dp)
                         .testTag("reader_next_page_button")
                 ) {
                     Icon(

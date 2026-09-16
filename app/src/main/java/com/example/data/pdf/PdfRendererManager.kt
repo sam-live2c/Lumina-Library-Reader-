@@ -147,16 +147,28 @@ class PdfRendererManager(private val context: Context) {
 
                 dimensionCache[cacheKey] = Pair(pageWidth, pageHeight)
 
-                // Calculate balanced resolution scale so text is crisp without causing OutOfMemory
+                // Preserve the exact natural aspect ratio of the page without forcing A4 or clamping width/height independently
+                val pageAspect = pageWidth.toFloat() / max(1, pageHeight).toFloat()
                 val scale = max(
                     targetWidth.toFloat() / max(1, pageWidth).toFloat(),
                     targetHeight.toFloat() / max(1, pageHeight).toFloat()
-                ).coerceIn(1.2f, 2.2f)
+                ).coerceIn(1.2f, 2.4f)
 
-                val maxDimW = 1440
-                val maxDimH = 2560
-                val outWidth = (pageWidth * scale).toInt().coerceIn(320, maxDimW)
-                val outHeight = (pageHeight * scale).toInt().coerceIn(480, maxDimH)
+                // Scale proportionally preserving aspect ratio exactly
+                var outWidth = (pageWidth * scale).toInt().coerceAtLeast(64)
+                var outHeight = (pageHeight * scale).toInt().coerceAtLeast(64)
+
+                // Cap maximum dimension to avoid memory pressure while strictly preserving aspect ratio
+                val maxDimension = 2560
+                if (outWidth > maxDimension || outHeight > maxDimension) {
+                    if (outWidth >= outHeight) {
+                        outWidth = maxDimension
+                        outHeight = (maxDimension / pageAspect).toInt().coerceAtLeast(64)
+                    } else {
+                        outHeight = maxDimension
+                        outWidth = (maxDimension * pageAspect).toInt().coerceAtLeast(64)
+                    }
+                }
 
                 val bitmap = try {
                     Bitmap.createBitmap(outWidth, outHeight, Bitmap.Config.ARGB_8888)
@@ -164,9 +176,9 @@ class PdfRendererManager(private val context: Context) {
                     pageCache.evictAll()
                     System.gc()
                     try {
-                        // Fallback to RGB_565 (2 bytes per pixel instead of 4) at lower resolution
-                        val halfW = (outWidth * 0.7f).toInt().coerceAtLeast(320)
-                        val halfH = (outHeight * 0.7f).toInt().coerceAtLeast(480)
+                        // Fallback to RGB_565 (2 bytes per pixel instead of 4) at lower resolution while preserving aspect ratio
+                        val halfW = (outWidth * 0.7f).toInt().coerceAtLeast(64)
+                        val halfH = (outHeight * 0.7f).toInt().coerceAtLeast(64)
                         Bitmap.createBitmap(halfW, halfH, Bitmap.Config.RGB_565)
                     } catch (oom2: OutOfMemoryError) {
                         null

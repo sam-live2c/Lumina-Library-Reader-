@@ -90,12 +90,14 @@ fun InBookSearchBar(
     var isSuggestionsOpen by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+        kotlinx.coroutines.delay(120)
+        try {
+            focusRequester.requestFocus()
+        } catch (_: Exception) {}
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            keyboardController?.hide()
             focusManager.clearFocus()
         }
     }
@@ -129,7 +131,6 @@ fun InBookSearchBar(
                 // Close / Back button
                 IconButton(
                     onClick = {
-                        keyboardController?.hide()
                         focusManager.clearFocus()
                         onClose()
                     },
@@ -181,7 +182,6 @@ fun InBookSearchBar(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = {
                             isSuggestionsOpen = false
-                            keyboardController?.hide()
                             focusManager.clearFocus()
                             onSubmitSearch()
                         }),
