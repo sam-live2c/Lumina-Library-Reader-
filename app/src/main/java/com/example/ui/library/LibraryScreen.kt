@@ -122,6 +122,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -130,6 +131,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -259,241 +261,170 @@ fun LibraryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .then(if (isFullScreenModeEnabled) Modifier.padding(top = 5.dp) else Modifier)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    // 1. Split Header & Hero Section: Stable, fixed bounds with no layout shock
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                    // 1. Library Header with 3 Dots Menu Button
-                    LibraryHeader(
-                        viewMode = uiState.viewMode,
-                        sortOrder = uiState.sortOrder,
-                        onToggleViewMode = {
-                            val next = if (uiState.viewMode == LibraryViewMode.GRID) "List view" else "Grid view"
-                            toastMessage = "Switched to $next"
-                            viewModel.toggleViewMode()
-                        },
-                        onSelectSortOrder = { order ->
-                            toastMessage = "Sorted by ${order.title}"
-                            viewModel.setSortOrder(order)
-                        },
-                        onOpenSettings = {
-                            onOpenSettings(null)
-                        },
-                        onOpenHelpAndSupport = {
-                            onOpenSettings(SettingsSubpage.HELP_AND_SUPPORT)
-                        }
-                    )
-
-                    // 2. Search Field with standard UX (No border)
-                    OutlinedTextField(
-                        value = uiState.searchQuery,
-                        onValueChange = { viewModel.setSearchQuery(it) },
-                        placeholder = {
-                            Text(
-                                text = "Search books & documents...",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Search",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        trailingIcon = {
-                            if (uiState.searchQuery.isNotBlank()) {
-                                IconButton(onClick = {
-                                    viewModel.setSearchQuery("")
-                                    focusManager.clearFocus(force = true)
-                                    keyboardController?.hide()
-                                    toastMessage = "Search cleared"
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Close,
-                                        contentDescription = "Clear",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(
-                            onSearch = {
-                                focusManager.clearFocus(force = true)
-                                keyboardController?.hide()
-                            }
-                        ),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            disabledBorderColor = Color.Transparent,
-                            errorBorderColor = Color.Transparent,
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                        ),
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("library_search_field")
-                            .onFocusChanged { isSearchFocused = it.isFocused }
-                            .onGloballyPositioned { searchFieldCoordinates = it }
-                    )
-
-                    // 3. Continue Reading Hero Card (Up to 5 books left to read)
-                    if (uiState.searchQuery.isBlank() && uiState.booksLeftToRead.isNotEmpty()) {
-                        ContinueReadingHero(
-                            books = uiState.booksLeftToRead,
-                            onRead = { bookId ->
-                                focusManager.clearFocus()
-                                keyboardController?.hide()
-                                onOpenBook(bookId)
-                            }
-                        )
-                    }
-
-                    // 4. Filter Chips & Layout / Sort Status
-                    FilterChipsRow(
-                        currentFilter = uiState.currentFilter,
-                        onFilterSelected = { filter ->
-                            focusManager.clearFocus()
-                            keyboardController?.hide()
-                            viewModel.setFilter(filter)
-                        },
-                        totalCount = uiState.books.size
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // 2. Split Books Section: Only this changes formation between Grid and List
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                ) {
-                    if (uiState.filteredBooks.isEmpty()) {
-                        Box(
+                AnimatedContent(
+                    targetState = uiState.viewMode,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(150))
+                    },
+                    label = "books_view_mode_transition"
+                ) { mode ->
+                    if (mode == LibraryViewMode.GRID) {
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 152.dp),
+                            contentPadding = PaddingValues(
+                                start = 14.dp,
+                                end = 14.dp,
+                                top = if (isFullScreenModeEnabled) 18.dp else 12.dp,
+                                bottom = 100.dp
+                            ),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(horizontal = 14.dp, vertical = 20.dp),
-                            contentAlignment = Alignment.Center
+                                .testTag("books_grid")
                         ) {
-                            EmptyLibraryState(
-                                onUpload = {
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
-                                    multiPdfPickerLauncher.launch(arrayOf("application/pdf"))
-                                }
-                            )
-                        }
-                    } else {
-                        AnimatedContent(
-                            targetState = uiState.viewMode,
-                            transitionSpec = {
-                                fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(150))
-                            },
-                            label = "books_view_mode_transition"
-                        ) { mode ->
-                            if (mode == LibraryViewMode.GRID) {
-                                LazyVerticalGrid(
-                                    columns = GridCells.Adaptive(minSize = 152.dp),
-                                    contentPadding = PaddingValues(
-                                        start = 14.dp,
-                                        end = 14.dp,
-                                        top = 6.dp,
-                                        bottom = 100.dp
-                                    ),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .testTag("books_grid")
-                                ) {
-                                    gridItems(uiState.filteredBooks, key = { it.id }) { book ->
-                                        BookCardItem(
-                                            book = book,
-                                            onClick = {
+                            // 1. All top page components scroll together with the grid
+                            item(span = { GridItemSpan(maxLineSpan) }, key = "library_header_section") {
+                                LibraryHeaderSection(
+                                    uiState = uiState,
+                                    viewModel = viewModel,
+                                    focusManager = focusManager,
+                                    keyboardController = keyboardController,
+                                    isSearchFocused = isSearchFocused,
+                                    onSearchFocusChange = { isSearchFocused = it },
+                                    onSearchCoordinatesPositioned = { searchFieldCoordinates = it },
+                                    onOpenBook = onOpenBook,
+                                    onOpenSettings = onOpenSettings,
+                                    onToast = { toastMessage = it }
+                                )
+                            }
+
+                            if (uiState.filteredBooks.isEmpty()) {
+                                item(span = { GridItemSpan(maxLineSpan) }, key = "empty_state") {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 14.dp, vertical = 32.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        EmptyLibraryState(
+                                            onUpload = {
                                                 focusManager.clearFocus()
                                                 keyboardController?.hide()
-                                                onOpenBook(book.id)
-                                            },
-                                            onTogglePin = {
-                                                focusManager.clearFocus()
-                                                keyboardController?.hide()
-                                                val msg = if (!book.isPinned) "Pinned \"${book.title}\" to top" else "Unpinned \"${book.title}\""
-                                                toastMessage = msg
-                                                viewModel.togglePinBook(book)
-                                            },
-                                            onCopy = {
-                                                focusManager.clearFocus()
-                                                keyboardController?.hide()
-                                                viewModel.initiateCopyBook(book)
-                                            },
-                                            onDelete = {
-                                                focusManager.clearFocus()
-                                                keyboardController?.hide()
-                                                viewModel.confirmDeleteBook(book)
+                                                multiPdfPickerLauncher.launch(arrayOf("application/pdf"))
                                             }
                                         )
                                     }
                                 }
                             } else {
-                                LazyColumn(
-                                    contentPadding = PaddingValues(
-                                        start = 14.dp,
-                                        end = 14.dp,
-                                        top = 6.dp,
-                                        bottom = 100.dp
-                                    ),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .testTag("books_list")
-                                ) {
-                                    items(uiState.filteredBooks, key = { it.id }) { book ->
-                                        BookListItem(
-                                            book = book,
-                                            onClick = {
+                                gridItems(uiState.filteredBooks, key = { it.id }) { book ->
+                                    BookCardItem(
+                                        book = book,
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                            onOpenBook(book.id)
+                                        },
+                                        onTogglePin = {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                            val msg = if (!book.isPinned) "Pinned \"${book.title}\" to top" else "Unpinned \"${book.title}\""
+                                            toastMessage = msg
+                                            viewModel.togglePinBook(book)
+                                        },
+                                        onCopy = {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                            viewModel.initiateCopyBook(book)
+                                        },
+                                        onDelete = {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                            viewModel.confirmDeleteBook(book)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(
+                                start = 14.dp,
+                                end = 14.dp,
+                                top = if (isFullScreenModeEnabled) 18.dp else 12.dp,
+                                bottom = 100.dp
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("books_list")
+                        ) {
+                            // 1. All top page components scroll together with the list
+                            item(key = "library_header_section") {
+                                LibraryHeaderSection(
+                                    uiState = uiState,
+                                    viewModel = viewModel,
+                                    focusManager = focusManager,
+                                    keyboardController = keyboardController,
+                                    isSearchFocused = isSearchFocused,
+                                    onSearchFocusChange = { isSearchFocused = it },
+                                    onSearchCoordinatesPositioned = { searchFieldCoordinates = it },
+                                    onOpenBook = onOpenBook,
+                                    onOpenSettings = onOpenSettings,
+                                    onToast = { toastMessage = it }
+                                )
+                            }
+
+                            if (uiState.filteredBooks.isEmpty()) {
+                                item(key = "empty_state") {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 14.dp, vertical = 32.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        EmptyLibraryState(
+                                            onUpload = {
                                                 focusManager.clearFocus()
                                                 keyboardController?.hide()
-                                                onOpenBook(book.id)
-                                            },
-                                            onTogglePin = {
-                                                focusManager.clearFocus()
-                                                keyboardController?.hide()
-                                                val msg = if (!book.isPinned) "Pinned \"${book.title}\" to top" else "Unpinned \"${book.title}\""
-                                                toastMessage = msg
-                                                viewModel.togglePinBook(book)
-                                            },
-                                            onCopy = {
-                                                focusManager.clearFocus()
-                                                keyboardController?.hide()
-                                                viewModel.initiateCopyBook(book)
-                                            },
-                                            onDelete = {
-                                                focusManager.clearFocus()
-                                                keyboardController?.hide()
-                                                viewModel.confirmDeleteBook(book)
+                                                multiPdfPickerLauncher.launch(arrayOf("application/pdf"))
                                             }
                                         )
                                     }
+                                }
+                            } else {
+                                items(uiState.filteredBooks, key = { it.id }) { book ->
+                                    BookListItem(
+                                        book = book,
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                            onOpenBook(book.id)
+                                        },
+                                        onTogglePin = {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                            val msg = if (!book.isPinned) "Pinned \"${book.title}\" to top" else "Unpinned \"${book.title}\""
+                                            toastMessage = msg
+                                            viewModel.togglePinBook(book)
+                                        },
+                                        onCopy = {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                            viewModel.initiateCopyBook(book)
+                                        },
+                                        onDelete = {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                            viewModel.confirmDeleteBook(book)
+                                        }
+                                    )
                                 }
                             }
                         }
                     }
                 }
-            }
 
             // Loading overlay when importing
             if (uiState.isImporting) {
@@ -728,6 +659,127 @@ fun LibraryScreen(
 }
 }
 
+@Composable
+private fun LibraryHeaderSection(
+    uiState: LibraryUiState,
+    viewModel: LibraryViewModel,
+    focusManager: FocusManager,
+    keyboardController: SoftwareKeyboardController?,
+    isSearchFocused: Boolean,
+    onSearchFocusChange: (Boolean) -> Unit,
+    onSearchCoordinatesPositioned: (LayoutCoordinates) -> Unit,
+    onOpenBook: (Long) -> Unit,
+    onOpenSettings: (SettingsSubpage?) -> Unit,
+    onToast: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // 1. Library Header with 3 Dots Menu Button
+        LibraryHeader(
+            viewMode = uiState.viewMode,
+            sortOrder = uiState.sortOrder,
+            onToggleViewMode = {
+                val next = if (uiState.viewMode == LibraryViewMode.GRID) "List view" else "Grid view"
+                onToast("Switched to $next")
+                viewModel.toggleViewMode()
+            },
+            onSelectSortOrder = { order ->
+                onToast("Sorted by ${order.title}")
+                viewModel.setSortOrder(order)
+            },
+            onOpenSettings = {
+                onOpenSettings(null)
+            },
+            onOpenHelpAndSupport = {
+                onOpenSettings(SettingsSubpage.HELP_AND_SUPPORT)
+            }
+        )
+
+        // 2. Search Field with standard UX (No border)
+        OutlinedTextField(
+            value = uiState.searchQuery,
+            onValueChange = { viewModel.setSearchQuery(it) },
+            placeholder = {
+                Text(
+                    text = "Search books & documents...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            trailingIcon = {
+                if (uiState.searchQuery.isNotBlank()) {
+                    IconButton(onClick = {
+                        viewModel.setSearchQuery("")
+                        focusManager.clearFocus(force = true)
+                        keyboardController?.hide()
+                        onToast("Search cleared")
+                    }) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Clear",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(
+                onSearch = {
+                    focusManager.clearFocus(force = true)
+                    keyboardController?.hide()
+                }
+            ),
+            shape = RoundedCornerShape(24.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.Transparent,
+                unfocusedBorderColor = Color.Transparent,
+                disabledBorderColor = Color.Transparent,
+                errorBorderColor = Color.Transparent,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+            ),
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("library_search_field")
+                .onFocusChanged { onSearchFocusChange(it.isFocused) }
+                .onGloballyPositioned { onSearchCoordinatesPositioned(it) }
+        )
+
+        // 3. Continue Reading Hero Card (Up to 5 books left to read)
+        if (uiState.searchQuery.isBlank() && uiState.booksLeftToRead.isNotEmpty()) {
+            ContinueReadingHero(
+                books = uiState.booksLeftToRead,
+                onRead = { bookId ->
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    onOpenBook(bookId)
+                }
+            )
+        }
+
+        // 4. Filter Chips & Layout / Sort Status
+        FilterChipsRow(
+            currentFilter = uiState.currentFilter,
+            onFilterSelected = { filter ->
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                viewModel.setFilter(filter)
+            },
+            totalCount = uiState.books.size
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LibraryHeader(
@@ -744,7 +796,7 @@ private fun LibraryHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 4.dp),
+            .padding(top = 8.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
