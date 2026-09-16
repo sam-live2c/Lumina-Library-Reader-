@@ -30,10 +30,13 @@ enum class SettingsSubpage {
 
 enum class LibrarySortOrder(val title: String) {
     RECENT("Recently Read"),
+    DATE_ADDED("Date Added"),
     TITLE_ASC("Title (A → Z)"),
     TITLE_DESC("Title (Z → A)"),
+    AUTHOR_ASC("Author (A → Z)"),
     PROGRESS("Reading Progress"),
-    DATE_ADDED("Date Added")
+    PAGE_COUNT_DESC("Page Count (Longest)"),
+    PAGE_COUNT_ASC("Page Count (Shortest)")
 }
 
 enum class LibraryViewMode {

@@ -1338,10 +1338,13 @@ private fun MainSettingsContent(
                         val isSelected = uiState.librarySortOrder == order
                         val subtitle = when (order) {
                             LibrarySortOrder.RECENT -> "Most recently opened books first"
-                            LibrarySortOrder.DATE_ADDED -> "Pinned → Reading → Bookmarked → Uploads"
+                            LibrarySortOrder.DATE_ADDED -> "Newly added & imported books first"
                             LibrarySortOrder.TITLE_ASC -> "Alphabetical order from A to Z"
                             LibrarySortOrder.TITLE_DESC -> "Reverse alphabetical order Z to A"
+                            LibrarySortOrder.AUTHOR_ASC -> "Alphabetical by author name"
                             LibrarySortOrder.PROGRESS -> "Highest reading progress first"
+                            LibrarySortOrder.PAGE_COUNT_DESC -> "Books with most pages first"
+                            LibrarySortOrder.PAGE_COUNT_ASC -> "Quick reads & shortest books first"
                         }
 
                         Surface(

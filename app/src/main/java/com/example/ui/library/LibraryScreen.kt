@@ -47,11 +47,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
@@ -66,7 +70,9 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.PlaylistAdd
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Sort
@@ -79,6 +85,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -102,6 +110,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -147,6 +156,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.model.BookEntity
+import com.example.data.model.CustomFilter
 import com.example.data.repository.AppSettingsManager
 import com.example.ui.reader.PdfShareHelper
 import com.example.ui.settings.LibrarySortOrder
@@ -338,6 +348,11 @@ fun LibraryScreen(
                                         toastMessage = msg
                                         viewModel.togglePinBook(book)
                                     },
+                                    onAssignToList = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        viewModel.openAssignBookToListDialog(book)
+                                    },
                                     onCopy = {
                                         focusManager.clearFocus()
                                         keyboardController?.hide()
@@ -413,6 +428,11 @@ fun LibraryScreen(
                                         val msg = if (!book.isPinned) "Pinned \"${book.title}\" to top" else "Unpinned \"${book.title}\""
                                         toastMessage = msg
                                         viewModel.togglePinBook(book)
+                                    },
+                                    onAssignToList = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        viewModel.openAssignBookToListDialog(book)
                                     },
                                     onCopy = {
                                         focusManager.clearFocus()
@@ -625,6 +645,47 @@ fun LibraryScreen(
                     }
                 )
             }
+
+            // Custom Filter Creation Dialog
+            if (uiState.isCreateFilterDialogOpen) {
+                CreateCustomFilterDialog(
+                    allBooks = uiState.books,
+                    onDismiss = { viewModel.closeCreateFilterDialog() },
+                    onCreate = { name, selectedBookIds ->
+                        viewModel.createCustomFilter(name, selectedBookIds.toSet())
+                    }
+                )
+            }
+
+            // Custom Filter Edit Dialog
+            uiState.editingCustomFilter?.let { filterToEdit ->
+                EditCustomFilterDialog(
+                    customFilter = filterToEdit,
+                    allBooks = uiState.books,
+                    onDismiss = { viewModel.closeEditFilterDialog() },
+                    onSave = { name, selectedBookIds ->
+                        viewModel.updateCustomFilter(filterToEdit.id, name, selectedBookIds.toSet())
+                    },
+                    onDelete = {
+                        viewModel.deleteCustomFilter(filterToEdit.id)
+                    }
+                )
+            }
+
+            // Assign Book to Custom Filter Lists Dialog
+            uiState.bookForListAssignment?.let { bookToAssign ->
+                AssignBookToListDialog(
+                    book = bookToAssign,
+                    customFilters = uiState.customFilters,
+                    onDismiss = { viewModel.closeAssignBookToListDialog() },
+                    onSave = { assignedFilterIds ->
+                        viewModel.saveBookCustomFilterAssignments(bookToAssign.id, assignedFilterIds.toSet())
+                    },
+                    onCreateNewFilter = {
+                        viewModel.openCreateFilterDialog()
+                    }
+                )
+            }
         }
     }
 
@@ -769,15 +830,30 @@ private fun LibraryHeaderSection(
             )
         }
 
-        // 4. Filter Chips & Layout / Sort Status
+        // 4. WhatsApp-Style Filter Chips & Custom Lists
         FilterChipsRow(
-            currentFilter = uiState.currentFilter,
-            onFilterSelected = { filter ->
+            activeFilterId = uiState.activeFilterId,
+            filterChips = uiState.filterChipItems,
+            onFilterSelected = { filterId ->
                 focusManager.clearFocus()
                 keyboardController?.hide()
-                viewModel.setFilter(filter)
+                viewModel.setFilterById(filterId)
             },
-            totalCount = uiState.books.size
+            onAddNewFilter = {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                viewModel.openCreateFilterDialog()
+            },
+            onEditCustomFilter = { customFilter ->
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                viewModel.openEditFilterDialog(customFilter)
+            },
+            onDeleteCustomFilter = { filterId ->
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                viewModel.deleteCustomFilter(filterId)
+            }
         )
     }
 }
@@ -997,7 +1073,10 @@ private fun LibraryHeader(
                             LibrarySortOrder.DATE_ADDED -> "Newly added & imported books first"
                             LibrarySortOrder.TITLE_ASC -> "Alphabetical order from A to Z"
                             LibrarySortOrder.TITLE_DESC -> "Reverse alphabetical order Z to A"
+                            LibrarySortOrder.AUTHOR_ASC -> "Alphabetical by author name"
                             LibrarySortOrder.PROGRESS -> "Highest reading progress first"
+                            LibrarySortOrder.PAGE_COUNT_DESC -> "Thickest books with highest page count"
+                            LibrarySortOrder.PAGE_COUNT_ASC -> "Quick reads with shortest page count"
                         }
 
                         Surface(
@@ -1224,57 +1303,156 @@ private fun ContinueReadingHero(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun FilterChipsRow(
-    currentFilter: LibraryFilter,
-    onFilterSelected: (LibraryFilter) -> Unit,
-    totalCount: Int
+    activeFilterId: String,
+    filterChips: List<FilterChipItem>,
+    onFilterSelected: (String) -> Unit,
+    onAddNewFilter: () -> Unit,
+    onEditCustomFilter: (CustomFilter) -> Unit,
+    onDeleteCustomFilter: (String) -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        FilterChip(
-            selected = currentFilter == LibraryFilter.ALL,
-            onClick = { onFilterSelected(LibraryFilter.ALL) },
-            label = { Text("All Books ($totalCount)", maxLines = 1, softWrap = false) },
-            colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-            ),
-            border = null,
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.testTag("filter_all")
-        )
+        // Render each filter chip
+        filterChips.forEach { chip ->
+            val isSelected = chip.id == activeFilterId
+            var showMenu by remember { mutableStateOf(false) }
 
-        FilterChip(
-            selected = currentFilter == LibraryFilter.READING,
-            onClick = { onFilterSelected(LibraryFilter.READING) },
-            label = { Text("Reading", maxLines = 1, softWrap = false) },
-            colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-            ),
-            border = null,
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.testTag("filter_reading")
-        )
+            Box {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .combinedClickable(
+                            onClick = { onFilterSelected(chip.id) },
+                            onLongClick = {
+                                if (chip.isCustom && chip.customFilter != null) {
+                                    showMenu = true
+                                }
+                            }
+                        )
+                        .testTag("filter_chip_${chip.id}")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = chip.label,
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            ),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        if (chip.count > 0 || isSelected) {
+                            Surface(
+                                shape = CircleShape,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            ) {
+                                Text(
+                                    text = "${chip.count}",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
 
-        FilterChip(
-            selected = currentFilter == LibraryFilter.BOOKMARKED,
-            onClick = { onFilterSelected(LibraryFilter.BOOKMARKED) },
-            label = { Text("Bookmarked", maxLines = 1, softWrap = false) },
-            colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-            ),
-            border = null,
+                // Dropdown menu for custom lists (Edit / Delete)
+                if (chip.isCustom && chip.customFilter != null) {
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        shape = RoundedCornerShape(16.dp),
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        shadowElevation = 0.dp,
+                        tonalElevation = 0.dp,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Edit List & Books", fontWeight = FontWeight.Medium) },
+                            onClick = {
+                                showMenu = false
+                                onEditCustomFilter(chip.customFilter)
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            modifier = Modifier.testTag("menu_edit_filter_${chip.id}")
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete List", fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.error) },
+                            onClick = {
+                                showMenu = false
+                                onDeleteCustomFilter(chip.id)
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.DeleteOutline,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            },
+                            modifier = Modifier.testTag("menu_delete_filter_${chip.id}")
+                        )
+                    }
+                }
+            }
+        }
+
+        // WhatsApp-style "+ New List" button
+        Surface(
             shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.testTag("filter_bookmarked")
-        )
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            contentColor = MaterialTheme.colorScheme.primary,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+            modifier = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .clickable { onAddNewFilter() }
+                .testTag("add_custom_filter_chip")
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "New List",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "New List",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+        }
     }
 }
 
@@ -1284,6 +1462,7 @@ private fun BookCardItem(
     book: BookEntity,
     onClick: () -> Unit,
     onTogglePin: () -> Unit,
+    onAssignToList: () -> Unit,
     onCopy: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -1443,6 +1622,27 @@ private fun BookCardItem(
                         DropdownMenuItem(
                             text = {
                                 Text(
+                                    text = "Add to List...",
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onAssignToList()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.PlaylistAdd,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            modifier = Modifier.testTag("menu_assign_card_${book.id}")
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
                                     text = "Share PDF",
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -1572,6 +1772,7 @@ private fun BookListItem(
     book: BookEntity,
     onClick: () -> Unit,
     onTogglePin: () -> Unit,
+    onAssignToList: () -> Unit,
     onCopy: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -1600,246 +1801,836 @@ private fun BookListItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-        // Book Cover Thumbnail with Pin badge
-        Box {
-            BookCoverThumbnail(
-                coverImagePath = book.coverImagePath,
-                filePath = book.filePath,
-                title = book.title,
-                modifier = Modifier
-                    .width(52.dp)
-                    .aspectRatio(0.72f)
-                    .clip(RoundedCornerShape(6.dp))
-                    .shadow(2.dp, RoundedCornerShape(6.dp))
-            )
-            if (book.isPinned) {
-                Surface(
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = RoundedCornerShape(bottomEnd = 6.dp),
-                    modifier = Modifier.align(Alignment.TopStart)
+            // Book Cover Thumbnail with Pin badge
+            Box {
+                BookCoverThumbnail(
+                    coverImagePath = book.coverImagePath,
+                    filePath = book.filePath,
+                    title = book.title,
+                    modifier = Modifier
+                        .width(52.dp)
+                        .aspectRatio(0.72f)
+                        .clip(RoundedCornerShape(6.dp))
+                        .shadow(2.dp, RoundedCornerShape(6.dp))
+                )
+                if (book.isPinned) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(bottomEnd = 6.dp),
+                        modifier = Modifier.align(Alignment.TopStart)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PushPin,
+                            contentDescription = "Pinned",
+                            tint = Color.White,
+                            modifier = Modifier
+                                .padding(2.dp)
+                                .size(10.dp)
+                        )
+                    }
+                }
+            }
+
+            // Info Column
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = book.title,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (book.isPinned) {
+                        Icon(
+                            imageVector = Icons.Filled.PushPin,
+                            contentDescription = "Pinned",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
+                }
+                val displayAuthor = book.author.takeIf { it.isNotBlank() && !it.equals("Imported Document", ignoreCase = true) }
+                if (displayAuthor != null) {
+                    Text(
+                        text = displayAuthor,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                if (book.hasBeenOpened) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Page ${book.currentPage} of ${book.totalPages}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${(book.progressPercent * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    LinearProgressIndicator(
+                        progress = { book.progressPercent },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(CircleShape),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "${book.totalPages} pages",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Unread",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    LinearProgressIndicator(
+                        progress = { 0f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(CircleShape),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
+            }
+
+            // More Options
+            Box {
+                IconButton(
+                    onClick = { showMenu = true },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("book_list_options_${book.id}")
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.PushPin,
-                        contentDescription = "Pinned",
-                        tint = Color.White,
-                        modifier = Modifier
-                            .padding(2.dp)
-                            .size(10.dp)
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Options",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    shape = RoundedCornerShape(16.dp),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 0.dp,
+                    tonalElevation = 0.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                    modifier = Modifier.clip(RoundedCornerShape(16.dp))
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = if (book.isPinned) "Unpin Book" else "Pin Book",
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onTogglePin()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = if (book.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        modifier = Modifier.testTag("menu_pin_list_${book.id}")
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = "Add to List...",
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onAssignToList()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.PlaylistAdd,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        modifier = Modifier.testTag("menu_assign_list_${book.id}")
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = "Share PDF",
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            PdfShareHelper.sharePdf(context, book)
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Share,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        modifier = Modifier.testTag("menu_share_list_${book.id}")
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = "Copy Book",
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onCopy()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.ContentCopy,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        modifier = Modifier.testTag("menu_copy_list_${book.id}")
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = "Delete Book",
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.DeleteOutline,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        },
+                        modifier = Modifier.testTag("menu_delete_list_${book.id}")
                     )
                 }
             }
         }
+    }
+}
 
-        // Info Column
-        Column(modifier = Modifier.weight(1f)) {
+/**
+ * WhatsApp-style Create Custom Filter List Dialog
+ */
+@Composable
+private fun CreateCustomFilterDialog(
+    allBooks: List<BookEntity>,
+    onDismiss: () -> Unit,
+    onCreate: (name: String, selectedBookIds: List<Long>) -> Unit
+) {
+    var filterName by remember { mutableStateOf("") }
+    var bookSearchQuery by remember { mutableStateOf("") }
+    val selectedIds = remember { mutableStateListOf<Long>() }
+
+    val filteredList = remember(allBooks, bookSearchQuery) {
+        if (bookSearchQuery.isBlank()) {
+            allBooks
+        } else {
+            allBooks.filter {
+                it.title.contains(bookSearchQuery, ignoreCase = true) ||
+                (it.author?.contains(bookSearchQuery, ignoreCase = true) == true)
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .widthIn(max = 560.dp),
+        shape = RoundedCornerShape(24.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        title = {
+            Column {
+                Text(
+                    text = "New Filter List",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Create a custom filter to quickly sort and group books",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // List Name Input
+                OutlinedTextField(
+                    value = filterName,
+                    onValueChange = { filterName = it },
+                    label = { Text("List Name (e.g. Study, Fiction, Work)") },
+                    placeholder = { Text("Enter filter name") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("create_filter_name_input")
+                )
+
+                // Select Books Header & Search
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Select Books (${selectedIds.size} selected)",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    if (allBooks.isNotEmpty()) {
+                        TextButton(
+                            onClick = {
+                                if (selectedIds.size == allBooks.size) {
+                                    selectedIds.clear()
+                                } else {
+                                    selectedIds.clear()
+                                    selectedIds.addAll(allBooks.map { it.id })
+                                }
+                            }
+                        ) {
+                            Text(
+                                text = if (selectedIds.size == allBooks.size) "Deselect All" else "Select All",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
+                if (allBooks.size > 5) {
+                    OutlinedTextField(
+                        value = bookSearchQuery,
+                        onValueChange = { bookSearchQuery = it },
+                        placeholder = { Text("Filter books below...") },
+                        leadingIcon = {
+                            Icon(imageVector = Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                        trailingIcon = {
+                            if (bookSearchQuery.isNotBlank()) {
+                                IconButton(onClick = { bookSearchQuery = "" }) {
+                                    Icon(imageVector = Icons.Outlined.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // Books Selection Checklist
+                if (allBooks.isEmpty()) {
+                    Text(
+                        text = "No books in library yet. You can still create the list and add books later.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 240.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        items(filteredList, key = { it.id }) { book ->
+                            val isChecked = selectedIds.contains(book.id)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        if (isChecked) selectedIds.remove(book.id) else selectedIds.add(book.id)
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Checkbox(
+                                    checked = isChecked,
+                                    onCheckedChange = { checked ->
+                                        if (checked) selectedIds.add(book.id) else selectedIds.remove(book.id)
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = book.title,
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (!book.author.isNullOrBlank()) {
+                                        Text(
+                                            text = book.author,
+                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (filterName.isNotBlank()) {
+                        onCreate(filterName.trim(), selectedIds.toList())
+                    }
+                },
+                enabled = filterName.isNotBlank(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                modifier = Modifier.testTag("confirm_create_filter_btn")
+            ) {
+                Text("Create List")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+/**
+ * WhatsApp-style Edit / Manage Custom Filter List Dialog
+ */
+@Composable
+private fun EditCustomFilterDialog(
+    customFilter: CustomFilter,
+    allBooks: List<BookEntity>,
+    onDismiss: () -> Unit,
+    onSave: (name: String, selectedBookIds: List<Long>) -> Unit,
+    onDelete: () -> Unit
+) {
+    var filterName by remember(customFilter.id) { mutableStateOf(customFilter.name) }
+    var bookSearchQuery by remember { mutableStateOf("") }
+    val selectedIds = remember(customFilter.id) {
+        mutableStateListOf<Long>().apply { addAll(customFilter.bookIds) }
+    }
+
+    val filteredList = remember(allBooks, bookSearchQuery) {
+        if (bookSearchQuery.isBlank()) {
+            allBooks
+        } else {
+            allBooks.filter {
+                it.title.contains(bookSearchQuery, ignoreCase = true) ||
+                (it.author?.contains(bookSearchQuery, ignoreCase = true) == true)
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .widthIn(max = 560.dp),
+        shape = RoundedCornerShape(24.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        title = {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = book.title,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
+                    text = "Edit List",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                if (book.isPinned) {
+                IconButton(onClick = onDelete) {
                     Icon(
-                        imageVector = Icons.Filled.PushPin,
-                        contentDescription = "Pinned",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(13.dp)
+                        imageVector = Icons.Outlined.DeleteOutline,
+                        contentDescription = "Delete list",
+                        tint = MaterialTheme.colorScheme.error
                     )
                 }
             }
-            val displayAuthor = book.author.takeIf { it.isNotBlank() && !it.equals("Imported Document", ignoreCase = true) }
-            if (displayAuthor != null) {
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = filterName,
+                    onValueChange = { filterName = it },
+                    label = { Text("List Name") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("edit_filter_name_input")
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Included Books (${selectedIds.size} selected)",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    if (allBooks.isNotEmpty()) {
+                        TextButton(
+                            onClick = {
+                                if (selectedIds.size == allBooks.size) {
+                                    selectedIds.clear()
+                                } else {
+                                    selectedIds.clear()
+                                    selectedIds.addAll(allBooks.map { it.id })
+                                }
+                            }
+                        ) {
+                            Text(
+                                text = if (selectedIds.size == allBooks.size) "Deselect All" else "Select All",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
+                if (allBooks.size > 5) {
+                    OutlinedTextField(
+                        value = bookSearchQuery,
+                        onValueChange = { bookSearchQuery = it },
+                        placeholder = { Text("Filter books below...") },
+                        leadingIcon = {
+                            Icon(imageVector = Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                        trailingIcon = {
+                            if (bookSearchQuery.isNotBlank()) {
+                                IconButton(onClick = { bookSearchQuery = "" }) {
+                                    Icon(imageVector = Icons.Outlined.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                if (allBooks.isEmpty()) {
+                    Text(
+                        text = "No books in library yet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 240.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        items(filteredList, key = { it.id }) { book ->
+                            val isChecked = selectedIds.contains(book.id)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        if (isChecked) selectedIds.remove(book.id) else selectedIds.add(book.id)
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Checkbox(
+                                    checked = isChecked,
+                                    onCheckedChange = { checked ->
+                                        if (checked) selectedIds.add(book.id) else selectedIds.remove(book.id)
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = book.title,
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (!book.author.isNullOrBlank()) {
+                                        Text(
+                                            text = book.author,
+                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (filterName.isNotBlank()) {
+                        onSave(filterName.trim(), selectedIds.toList())
+                    }
+                },
+                enabled = filterName.isNotBlank(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                modifier = Modifier.testTag("save_edit_filter_btn")
+            ) {
+                Text("Save Changes")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+/**
+ * Assign Book to Custom Filter Lists Dialog
+ */
+@Composable
+private fun AssignBookToListDialog(
+    book: BookEntity,
+    customFilters: List<CustomFilter>,
+    onDismiss: () -> Unit,
+    onSave: (assignedFilterIds: List<String>) -> Unit,
+    onCreateNewFilter: () -> Unit
+) {
+    val initialAssigned = remember(book.id, customFilters) {
+        customFilters.filter { it.bookIds.contains(book.id) }.map { it.id }
+    }
+    val assignedFilterIds = remember(book.id) {
+        mutableStateListOf<String>().apply { addAll(initialAssigned) }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .widthIn(max = 560.dp),
+        shape = RoundedCornerShape(24.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        title = {
+            Column {
                 Text(
-                    text = displayAuthor,
+                    text = "Add to Filter Lists",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "\"${book.title}\"",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            if (book.hasBeenOpened) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (customFilters.isEmpty()) {
                     Text(
-                        text = "Page ${book.currentPage} of ${book.totalPages}",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = "No custom filter lists created yet. Create a list below to easily group and sort your books.",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        text = "${(book.progressPercent * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 240.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        items(customFilters, key = { it.id }) { filter ->
+                            val isAssigned = assignedFilterIds.contains(filter.id)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        if (isAssigned) assignedFilterIds.remove(filter.id) else assignedFilterIds.add(filter.id)
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Checkbox(
+                                    checked = isAssigned,
+                                    onCheckedChange = { checked ->
+                                        if (checked) assignedFilterIds.add(filter.id) else assignedFilterIds.remove(filter.id)
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = filter.name,
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "${filter.bookIds.size} books",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                LinearProgressIndicator(
-                    progress = { book.progressPercent },
+                // Quick button to make a new list
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(CircleShape),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            onDismiss()
+                            onCreateNewFilter()
+                        }
                 ) {
-                    Text(
-                        text = "${book.totalPages} pages",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "Unread",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "Create New Filter List",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                LinearProgressIndicator(
-                    progress = { 0f },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(CircleShape),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(assignedFilterIds.toList())
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                modifier = Modifier.testTag("save_book_assignment_btn")
+            ) {
+                Text("Done")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
             }
         }
-
-        // More Options
-        Box {
-            IconButton(
-                onClick = { showMenu = true },
-                modifier = Modifier
-                    .size(36.dp)
-                    .testTag("book_list_options_${book.id}")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "Options",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false },
-                shape = RoundedCornerShape(16.dp),
-                containerColor = MaterialTheme.colorScheme.surface,
-                shadowElevation = 0.dp,
-                tonalElevation = 0.dp,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                modifier = Modifier.clip(RoundedCornerShape(16.dp))
-            ) {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = if (book.isPinned) "Unpin Book" else "Pin Book",
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    onClick = {
-                        showMenu = false
-                        onTogglePin()
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = if (book.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    modifier = Modifier.testTag("menu_pin_list_${book.id}")
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = "Share PDF",
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    onClick = {
-                        showMenu = false
-                        PdfShareHelper.sharePdf(context, book)
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.Share,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    modifier = Modifier.testTag("menu_share_list_${book.id}")
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = "Copy Book",
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    onClick = {
-                        showMenu = false
-                        onCopy()
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.ContentCopy,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    modifier = Modifier.testTag("menu_copy_list_${book.id}")
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = "Delete Book",
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    },
-                    onClick = {
-                        showMenu = false
-                        onDelete()
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.DeleteOutline,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    },
-                    modifier = Modifier.testTag("menu_delete_list_${book.id}")
-                )
-            }
-        }
-    }
-}
+    )
 }
 
 /**

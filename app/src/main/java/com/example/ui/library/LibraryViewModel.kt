@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.db.AppDatabase
 import com.example.data.model.BookEntity
+import com.example.data.model.CustomFilter
 import com.example.data.pdf.PdfRendererManager
 import com.example.data.repository.BookRepository
 import com.example.ui.settings.LibrarySortOrder
@@ -18,20 +19,36 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 
 enum class LibraryFilter {
     ALL,
+    UNREAD,
     READING,
-    BOOKMARKED
+    COMPLETED,
+    PINNED,
+    BOOKMARKED,
+    CUSTOM
 }
+
+data class FilterChipItem(
+    val id: String, // "ALL", "UNREAD", "READING", "COMPLETED", "PINNED", "BOOKMARKED", or custom UUID
+    val label: String,
+    val count: Int,
+    val isCustom: Boolean = false,
+    val customFilter: CustomFilter? = null
+)
 
 data class LibraryUiState(
     val books: List<BookEntity> = emptyList(),
     val filteredBooks: List<BookEntity> = emptyList(),
     val booksLeftToRead: List<BookEntity> = emptyList(),
     val currentFilter: LibraryFilter = LibraryFilter.ALL,
+    val activeFilterId: String = "ALL",
+    val customFilters: List<CustomFilter> = emptyList(),
+    val filterChipItems: List<FilterChipItem> = emptyList(),
     val searchQuery: String = "",
     val sortOrder: LibrarySortOrder = LibrarySortOrder.DATE_ADDED,
     val viewMode: LibraryViewMode = LibraryViewMode.GRID,
@@ -42,6 +59,9 @@ data class LibraryUiState(
     val importToastMessage: String? = null,
     val selectedBookToDelete: BookEntity? = null,
     val selectedBookToCopy: BookEntity? = null,
+    val isCreateFilterDialogOpen: Boolean = false,
+    val editingCustomFilter: CustomFilter? = null,
+    val bookForListAssignment: BookEntity? = null,
     val isOrganizedAndReady: Boolean = false
 )
 
@@ -53,6 +73,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val repository = BookRepository(application, db.bookDao(), pdfRendererManager, db.annotationDao())
 
     private val _filterState = MutableStateFlow(LibraryFilter.ALL)
+    private val _activeFilterIdState = MutableStateFlow("ALL")
+    private val _customFiltersState = MutableStateFlow<List<CustomFilter>>(loadCustomFilters())
     private val _searchQueryState = MutableStateFlow("")
     private val _sortOrderState = MutableStateFlow(
         LibrarySortOrder.valueOf(
@@ -71,24 +93,35 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val _importToastMessageState = MutableStateFlow<String?>(null)
     private val _bookToDeleteState = MutableStateFlow<BookEntity?>(null)
     private val _bookToCopyState = MutableStateFlow<BookEntity?>(null)
+    private val _isCreateFilterDialogOpenState = MutableStateFlow(false)
+    private val _editingCustomFilterState = MutableStateFlow<CustomFilter?>(null)
+    private val _bookForListAssignmentState = MutableStateFlow<BookEntity?>(null)
     private val _isOrganizedAndReadyState = MutableStateFlow(false)
 
     // Combine primary data flows cleanly
     private val _filteredBooksFlow = combine(
         repository.allBooks,
-        _filterState,
+        _activeFilterIdState,
+        _customFiltersState,
         _searchQueryState,
         _sortOrderState
-    ) { books, filter, query, sortOrder ->
+    ) { books, activeFilterId, customFilters, query, sortOrder ->
         val filtered = books.filter { book ->
             val matchesQuery = query.isBlank() ||
                     book.title.contains(query, ignoreCase = true) ||
                     book.author.contains(query, ignoreCase = true)
 
-            val matchesFilter = when (filter) {
-                LibraryFilter.ALL -> true
-                LibraryFilter.READING -> book.hasBeenOpened && book.currentPage < book.totalPages
-                LibraryFilter.BOOKMARKED -> book.getBookmarkPages().isNotEmpty()
+            val matchesFilter = when (activeFilterId) {
+                "ALL" -> true
+                "UNREAD" -> !book.hasBeenOpened || (book.currentPage <= 1 && book.progressPercent == 0f)
+                "READING" -> book.hasBeenOpened && book.currentPage < book.totalPages && (book.progressPercent in 0.001f..0.999f || book.currentPage > 1)
+                "COMPLETED" -> book.hasBeenOpened && (book.currentPage >= book.totalPages || book.progressPercent >= 0.99f)
+                "PINNED" -> book.isPinned
+                "BOOKMARKED" -> book.getBookmarkPages().isNotEmpty()
+                else -> {
+                    val custom = customFilters.find { it.id == activeFilterId }
+                    custom?.bookIds?.contains(book.id) ?: true
+                }
             }
             matchesQuery && matchesFilter
         }
@@ -115,16 +148,31 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                     .thenByDescending { it.title.lowercase() }
                     .thenByDescending { it.id }
             )
+            LibrarySortOrder.AUTHOR_ASC -> filtered.sortedWith(
+                compareByDescending<BookEntity> { it.isPinned }
+                    .thenBy { it.author.lowercase() }
+                    .thenBy { it.title.lowercase() }
+                    .thenByDescending { it.id }
+            )
             LibrarySortOrder.PROGRESS -> filtered.sortedWith(
                 compareByDescending<BookEntity> { it.isPinned }
                     .thenByDescending { if (it.hasBeenOpened) it.progressPercent else -1f }
                     .thenByDescending { if (it.hasBeenOpened) it.lastReadTimestamp else 0L }
                     .thenByDescending { it.id }
             )
+            LibrarySortOrder.PAGE_COUNT_DESC -> filtered.sortedWith(
+                compareByDescending<BookEntity> { it.isPinned }
+                    .thenByDescending { it.totalPages }
+                    .thenByDescending { it.id }
+            )
+            LibrarySortOrder.PAGE_COUNT_ASC -> filtered.sortedWith(
+                compareByDescending<BookEntity> { it.isPinned }
+                    .thenBy { it.totalPages }
+                    .thenByDescending { it.id }
+            )
         }
 
-        // Recent read carousel pdfs: ONLY books actually read/opened by the reader will be available
-        // Pinned books always appear first, followed by the most recently opened books
+        // Recent read carousel pdfs
         val recentReadBooks = books
             .filter { it.hasBeenOpened && it.lastReadTimestamp > 0L }
             .sortedWith(
@@ -134,7 +182,45 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             )
             .take(5)
 
-        Triple(books, sorted, recentReadBooks)
+        // Compute filter chips with real-time counts
+        val bookIdSet = books.map { it.id }.toSet()
+        val allCount = books.size
+        val unreadCount = books.count { !it.hasBeenOpened || (it.currentPage <= 1 && it.progressPercent == 0f) }
+        val readingCount = books.count { it.hasBeenOpened && it.currentPage < it.totalPages && (it.progressPercent in 0.001f..0.999f || it.currentPage > 1) }
+        val completedCount = books.count { it.hasBeenOpened && (it.currentPage >= it.totalPages || it.progressPercent >= 0.99f) }
+        val pinnedCount = books.count { it.isPinned }
+        val bookmarkedCount = books.count { it.getBookmarkPages().isNotEmpty() }
+
+        val chips = mutableListOf<FilterChipItem>()
+        chips.add(FilterChipItem("ALL", "All", allCount))
+        if (unreadCount > 0) {
+            chips.add(FilterChipItem("UNREAD", "Unread", unreadCount))
+        }
+        chips.add(FilterChipItem("READING", "Reading", readingCount))
+        if (bookmarkedCount > 0) {
+            chips.add(FilterChipItem("BOOKMARKED", "Bookmarked", bookmarkedCount))
+        }
+        if (completedCount > 0) {
+            chips.add(FilterChipItem("COMPLETED", "Completed", completedCount))
+        }
+        if (pinnedCount > 0) {
+            chips.add(FilterChipItem("PINNED", "Favorites", pinnedCount))
+        }
+
+        customFilters.forEach { custom ->
+            val count = custom.bookIds.count { bookIdSet.contains(it) }
+            chips.add(
+                FilterChipItem(
+                    id = custom.id,
+                    label = custom.name,
+                    count = count,
+                    isCustom = true,
+                    customFilter = custom
+                )
+            )
+        }
+
+        Triple(books, sorted, recentReadBooks) to chips
     }
 
     private data class ImportStatus(
@@ -160,43 +246,89 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         val bookToCopy: BookEntity?,
         val viewMode: LibraryViewMode,
         val filter: LibraryFilter,
+        val activeFilterId: String,
         val query: String,
-        val sortOrder: LibrarySortOrder
+        val sortOrder: LibrarySortOrder,
+        val customFilters: List<CustomFilter>,
+        val isCreateFilterDialogOpen: Boolean,
+        val editingCustomFilter: CustomFilter?,
+        val bookForListAssignment: BookEntity?,
+        val isOrganizedAndReady: Boolean
     )
 
-    private val _dialogAndViewStateFlow = combine(
-        _bookToDeleteState,
-        _bookToCopyState,
-        _viewModeState,
-        combine(_filterState, _searchQueryState, _sortOrderState) { filter, query, sortOrder ->
-            Triple(filter, query, sortOrder)
-        }
-    ) { bookToDelete, bookToCopy, viewMode, (filter, query, sortOrder) ->
-        DialogAndViewState(bookToDelete, bookToCopy, viewMode, filter, query, sortOrder)
+    private data class Tuple5<A, B, C, D, E>(val a: A, val b: B, val c: C, val d: D, val e: E)
+
+    private val _viewAndControlFlow = combine(
+        combine(
+            _bookToDeleteState,
+            _bookToCopyState,
+            _viewModeState,
+            _filterState,
+            _activeFilterIdState
+        ) { bookToDelete, bookToCopy, viewMode, filter, activeFilterId ->
+            Tuple5(bookToDelete, bookToCopy, viewMode, filter, activeFilterId)
+        },
+        combine(
+            _searchQueryState,
+            _sortOrderState,
+            _customFiltersState,
+            _isCreateFilterDialogOpenState,
+            _editingCustomFilterState
+        ) { query, sortOrder, customFilters, isCreateOpen, editFilter ->
+            Tuple5(query, sortOrder, customFilters, isCreateOpen, editFilter)
+        },
+        _bookForListAssignmentState,
+        _isOrganizedAndReadyState
+    ) { t1, t2, bookForList, isOrganized ->
+        DialogAndViewState(
+            bookToDelete = t1.a,
+            bookToCopy = t1.b,
+            viewMode = t1.c,
+            filter = t1.d,
+            activeFilterId = t1.e,
+            query = t2.a,
+            sortOrder = t2.b,
+            customFilters = t2.c,
+            isCreateFilterDialogOpen = t2.d,
+            editingCustomFilter = t2.e,
+            bookForListAssignment = bookForList,
+            isOrganizedAndReady = isOrganized
+        )
     }
 
     val uiState: StateFlow<LibraryUiState> = combine(
         _filteredBooksFlow,
         _importStatusFlow,
-        _dialogAndViewStateFlow,
-        _isOrganizedAndReadyState
-    ) { (books, filtered, leftToRead), importStatus, dialogAndView, isOrganized ->
+        _viewAndControlFlow
+    ) { booksAndChips, importStatus, ctrl ->
+        val booksInfo = booksAndChips.first
+        val chips = booksAndChips.second
+        val books = booksInfo.first
+        val filtered = booksInfo.second
+        val leftToRead = booksInfo.third
+
         LibraryUiState(
             books = books,
             filteredBooks = filtered,
             booksLeftToRead = leftToRead,
-            currentFilter = dialogAndView.filter,
-            searchQuery = dialogAndView.query,
-            sortOrder = dialogAndView.sortOrder,
-            viewMode = dialogAndView.viewMode,
+            currentFilter = ctrl.filter,
+            activeFilterId = ctrl.activeFilterId,
+            customFilters = ctrl.customFilters,
+            filterChipItems = chips,
+            searchQuery = ctrl.query,
+            sortOrder = ctrl.sortOrder,
+            viewMode = ctrl.viewMode,
             isImporting = importStatus.isImporting,
             importQueueProgress = importStatus.queueProgress,
             importQueueCurrentName = importStatus.queueCurrentName,
             importError = importStatus.importError,
             importToastMessage = importStatus.importToast,
-            selectedBookToDelete = dialogAndView.bookToDelete,
-            selectedBookToCopy = dialogAndView.bookToCopy,
-            isOrganizedAndReady = isOrganized
+            selectedBookToDelete = ctrl.bookToDelete,
+            selectedBookToCopy = ctrl.bookToCopy,
+            isCreateFilterDialogOpen = ctrl.isCreateFilterDialogOpen,
+            editingCustomFilter = ctrl.editingCustomFilter,
+            bookForListAssignment = ctrl.bookForListAssignment,
+            isOrganizedAndReady = ctrl.isOrganizedAndReady
         )
     }.stateIn(
         scope = viewModelScope,
@@ -216,8 +348,154 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // Custom Filters Storage
+    private fun loadCustomFilters(): List<CustomFilter> {
+        val json = prefs.getString("pref_custom_filters_json", null) ?: return emptyList()
+        return try {
+            val array = JSONArray(json)
+            val list = mutableListOf<CustomFilter>()
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val id = obj.getString("id")
+                val name = obj.getString("name")
+                val bookIdsArray = obj.optJSONArray("bookIds")
+                val bookIds = mutableSetOf<Long>()
+                if (bookIdsArray != null) {
+                    for (j in 0 until bookIdsArray.length()) {
+                        bookIds.add(bookIdsArray.getLong(j))
+                    }
+                }
+                val createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                list.add(CustomFilter(id = id, name = name, bookIds = bookIds, createdAt = createdAt))
+            }
+            list
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun saveCustomFilters(filters: List<CustomFilter>) {
+        try {
+            val array = JSONArray()
+            for (f in filters) {
+                val obj = JSONObject()
+                obj.put("id", f.id)
+                obj.put("name", f.name)
+                val bookIdsArray = JSONArray()
+                f.bookIds.forEach { bookIdsArray.put(it) }
+                obj.put("bookIds", bookIdsArray)
+                obj.put("createdAt", f.createdAt)
+                array.put(obj)
+            }
+            prefs.edit().putString("pref_custom_filters_json", array.toString()).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     fun setFilter(filter: LibraryFilter) {
         _filterState.value = filter
+        _activeFilterIdState.value = when (filter) {
+            LibraryFilter.ALL -> "ALL"
+            LibraryFilter.UNREAD -> "UNREAD"
+            LibraryFilter.READING -> "READING"
+            LibraryFilter.COMPLETED -> "COMPLETED"
+            LibraryFilter.PINNED -> "PINNED"
+            LibraryFilter.BOOKMARKED -> "BOOKMARKED"
+            LibraryFilter.CUSTOM -> _activeFilterIdState.value
+        }
+    }
+
+    fun setFilterById(filterId: String) {
+        _activeFilterIdState.value = filterId
+        _filterState.value = when (filterId) {
+            "ALL" -> LibraryFilter.ALL
+            "UNREAD" -> LibraryFilter.UNREAD
+            "READING" -> LibraryFilter.READING
+            "COMPLETED" -> LibraryFilter.COMPLETED
+            "PINNED" -> LibraryFilter.PINNED
+            "BOOKMARKED" -> LibraryFilter.BOOKMARKED
+            else -> LibraryFilter.CUSTOM
+        }
+    }
+
+    fun openCreateFilterDialog() {
+        _isCreateFilterDialogOpenState.value = true
+    }
+
+    fun closeCreateFilterDialog() {
+        _isCreateFilterDialogOpenState.value = false
+    }
+
+    fun createCustomFilter(name: String, bookIds: Set<Long>) {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        val newFilter = CustomFilter(
+            id = java.util.UUID.randomUUID().toString(),
+            name = trimmed,
+            bookIds = bookIds
+        )
+        val updated = _customFiltersState.value + newFilter
+        _customFiltersState.value = updated
+        saveCustomFilters(updated)
+        setFilterById(newFilter.id)
+        _isCreateFilterDialogOpenState.value = false
+        _importToastMessageState.value = "Created list \"$trimmed\""
+    }
+
+    fun openEditFilterDialog(customFilter: CustomFilter) {
+        _editingCustomFilterState.value = customFilter
+    }
+
+    fun closeEditFilterDialog() {
+        _editingCustomFilterState.value = null
+    }
+
+    fun updateCustomFilter(id: String, name: String, bookIds: Set<Long>) {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        val updated = _customFiltersState.value.map {
+            if (it.id == id) it.copy(name = trimmed, bookIds = bookIds) else it
+        }
+        _customFiltersState.value = updated
+        saveCustomFilters(updated)
+        _editingCustomFilterState.value = null
+        _importToastMessageState.value = "Updated list \"$trimmed\""
+    }
+
+    fun deleteCustomFilter(id: String) {
+        val target = _customFiltersState.value.find { it.id == id }
+        val updated = _customFiltersState.value.filter { it.id != id }
+        _customFiltersState.value = updated
+        saveCustomFilters(updated)
+        if (_activeFilterIdState.value == id) {
+            setFilterById("ALL")
+        }
+        _editingCustomFilterState.value = null
+        _importToastMessageState.value = "Deleted list \"${target?.name ?: ""}\""
+    }
+
+    fun openAssignBookToListDialog(book: BookEntity) {
+        _bookForListAssignmentState.value = book
+    }
+
+    fun closeAssignBookToListDialog() {
+        _bookForListAssignmentState.value = null
+    }
+
+    fun saveBookCustomFilterAssignments(bookId: Long, filterIds: Set<String>) {
+        val updated = _customFiltersState.value.map { filter ->
+            val newBookIds = if (filterIds.contains(filter.id)) {
+                filter.bookIds + bookId
+            } else {
+                filter.bookIds - bookId
+            }
+            filter.copy(bookIds = newBookIds)
+        }
+        _customFiltersState.value = updated
+        saveCustomFilters(updated)
+        _bookForListAssignmentState.value = null
+        _importToastMessageState.value = "Updated lists for book"
     }
 
     fun setSearchQuery(query: String) {
@@ -340,4 +618,3 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         pdfRendererManager.close()
     }
 }
-
