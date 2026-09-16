@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -332,117 +333,71 @@ fun InBookSearchBar(
 @Composable
 fun SearchResultsPill(
     query: String,
-    currentMatchIndex: Int,
-    totalMatches: Int,
+    currentMatchIndex: Int = 0,
+    totalMatches: Int = 0,
     readerTheme: ReaderThemeMode,
     isFullScreenModeEnabled: Boolean = false,
-    onPreviousMatch: () -> Unit,
-    onNextMatch: () -> Unit,
+    onPreviousMatch: () -> Unit = {},
+    onNextMatch: () -> Unit = {},
     onReopenSearch: () -> Unit,
     onClearResults: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val barBg = when (readerTheme) {
-        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
-        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
-        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
-        ReaderThemeMode.NIGHT -> Color(0xFF1E2634)
-    }
-    val barBorder = when (readerTheme) {
-        ReaderThemeMode.WHITE -> Color(0x22000000)
-        ReaderThemeMode.CREAM -> Color(0x338C5E2D)
-        ReaderThemeMode.SEPIA -> Color(0x337C4F22)
-        ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
+        ReaderThemeMode.WHITE -> Color(0xFFEAEFF5)
+        ReaderThemeMode.CREAM -> Color(0xFFEDE4D2)
+        ReaderThemeMode.SEPIA -> Color(0xFFE2D3BB)
+        ReaderThemeMode.NIGHT -> Color(0xFF263040)
     }
     val textColor = readerTheme.textColor
     val subtextColor = readerTheme.textSecondaryColor
 
     Surface(
-        shape = RoundedCornerShape(24.dp),
+        shape = CircleShape,
         color = barBg,
-        shadowElevation = 6.dp,
-        border = BorderStroke(1.dp, barBorder),
+        shadowElevation = 0.dp,
+        border = null,
         modifier = modifier
             .then(if (isFullScreenModeEnabled) Modifier.padding(top = 10.dp) else Modifier.statusBarsPadding())
             .padding(horizontal = 16.dp)
-            .height(44.dp)
+            .height(42.dp)
             .testTag("search_results_pill")
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.padding(horizontal = 6.dp)
+            modifier = Modifier.padding(start = 14.dp, end = 6.dp)
         ) {
-            IconButton(
-                onClick = onPreviousMatch,
-                modifier = Modifier
-                    .size(36.dp)
-                    .testTag("search_pill_prev")
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.KeyboardArrowLeft,
-                    contentDescription = "Previous match",
-                    tint = textColor,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Text(
-                text = "${currentMatchIndex + 1} / $totalMatches",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = readerTheme.accentColor
-            )
-
-            IconButton(
-                onClick = onNextMatch,
-                modifier = Modifier
-                    .size(36.dp)
-                    .testTag("search_pill_next")
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.KeyboardArrowRight,
-                    contentDescription = "Next match",
-                    tint = textColor,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(20.dp)
-                    .background(barBorder)
-            )
-
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(CircleShape)
                     .clickable { onReopenSearch() }
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .padding(vertical = 4.dp)
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Search,
-                    contentDescription = null,
+                    contentDescription = "Search",
                     tint = subtextColor,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "\"$query\"",
                     fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
                     color = textColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 140.dp)
+                    modifier = Modifier.widthIn(max = 180.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.width(6.dp))
 
             IconButton(
                 onClick = onClearResults,
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(32.dp)
                     .testTag("search_pill_close")
             ) {
                 Icon(
