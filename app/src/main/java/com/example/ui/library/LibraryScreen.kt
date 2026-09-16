@@ -588,9 +588,23 @@ fun LibraryScreen(
                             OutlinedTextField(
                                 value = copyTitle,
                                 onValueChange = { copyTitle = it },
-                                label = { Text("Book Title / PDF Name") },
+                                placeholder = {
+                                    Text(
+                                        text = "Book Title / PDF Name",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                },
                                 singleLine = true,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(24.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    disabledBorderColor = Color.Transparent,
+                                    errorBorderColor = Color.Transparent,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                                ),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .testTag("copy_book_rename_input")
@@ -2240,9 +2254,23 @@ private fun CreateCustomFilterDialog(
                 OutlinedTextField(
                     value = filterName,
                     onValueChange = { filterName = it },
-                    label = { Text("List Name") },
+                    placeholder = {
+                        Text(
+                            text = "List name",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        disabledBorderColor = Color.Transparent,
+                        errorBorderColor = Color.Transparent,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("create_filter_name_input")
@@ -2286,19 +2314,43 @@ private fun CreateCustomFilterDialog(
                     OutlinedTextField(
                         value = bookSearchQuery,
                         onValueChange = { bookSearchQuery = it },
-                        placeholder = { Text("Filter books below...") },
+                        placeholder = {
+                            Text(
+                                text = "Filter books below...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        },
                         leadingIcon = {
-                            Icon(imageVector = Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
                         },
                         trailingIcon = {
                             if (bookSearchQuery.isNotBlank()) {
                                 IconButton(onClick = { bookSearchQuery = "" }) {
-                                    Icon(imageVector = Icons.Outlined.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = "Clear",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
                                 }
                             }
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            disabledBorderColor = Color.Transparent,
+                            errorBorderColor = Color.Transparent,
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                        ),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -2481,9 +2533,23 @@ private fun EditCustomFilterDialog(
                 OutlinedTextField(
                     value = filterName,
                     onValueChange = { filterName = it },
-                    label = { Text("List Name") },
+                    placeholder = {
+                        Text(
+                            text = "List name",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        disabledBorderColor = Color.Transparent,
+                        errorBorderColor = Color.Transparent,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("edit_filter_name_input")
@@ -2526,19 +2592,43 @@ private fun EditCustomFilterDialog(
                     OutlinedTextField(
                         value = bookSearchQuery,
                         onValueChange = { bookSearchQuery = it },
-                        placeholder = { Text("Filter books below...") },
+                        placeholder = {
+                            Text(
+                                text = "Filter books below...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        },
                         leadingIcon = {
-                            Icon(imageVector = Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
                         },
                         trailingIcon = {
                             if (bookSearchQuery.isNotBlank()) {
                                 IconButton(onClick = { bookSearchQuery = "" }) {
-                                    Icon(imageVector = Icons.Outlined.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = "Clear",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
                                 }
                             }
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            disabledBorderColor = Color.Transparent,
+                            errorBorderColor = Color.Transparent,
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                        ),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -2689,10 +2779,23 @@ private fun RenameCustomFilterDialog(
                 OutlinedTextField(
                     value = filterName,
                     onValueChange = { filterName = it },
-                    label = { Text("List Name") },
-                    placeholder = { Text("e.g., Favorites, Research, Sci-Fi") },
+                    placeholder = {
+                        Text(
+                            text = "List name (e.g., Favorites, Research, Sci-Fi)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        disabledBorderColor = Color.Transparent,
+                        errorBorderColor = Color.Transparent,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    ),
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences,
                         imeAction = ImeAction.Done

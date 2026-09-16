@@ -194,7 +194,6 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         val bookmarkedCount = books.count { it.getBookmarkPages().isNotEmpty() }
 
         val chips = mutableListOf<FilterChipItem>()
-        chips.add(FilterChipItem("ALL", "All", allCount))
         if (unreadCount > 0) {
             chips.add(FilterChipItem("UNREAD", "Unread", unreadCount))
         }
@@ -395,8 +394,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun setFilterById(filterId: String) {
-        _activeFilterIdState.value = filterId
-        _filterState.value = when (filterId) {
+        val targetId = if (_activeFilterIdState.value == filterId && filterId != "ALL") "ALL" else filterId
+        _activeFilterIdState.value = targetId
+        _filterState.value = when (targetId) {
             "ALL" -> LibraryFilter.ALL
             "UNREAD" -> LibraryFilter.UNREAD
             "READING" -> LibraryFilter.READING

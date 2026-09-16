@@ -89,7 +89,7 @@ fun ReaderScreen(
         viewModel.loadBook(bookId)
         onDispose {
             soundManager.release()
-            viewModel.cancelPendingJobs()
+            viewModel.clearCurrentBook()
         }
     }
 

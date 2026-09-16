@@ -120,26 +120,24 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     private var targetRenderHeight: Int = 1920
 
     fun prepareForBook(bookId: Long) {
-        if (_uiState.value.book?.id != bookId) {
-            renderJob?.cancel()
-            searchJob?.cancel()
-            _uiState.update {
-                it.copy(
-                    book = null,
-                    currentPageBitmap = null,
-                    nextPageBitmap = null,
-                    previousPageBitmap = null,
-                    currentPageStrokes = emptyList(),
-                    undoHistory = emptyList(),
-                    redoHistory = emptyList(),
-                    canUndo = false,
-                    canRedo = false,
-                    isLoading = true,
-                    isSearchOpen = false,
-                    searchQuery = "",
-                    searchResults = emptyList()
-                )
-            }
+        renderJob?.cancel()
+        searchJob?.cancel()
+        _uiState.update {
+            it.copy(
+                book = null,
+                currentPageBitmap = null,
+                nextPageBitmap = null,
+                previousPageBitmap = null,
+                currentPageStrokes = emptyList(),
+                undoHistory = emptyList(),
+                redoHistory = emptyList(),
+                canUndo = false,
+                canRedo = false,
+                isLoading = true,
+                isSearchOpen = false,
+                searchQuery = "",
+                searchResults = emptyList()
+            )
         }
     }
 
