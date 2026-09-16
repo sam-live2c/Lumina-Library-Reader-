@@ -9,10 +9,12 @@ import android.os.ParcelFileDescriptor
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -84,6 +86,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -151,7 +154,6 @@ import com.example.ui.settings.LibraryViewMode
 import com.example.ui.settings.SettingsSubpage
 import com.example.ui.theme.LuminaAccentPrimary
 import com.example.ui.theme.LuminaAccentSubtle
-import com.example.ui.theme.PaperCream
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -239,8 +241,14 @@ fun LibraryScreen(
                         keyboardController?.hide()
                         multiPdfPickerLauncher.launch(arrayOf("application/pdf"))
                     },
-                    containerColor = LuminaAccentPrimary,
-                    contentColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp,
+                        focusedElevation = 0.dp,
+                        hoveredElevation = 0.dp
+                    ),
                     shape = RoundedCornerShape(28.dp),
                     modifier = Modifier
                         .navigationBarsPadding()
@@ -462,7 +470,7 @@ fun LibraryScreen(
                                         .fillMaxWidth()
                                         .height(8.dp)
                                         .clip(CircleShape),
-                                    color = LuminaAccentPrimary,
+                                    color = MaterialTheme.colorScheme.primary,
                                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                                 )
 
@@ -477,7 +485,7 @@ fun LibraryScreen(
                                     )
                                 }
                             } else {
-                                CircularProgressIndicator(color = LuminaAccentPrimary)
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                                 Text(
                                     text = "Preparing your book...",
                                     style = MaterialTheme.typography.titleMedium,
@@ -511,7 +519,7 @@ fun LibraryScreen(
                         Icon(
                             imageVector = Icons.Outlined.ContentCopy,
                             contentDescription = null,
-                            tint = LuminaAccentPrimary,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(28.dp)
                         )
                     },
@@ -550,7 +558,7 @@ fun LibraryScreen(
                                 viewModel.executeCopyBook(copyTitle.trim())
                             },
                             enabled = copyTitle.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(containerColor = LuminaAccentPrimary),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.testTag("confirm_copy_button")
                         ) {
@@ -601,7 +609,7 @@ fun LibraryScreen(
                                 toastMessage = "Removed \"${bookToDelete.title}\" from library"
                                 viewModel.executeDeleteBook()
                             },
-                            colors = ButtonDefaults.textButtonColors(contentColor = LuminaAccentPrimary),
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                             modifier = Modifier.testTag("confirm_delete_btn")
                         ) {
                             Text("Remove", fontWeight = FontWeight.Bold)
@@ -804,7 +812,7 @@ private fun LibraryHeader(
                     letterSpacing = 2.5.sp,
                     fontWeight = FontWeight.Bold
                 ),
-                color = LuminaAccentPrimary
+                color = MaterialTheme.colorScheme.primary
             )
             Text(
                 text = "Library",
@@ -858,7 +866,7 @@ private fun LibraryHeader(
                         Icon(
                             imageVector = if (viewMode == LibraryViewMode.GRID) Icons.Outlined.ViewList else Icons.Outlined.GridView,
                             contentDescription = null,
-                            tint = LuminaAccentPrimary
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
                     modifier = Modifier.testTag("menu_item_toggle_view")
@@ -884,7 +892,7 @@ private fun LibraryHeader(
                         Icon(
                             imageVector = Icons.Outlined.Sort,
                             contentDescription = null,
-                            tint = LuminaAccentPrimary
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
                     trailingIcon = {
@@ -908,7 +916,7 @@ private fun LibraryHeader(
                         Icon(
                             imageVector = Icons.Outlined.Settings,
                             contentDescription = null,
-                            tint = LuminaAccentPrimary
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
                     modifier = Modifier.testTag("menu_item_settings")
@@ -925,7 +933,7 @@ private fun LibraryHeader(
                         Icon(
                             imageVector = Icons.Outlined.HelpOutline,
                             contentDescription = null,
-                            tint = LuminaAccentPrimary
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
                     modifier = Modifier.testTag("menu_item_help")
@@ -1038,7 +1046,7 @@ private fun LibraryHeader(
                                         Icon(
                                             imageVector = Icons.Default.Check,
                                             contentDescription = "Selected",
-                                            tint = LuminaAccentPrimary,
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
@@ -1053,7 +1061,7 @@ private fun LibraryHeader(
                 TextButton(
                     onClick = { showSortPopup = false }
                 ) {
-                    Text("Done", fontWeight = FontWeight.SemiBold, color = LuminaAccentPrimary)
+                    Text("Done", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                 }
             },
             shape = RoundedCornerShape(26.dp),
@@ -1125,13 +1133,13 @@ private fun ContinueReadingHero(
                                     letterSpacing = 1.sp,
                                     fontWeight = FontWeight.Bold
                                 ),
-                                color = LuminaAccentPrimary
+                                color = MaterialTheme.colorScheme.primary
                             )
                             if (book.isPinned) {
                                 Icon(
                                     imageVector = Icons.Filled.PushPin,
                                     contentDescription = "Pinned",
-                                    tint = LuminaAccentPrimary,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
@@ -1171,7 +1179,7 @@ private fun ContinueReadingHero(
                             Text(
                                 text = "${(book.progressPercent * 100).toInt()}%",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = LuminaAccentPrimary
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
 
@@ -1183,7 +1191,7 @@ private fun ContinueReadingHero(
                                 .fillMaxWidth()
                                 .height(6.dp)
                                 .clip(CircleShape),
-                            color = LuminaAccentPrimary,
+                            color = MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     }
@@ -1206,7 +1214,7 @@ private fun ContinueReadingHero(
                             .size(if (isSelected) 8.dp else 6.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isSelected) LuminaAccentPrimary
+                                if (isSelected) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                             )
                     )
@@ -1234,8 +1242,8 @@ private fun FilterChipsRow(
             onClick = { onFilterSelected(LibraryFilter.ALL) },
             label = { Text("All Books ($totalCount)", maxLines = 1, softWrap = false) },
             colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = LuminaAccentPrimary,
-                selectedLabelColor = Color.White
+                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
             ),
             border = null,
             shape = RoundedCornerShape(20.dp),
@@ -1247,8 +1255,8 @@ private fun FilterChipsRow(
             onClick = { onFilterSelected(LibraryFilter.READING) },
             label = { Text("Reading", maxLines = 1, softWrap = false) },
             colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = LuminaAccentPrimary,
-                selectedLabelColor = Color.White
+                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
             ),
             border = null,
             shape = RoundedCornerShape(20.dp),
@@ -1260,8 +1268,8 @@ private fun FilterChipsRow(
             onClick = { onFilterSelected(LibraryFilter.BOOKMARKED) },
             label = { Text("Bookmarked", maxLines = 1, softWrap = false) },
             colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = LuminaAccentPrimary,
-                selectedLabelColor = Color.White
+                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
             ),
             border = null,
             shape = RoundedCornerShape(20.dp),
@@ -1270,6 +1278,7 @@ private fun FilterChipsRow(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BookCardItem(
     book: BookEntity,
@@ -1282,13 +1291,17 @@ private fun BookCardItem(
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
-        onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = null,
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = { showMenu = true }
+            )
             .testTag("book_card_${book.id}")
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -1296,7 +1309,7 @@ private fun BookCardItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(0.72f)
-                    .background(PaperCream)
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
             ) {
                 BookCoverThumbnail(
                     coverImagePath = book.coverImagePath,
@@ -1326,7 +1339,7 @@ private fun BookCardItem(
                 ) {
                     if (book.isPinned) {
                         Surface(
-                            color = LuminaAccentPrimary,
+                            color = MaterialTheme.colorScheme.primary,
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             Icon(
@@ -1343,7 +1356,7 @@ private fun BookCardItem(
                     val bookmarkCount = book.getBookmarkPages().size
                     if (bookmarkCount > 0) {
                         Surface(
-                            color = LuminaAccentPrimary,
+                            color = MaterialTheme.colorScheme.primary,
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             Row(
@@ -1422,7 +1435,7 @@ private fun BookCardItem(
                                 Icon(
                                     imageVector = if (book.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                                     contentDescription = null,
-                                    tint = LuminaAccentPrimary
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             },
                             modifier = Modifier.testTag("menu_pin_card_${book.id}")
@@ -1443,7 +1456,7 @@ private fun BookCardItem(
                                 Icon(
                                     imageVector = Icons.Outlined.Share,
                                     contentDescription = null,
-                                    tint = LuminaAccentPrimary
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             },
                             modifier = Modifier.testTag("menu_share_card_${book.id}")
@@ -1464,7 +1477,7 @@ private fun BookCardItem(
                                 Icon(
                                     imageVector = Icons.Outlined.ContentCopy,
                                     contentDescription = null,
-                                    tint = LuminaAccentPrimary
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             },
                             modifier = Modifier.testTag("menu_copy_card_${book.id}")
@@ -1533,7 +1546,7 @@ private fun BookCardItem(
                             lineHeight = 14.sp,
                             fontWeight = if (book.hasBeenOpened) FontWeight.Bold else FontWeight.Medium
                         ),
-                        color = if (book.hasBeenOpened) LuminaAccentPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        color = if (book.hasBeenOpened) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
 
@@ -1545,7 +1558,7 @@ private fun BookCardItem(
                         .fillMaxWidth()
                         .height(3.dp)
                         .clip(CircleShape),
-                    color = if (book.hasBeenOpened) LuminaAccentPrimary else MaterialTheme.colorScheme.surfaceVariant,
+                    color = if (book.hasBeenOpened) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             }
@@ -1553,6 +1566,7 @@ private fun BookCardItem(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BookListItem(
     book: BookEntity,
@@ -1573,7 +1587,10 @@ private fun BookListItem(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = { showMenu = true }
+            )
             .testTag("book_list_item_${book.id}")
     ) {
         Row(
@@ -1597,7 +1614,7 @@ private fun BookListItem(
             )
             if (book.isPinned) {
                 Surface(
-                    color = LuminaAccentPrimary,
+                    color = MaterialTheme.colorScheme.primary,
                     shape = RoundedCornerShape(bottomEnd = 6.dp),
                     modifier = Modifier.align(Alignment.TopStart)
                 ) {
@@ -1630,7 +1647,7 @@ private fun BookListItem(
                     Icon(
                         imageVector = Icons.Filled.PushPin,
                         contentDescription = "Pinned",
-                        tint = LuminaAccentPrimary,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(13.dp)
                     )
                 }
@@ -1662,7 +1679,7 @@ private fun BookListItem(
                     Text(
                         text = "${(book.progressPercent * 100).toInt()}%",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = LuminaAccentPrimary
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
 
@@ -1674,7 +1691,7 @@ private fun BookListItem(
                         .fillMaxWidth()
                         .height(4.dp)
                         .clip(CircleShape),
-                    color = LuminaAccentPrimary,
+                    color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             } else {
@@ -1751,7 +1768,7 @@ private fun BookListItem(
                         Icon(
                             imageVector = if (book.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                             contentDescription = null,
-                            tint = LuminaAccentPrimary
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
                     modifier = Modifier.testTag("menu_pin_list_${book.id}")
@@ -1772,7 +1789,7 @@ private fun BookListItem(
                         Icon(
                             imageVector = Icons.Outlined.Share,
                             contentDescription = null,
-                            tint = LuminaAccentPrimary
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
                     modifier = Modifier.testTag("menu_share_list_${book.id}")
@@ -1793,7 +1810,7 @@ private fun BookListItem(
                         Icon(
                             imageVector = Icons.Outlined.ContentCopy,
                             contentDescription = null,
-                            tint = LuminaAccentPrimary
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
                     modifier = Modifier.testTag("menu_copy_list_${book.id}")
@@ -1947,7 +1964,10 @@ private fun BookCoverThumbnail(
             modifier = modifier
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(PaperCream, Color(0xFFEFE8DB))
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            MaterialTheme.colorScheme.surface
+                        )
                     )
                 )
                 .padding(10.dp),
@@ -1960,7 +1980,7 @@ private fun BookCoverThumbnail(
                 Icon(
                     imageVector = Icons.Default.AutoStories,
                     contentDescription = null,
-                    tint = LuminaAccentPrimary.copy(alpha = 0.5f),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                     modifier = Modifier.size(26.dp)
                 )
                 Text(
@@ -1989,14 +2009,14 @@ private fun EmptyLibraryState(onUpload: () -> Unit) {
     ) {
         Surface(
             shape = CircleShape,
-            color = LuminaAccentSubtle,
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
             modifier = Modifier.size(72.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Outlined.AutoStories,
                     contentDescription = null,
-                    tint = LuminaAccentPrimary,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(36.dp)
                 )
             }
@@ -2016,7 +2036,7 @@ private fun EmptyLibraryState(onUpload: () -> Unit) {
 
         Button(
             onClick = onUpload,
-            colors = ButtonDefaults.buttonColors(containerColor = LuminaAccentPrimary),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
             shape = RoundedCornerShape(24.dp),
             modifier = Modifier
                 .padding(top = 8.dp)

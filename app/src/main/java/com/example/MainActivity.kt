@@ -84,19 +84,9 @@ class MainActivity : ComponentActivity() {
     private val incomingPdfUriState = mutableStateOf<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AppSettingsManager.init(this)
-        val initialFullScreen = AppSettingsManager.isFullScreenModeEnabled.value
-        if (initialFullScreen) {
-            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                window.attributes = window.attributes.apply {
-                    layoutInDisplayCutoutMode =
-                        android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-                }
-            }
-        }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        AppSettingsManager.init(this)
         AppSettingsManager.registerActivity(this)
         AppSettingsManager.applyWindowSystemBars(
             window,

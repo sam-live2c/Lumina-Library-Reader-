@@ -20,16 +20,16 @@ import com.example.data.repository.AppSettingsManager
 
 // 1. Clean Alabaster White Color Scheme
 private val WhiteColorScheme = lightColorScheme(
-    primary = LuminaAccentPrimary,
+    primary = Color(0xFF2563EB),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFF1F5F9),
-    onPrimaryContainer = Color(0xFF0F172A),
+    primaryContainer = Color(0xFFDBEAFE),
+    onPrimaryContainer = Color(0xFF1E40AF),
     secondary = DeepSlate,
     onSecondary = Color.White,
     secondaryContainer = Color(0xFFF8FAFC),
     onSecondaryContainer = DeepSlate,
-    tertiary = LuminaAccentLight,
-    onTertiary = DeepSlate,
+    tertiary = Color(0xFF3B82F6),
+    onTertiary = Color.White,
     background = Color(0xFFFFFFFF),
     onBackground = Color(0xFF0F172A),
     surface = Color(0xFFFFFFFF),

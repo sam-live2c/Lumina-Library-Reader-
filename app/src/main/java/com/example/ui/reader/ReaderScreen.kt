@@ -431,12 +431,7 @@ fun ReaderScreen(
                     viewModel.goToPage(it)
                 },
                 onToggleBookmark = { page ->
-                    if (page == uiState.currentPageIndex) {
-                        viewModel.toggleBookmark()
-                    } else {
-                        soundManager.playPageTurnSound()
-                        viewModel.goToPage(page)
-                    }
+                    viewModel.toggleBookmarkForPage(page)
                 },
                 onDismiss = { viewModel.closeTocSheet() }
             )

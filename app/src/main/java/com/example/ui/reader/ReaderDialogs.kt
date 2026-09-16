@@ -827,22 +827,13 @@ fun BookmarksBottomSheet(
 
     BackHandler(enabled = true, onBack = handleDismiss)
 
-    val sheetBg = when (readerTheme) {
-        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
-        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
-        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
-        ReaderThemeMode.NIGHT -> Color(0xFF161D28)
-    }
-
-    val cardBg = when (readerTheme) {
-        ReaderThemeMode.WHITE -> Color(0xFFF1F5F9)
-        ReaderThemeMode.CREAM -> Color(0xFFEFE8DB)
-        ReaderThemeMode.SEPIA -> Color(0xFFE3D6BE)
-        ReaderThemeMode.NIGHT -> Color(0xFF1F2837)
-    }
-
-    val textColor = readerTheme.textColor
-    val textSecondary = readerTheme.textSecondaryColor
+    // Dynamically follows the application's global theme
+    val sheetBg = MaterialTheme.colorScheme.surface
+    val cardBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textSecondary = MaterialTheme.colorScheme.onSurfaceVariant
+    val accentColor = MaterialTheme.colorScheme.primary
+    val outlineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
 
     val scrimAlpha by animateFloatAsState(
         targetValue = if (sheetVisible) 0.54f else 0f,
@@ -943,123 +934,126 @@ fun BookmarksBottomSheet(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                Text(
-                    text = "Saved Bookmarks",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = textColor
-                )
+                        Text(
+                            text = "Saved Bookmarks",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = textColor
+                        )
 
-                Text(
-                    text = "${bookmarkedPages.size} bookmark${if (bookmarkedPages.size != 1) "s" else ""}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = textSecondary
-                )
-            }
+                        Text(
+                            text = "${bookmarkedPages.size} bookmark${if (bookmarkedPages.size != 1) "s" else ""}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = textSecondary
+                        )
+                    }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            if (bookmarkedPages.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(vertical = 36.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Bookmark,
-                        contentDescription = null,
-                        tint = LuminaAccentPrimary.copy(alpha = 0.4f),
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "No bookmarks yet",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = textColor
-                    )
-                    Text(
-                        text = "Tap the bookmark ribbon icon while reading to save pages for quick reference.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = textSecondary.copy(alpha = 0.8f),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp)
-                    )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(bookmarkedPages) { page ->
-                        val isCurrent = page == currentPage
-                        Card(
-                            onClick = {
-                                onSelectPage(page)
-                                handleDismiss()
-                            },
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isCurrent) LuminaAccentPrimary.copy(alpha = 0.14f) else cardBg
-                            ),
-                            border = if (isCurrent) androidx.compose.foundation.BorderStroke(1.5.dp, LuminaAccentPrimary) else null,
+                    if (bookmarkedPages.isEmpty()) {
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .testTag("bookmark_item_page_$page")
+                                .weight(1f)
+                                .padding(vertical = 36.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            Icon(
+                                imageVector = Icons.Filled.Bookmark,
+                                contentDescription = null,
+                                tint = accentColor.copy(alpha = 0.4f),
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "No bookmarks yet",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = textColor
+                            )
+                            Text(
+                                text = "Tap the bookmark ribbon icon while reading to save pages for quick reference.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = textSecondary.copy(alpha = 0.8f),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp)
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(bookmarkedPages) { page ->
+                                val isCurrent = page == currentPage
+                                Card(
+                                    onClick = {
+                                        onSelectPage(page)
+                                        handleDismiss()
+                                    },
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = cardBg
+                                    ),
+                                    border = BorderStroke(
+                                        width = if (isCurrent) 1.5.dp else 1.dp,
+                                        color = if (isCurrent) accentColor.copy(alpha = 0.8f) else outlineColor
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("bookmark_item_page_$page")
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Bookmark,
-                                        contentDescription = null,
-                                        tint = LuminaAccentPrimary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Bookmark,
+                                                contentDescription = null,
+                                                tint = accentColor,
+                                                modifier = Modifier.size(20.dp)
+                                            )
 
-                                    Column {
-                                        Text(
-                                            text = "Page $page",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                            color = if (isCurrent) LuminaAccentPrimary else textColor
-                                        )
-                                        val percent = ((page.toFloat() / totalPages.toFloat()) * 100).toInt()
-                                        Text(
-                                            text = "$percent% into book",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = textSecondary
-                                        )
+                                            Column {
+                                                Text(
+                                                    text = "Page $page",
+                                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                                    color = if (isCurrent) accentColor else textColor
+                                                )
+                                                val percent = ((page.toFloat() / totalPages.toFloat()) * 100).toInt()
+                                                Text(
+                                                    text = "$percent% into book",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = textSecondary
+                                                )
+                                            }
+                                        }
+
+                                        IconButton(
+                                            onClick = { onToggleBookmark(page) },
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.DeleteOutline,
+                                                contentDescription = "Remove Bookmark",
+                                                tint = textSecondary
+                                            )
+                                        }
                                     }
-                                }
-
-                                IconButton(
-                                    onClick = { onToggleBookmark(page) },
-                                    modifier = Modifier.size(36.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.DeleteOutline,
-                                        contentDescription = "Remove Bookmark",
-                                        tint = textSecondary
-                                    )
                                 }
                             }
                         }
                     }
-                }
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
         }

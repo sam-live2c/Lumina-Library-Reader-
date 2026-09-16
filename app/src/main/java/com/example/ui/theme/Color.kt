@@ -2,11 +2,11 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Premium Literary & Executive Palette (Deep Indigo Slate, Warm Cognac Amber, Japanese Linen)
-val LuminaAccentPrimary = Color(0xFFC68A4C)       // Warm Tuscan Cognac / Gold
-val LuminaAccentDark = Color(0xFFA66D35)          // Deep Rich Amber
-val LuminaAccentLight = Color(0xFFDFAB72)         // Soft Luminous Champagne
-val LuminaAccentSubtle = Color(0xFFF7EFE5)        // Soft Linen Tint
+// Premium Literary & Executive Palette (Clean Royal Blue, Midnight Slate)
+val LuminaAccentPrimary = Color(0xFF2563EB)       // Vibrant Royal Blue
+val LuminaAccentDark = Color(0xFF1D4ED8)          // Deep Sapphire Blue
+val LuminaAccentLight = Color(0xFF3B82F6)         // Luminous Sky Blue
+val LuminaAccentSubtle = Color(0xFFDBEAFE)        // Soft Tint Blue
 
 val DeepSlate = Color(0xFF161F2E)                // Rich Midnight Indigo
 val MutedSlate = Color(0xFF5A6679)               // Soft Editorial Slate

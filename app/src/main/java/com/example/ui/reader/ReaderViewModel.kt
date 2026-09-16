@@ -388,9 +388,13 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun toggleBookmark() {
+        val page = _uiState.value.currentPageIndex
+        toggleBookmarkForPage(page)
+    }
+
+    fun toggleBookmarkForPage(page: Int) {
         val state = _uiState.value
         val book = state.book ?: return
-        val page = state.currentPageIndex
 
         viewModelScope.launch {
             val isNowBm = repository.toggleBookmark(book.id, page)
@@ -401,7 +405,7 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
             }
             _uiState.update {
                 it.copy(
-                    isBookmarked = isNowBm,
+                    isBookmarked = if (state.currentPageIndex == page) isNowBm else it.isBookmarked,
                     bookmarkedPages = updated
                 )
             }
