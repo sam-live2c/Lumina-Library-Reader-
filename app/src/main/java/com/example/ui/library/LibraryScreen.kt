@@ -87,6 +87,18 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.Refresh
+import android.view.View
+import android.view.ViewParent
+import android.view.ViewTreeObserver
+import android.view.Window
+import android.view.WindowManager
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -173,6 +185,117 @@ import com.example.ui.theme.LuminaAccentPrimary
 import com.example.ui.theme.LuminaAccentSubtle
 import java.io.File
 
+/**
+ * Stationary Dialog Container
+ * Completely eliminates any uplift or shifting of popup dialogs when the virtual keyboard appears.
+ * Configured with usePlatformDefaultWidth = false, decorFitsSystemWindows = false,
+ * SOFT_INPUT_ADJUST_NOTHING, and MATCH_PARENT window sizing so that the dialog window
+ * never resizes or pans, and the card stays solidly at its exact screen coordinates.
+ */
+@Composable
+private fun StationaryDialog(
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(24.dp),
+    containerColor: Color = MaterialTheme.colorScheme.surface,
+    tonalElevation: Dp = 0.dp,
+    shadowElevation: Dp = 8.dp,
+    content: @Composable () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        val view = LocalView.current
+        val focusManager = LocalFocusManager.current
+        val keyboardController = LocalSoftwareKeyboardController.current
+
+        fun applyStationaryFlags(win: Window?) {
+            win?.let { w ->
+                w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+                val lp = w.attributes
+                lp.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+                w.attributes = lp
+                w.setLayout(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.MATCH_PARENT
+                )
+            }
+        }
+
+        DisposableEffect(view) {
+            var dialogWindow: Window? = (view as? DialogWindowProvider)?.window
+            var parent: ViewParent? = view.parent
+            while (dialogWindow == null && parent != null) {
+                if (parent is DialogWindowProvider) {
+                    dialogWindow = parent.window
+                    break
+                }
+                parent = parent.parent
+            }
+            val win = dialogWindow
+            applyStationaryFlags(win)
+
+            val layoutListener = ViewTreeObserver.OnGlobalLayoutListener {
+                applyStationaryFlags(win)
+            }
+            win?.decorView?.viewTreeObserver?.addOnGlobalLayoutListener(layoutListener)
+            view.post { applyStationaryFlags(win) }
+
+            onDispose {
+                win?.decorView?.viewTreeObserver?.removeOnGlobalLayoutListener(layoutListener)
+            }
+        }
+
+        SideEffect {
+            var dialogWindow: Window? = (view as? DialogWindowProvider)?.window
+            var parent: ViewParent? = view.parent
+            while (dialogWindow == null && parent != null) {
+                if (parent is DialogWindowProvider) {
+                    dialogWindow = parent.window
+                    break
+                }
+                parent = parent.parent
+            }
+            applyStationaryFlags(dialogWindow)
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.54f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    onDismissRequest()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = modifier
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        // Absorb clicks on the dialog surface so clicking inside the card does not dismiss dialog
+                    },
+                shape = shape,
+                color = containerColor,
+                tonalElevation = tonalElevation,
+                shadowElevation = shadowElevation
+            ) {
+                content()
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
@@ -230,22 +353,20 @@ fun LibraryScreen(
         modifier = modifier
             .fillMaxSize()
             .onGloballyPositioned { rootCoordinates = it }
-            .pointerInput(isSearchFocused) {
-                if (!isSearchFocused) return@pointerInput
-                detectTapGestures(
-                    onTap = { position ->
-                        val root = rootCoordinates
-                        val search = searchFieldCoordinates
-                        if (root != null && search != null && root.isAttached && search.isAttached) {
-                            val searchBounds = root.localBoundingBoxOf(search)
-                            if (!searchBounds.contains(position)) {
-                                focusManager.clearFocus()
-                            }
-                        } else {
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                    val pos = down.position
+                    val root = rootCoordinates
+                    val search = searchFieldCoordinates
+                    if (root != null && search != null && root.isAttached && search.isAttached) {
+                        val searchBounds = root.localBoundingBoxOf(search)
+                        if (!searchBounds.contains(pos)) {
                             focusManager.clearFocus()
+                            keyboardController?.hide()
                         }
                     }
-                )
+                }
             }
     ) {
         Scaffold(
@@ -553,28 +674,70 @@ fun LibraryScreen(
                 var copyTitle by remember(bookToCopy.id) {
                     mutableStateOf("${bookToCopy.title} (Copy)")
                 }
+                var copyDialogCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+                var copyInputCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
-                AlertDialog(
-                    onDismissRequest = { viewModel.cancelCopyBook() },
-                    properties = DialogProperties(usePlatformDefaultWidth = false),
+                StationaryDialog(
+                    onDismissRequest = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        viewModel.cancelCopyBook()
+                    },
                     modifier = Modifier
                         .fillMaxWidth(0.92f)
-                        .widthIn(max = 560.dp),
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Outlined.ContentCopy,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    },
-                    title = {
-                        Text(
-                            text = "Copy Book",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                    },
-                    text = {
+                        .widthIn(max = 560.dp)
+                        .onGloballyPositioned { copyDialogCoordinates = it }
+                        .pointerInput(Unit) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                                val pos = down.position
+                                val dialog = copyDialogCoordinates
+                                val input = copyInputCoordinates
+                                var hitInput = false
+                                if (dialog != null && input != null && dialog.isAttached && input.isAttached) {
+                                    val bounds = dialog.localBoundingBoxOf(input)
+                                    if (bounds.contains(pos)) {
+                                        hitInput = true
+                                    }
+                                }
+                                if (!hitInput) {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                }
+                            }
+                        },
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                            },
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ContentCopy,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Text(
+                                text = "Copy Book",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -607,82 +770,96 @@ fun LibraryScreen(
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .onGloballyPositioned { copyInputCoordinates = it }
                                     .testTag("copy_book_rename_input")
                             )
                         }
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                viewModel.executeCopyBook(copyTitle.trim())
-                            },
-                            enabled = copyTitle.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.testTag("confirm_copy_button")
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Copy Book")
+                            TextButton(
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    viewModel.cancelCopyBook()
+                                },
+                                modifier = Modifier.testTag("cancel_copy_button")
+                            ) {
+                                Text("Cancel")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    viewModel.executeCopyBook(copyTitle.trim())
+                                },
+                                enabled = copyTitle.isNotBlank(),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.testTag("confirm_copy_button")
+                            ) {
+                                Text("Copy Book")
+                            }
                         }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = { viewModel.cancelCopyBook() },
-                            modifier = Modifier.testTag("cancel_copy_button")
-                        ) {
-                            Text("Cancel")
-                        }
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 0.dp
-                )
+                    }
+                }
             }
 
             // Delete Confirmation Dialog
             uiState.selectedBookToDelete?.let { bookToDelete ->
-                AlertDialog(
+                StationaryDialog(
                     onDismissRequest = { viewModel.cancelDeleteBook() },
-                    properties = DialogProperties(usePlatformDefaultWidth = false),
                     modifier = Modifier
                         .fillMaxWidth(0.92f)
                         .widthIn(max = 560.dp),
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 0.dp,
-                    shape = RoundedCornerShape(20.dp),
-                    title = {
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
                         Text(
                             text = "Remove Book?",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                    },
-                    text = {
                         Text(
                             text = "Are you sure you want to remove \"${bookToDelete.title}\" from your library? Reading progress and bookmarks will be deleted.",
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                toastMessage = "Removed \"${bookToDelete.title}\" from library"
-                                viewModel.executeDeleteBook()
-                            },
-                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                            modifier = Modifier.testTag("confirm_delete_btn")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Remove", fontWeight = FontWeight.Bold)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = { viewModel.cancelDeleteBook() },
-                            modifier = Modifier.testTag("cancel_delete_btn")
-                        ) {
-                            Text("Cancel")
+                            TextButton(
+                                onClick = { viewModel.cancelDeleteBook() },
+                                modifier = Modifier.testTag("cancel_delete_btn")
+                            ) {
+                                Text("Cancel")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextButton(
+                                onClick = {
+                                    toastMessage = "Removed \"${bookToDelete.title}\" from library"
+                                    viewModel.executeDeleteBook()
+                                },
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.testTag("confirm_delete_btn")
+                            ) {
+                                Text("Remove", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
-                )
+                }
             }
 
             // Custom Filter Creation Dialog
@@ -1075,13 +1252,19 @@ private fun LibraryHeader(
 
     // Popup Dialog: Sort Order Picker
     if (showSortPopup) {
-        AlertDialog(
+        StationaryDialog(
             onDismissRequest = { showSortPopup = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false),
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .widthIn(max = 560.dp),
-            title = {
+            shape = RoundedCornerShape(26.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1113,12 +1296,9 @@ private fun LibraryHeader(
                         )
                     }
                 }
-            },
-            text = {
+
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     LibrarySortOrder.values().forEach { order ->
@@ -1189,19 +1369,20 @@ private fun LibraryHeader(
                         }
                     }
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(
-                    onClick = { showSortPopup = false }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Done", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    TextButton(
+                        onClick = { showSortPopup = false }
+                    ) {
+                        Text("Done", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    }
                 }
-            },
-            shape = RoundedCornerShape(26.dp),
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp
-        )
+            }
+        }
     }
 }
 
@@ -1387,6 +1568,7 @@ private fun FilterChipsRow(
                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier
+                        .defaultMinSize(minHeight = 36.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .combinedClickable(
                             onClick = {
@@ -1497,32 +1679,33 @@ private fun FilterChipsRow(
             }
         }
 
-        // "+ New List" button (without border)
+        // "+ New List" button styled exactly as a list chip with unified margin and dimensions
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             contentColor = MaterialTheme.colorScheme.primary,
             border = null,
             modifier = Modifier
+                .defaultMinSize(minHeight = 36.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .clickable { onAddNewFilter() }
                 .testTag("add_custom_filter_chip")
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "New List",
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     text = "New List",
                     style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Medium
                     ),
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
@@ -2206,6 +2389,10 @@ private fun CreateCustomFilterDialog(
     var bookSearchQuery by remember { mutableStateOf("") }
     val selectedIds = remember { mutableStateListOf<Long>() }
 
+    var dialogCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var nameFieldCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var searchFieldCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
     val filteredList = remember(allBooks, bookSearchQuery) {
         if (bookSearchQuery.isBlank()) {
             allBooks
@@ -2217,49 +2404,157 @@ private fun CreateCustomFilterDialog(
         }
     }
 
-    AlertDialog(
+    StationaryDialog(
         onDismissRequest = {
             focusManager.clearFocus()
             keyboardController?.hide()
             onDismiss()
         },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
             .fillMaxWidth(0.92f)
-            .widthIn(max = 560.dp),
-        shape = RoundedCornerShape(24.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        title = {
+            .widthIn(max = 560.dp)
+            .onGloballyPositioned { dialogCoordinates = it }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                    val pos = down.position
+                    val dialog = dialogCoordinates
+                    val nameCoords = nameFieldCoordinates
+                    val searchCoords = searchFieldCoordinates
+
+                    var hitTextField = false
+                    if (dialog != null && dialog.isAttached) {
+                        if (nameCoords != null && nameCoords.isAttached) {
+                            val bounds = dialog.localBoundingBoxOf(nameCoords)
+                            if (bounds.contains(pos)) {
+                                hitTextField = true
+                            }
+                        }
+                        if (!hitTextField && searchCoords != null && searchCoords.isAttached) {
+                            val bounds = dialog.localBoundingBoxOf(searchCoords)
+                            if (bounds.contains(pos)) {
+                                hitTextField = true
+                            }
+                        }
+                    }
+                    if (!hitTextField) {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
+                }
+            },
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                },
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
             Text(
                 text = "New List",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
-        },
-        text = {
-            Column(
+
+            // List Name Input
+            OutlinedTextField(
+                value = filterName,
+                onValueChange = { filterName = it },
+                placeholder = {
+                    Text(
+                        text = "List name",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(24.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    disabledBorderColor = Color.Transparent,
+                    errorBorderColor = Color.Transparent,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        focusManager.clearFocus()
-                        keyboardController?.hide()
-                    },
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .onGloballyPositioned { nameFieldCoordinates = it }
+                    .testTag("create_filter_name_input")
+            )
+
+            // Select Books Header & Search
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // List Name Input
+                Text(
+                    text = "Included Books (${selectedIds.size} selected)",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                if (allBooks.isNotEmpty()) {
+                    TextButton(
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            if (selectedIds.size == allBooks.size) {
+                                selectedIds.clear()
+                            } else {
+                                selectedIds.clear()
+                                selectedIds.addAll(allBooks.map { it.id })
+                            }
+                        }
+                    ) {
+                        Text(
+                            text = if (selectedIds.size == allBooks.size) "Deselect All" else "Select All",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            if (allBooks.size > 5) {
                 OutlinedTextField(
-                    value = filterName,
-                    onValueChange = { filterName = it },
+                    value = bookSearchQuery,
+                    onValueChange = { bookSearchQuery = it },
                     placeholder = {
                         Text(
-                            text = "List name",
+                            text = "Filter books below...",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (bookSearchQuery.isNotBlank()) {
+                            IconButton(onClick = { bookSearchQuery = "" }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = "Clear",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(24.dp),
@@ -2273,181 +2568,106 @@ private fun CreateCustomFilterDialog(
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("create_filter_name_input")
+                        .onGloballyPositioned { searchFieldCoordinates = it }
                 )
+            }
 
-                // Select Books Header & Search
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            // Books Selection Checklist
+            if (allBooks.isEmpty()) {
+                Text(
+                    text = "No books in library yet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 240.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Text(
-                        text = "Included Books (${selectedIds.size} selected)",
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    if (allBooks.isNotEmpty()) {
-                        TextButton(
-                            onClick = {
-                                focusManager.clearFocus()
-                                keyboardController?.hide()
-                                if (selectedIds.size == allBooks.size) {
-                                    selectedIds.clear()
-                                } else {
-                                    selectedIds.clear()
-                                    selectedIds.addAll(allBooks.map { it.id })
+                    items(filteredList, key = { it.id }) { book ->
+                        val isChecked = selectedIds.contains(book.id)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    if (isChecked) selectedIds.remove(book.id) else selectedIds.add(book.id)
                                 }
-                            }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(
-                                text = if (selectedIds.size == allBooks.size) "Deselect All" else "Select All",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-
-                if (allBooks.size > 5) {
-                    OutlinedTextField(
-                        value = bookSearchQuery,
-                        onValueChange = { bookSearchQuery = it },
-                        placeholder = {
-                            Text(
-                                text = "Filter books below...",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        },
-                        trailingIcon = {
-                            if (bookSearchQuery.isNotBlank()) {
-                                IconButton(onClick = { bookSearchQuery = "" }) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Close,
-                                        contentDescription = "Clear",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(24.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            disabledBorderColor = Color.Transparent,
-                            errorBorderColor = Color.Transparent,
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                // Books Selection Checklist
-                if (allBooks.isEmpty()) {
-                    Text(
-                        text = "No books in library yet.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 240.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                            .padding(horizontal = 4.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        items(filteredList, key = { it.id }) { book ->
-                            val isChecked = selectedIds.contains(book.id)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        focusManager.clearFocus()
-                                        keyboardController?.hide()
-                                        if (isChecked) selectedIds.remove(book.id) else selectedIds.add(book.id)
-                                    }
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Checkbox(
-                                    checked = isChecked,
-                                    onCheckedChange = { checked ->
-                                        focusManager.clearFocus()
-                                        keyboardController?.hide()
-                                        if (checked) selectedIds.add(book.id) else selectedIds.remove(book.id)
-                                    },
-                                    colors = CheckboxDefaults.colors(
-                                        checkedColor = MaterialTheme.colorScheme.primary
-                                    )
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = { checked ->
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    if (checked) selectedIds.add(book.id) else selectedIds.remove(book.id)
+                                },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = MaterialTheme.colorScheme.primary
                                 )
-                                Column(modifier = Modifier.weight(1f)) {
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = book.title,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                if (!book.author.isNullOrBlank()) {
                                     Text(
-                                        text = book.title,
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                        text = book.author,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    if (!book.author.isNullOrBlank()) {
-                                        Text(
-                                            text = book.author,
-                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = {
                     focusManager.clearFocus()
                     keyboardController?.hide()
-                    if (filterName.isNotBlank()) {
-                        onCreate(filterName.trim(), selectedIds.toList())
-                    }
-                },
-                enabled = filterName.isNotBlank(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                modifier = Modifier.testTag("confirm_create_filter_btn")
-            ) {
-                Text("Create List")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = {
-                focusManager.clearFocus()
-                keyboardController?.hide()
-                onDismiss()
-            }) {
-                Text("Cancel")
+                    onDismiss()
+                }) {
+                    Text("Cancel")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        if (filterName.isNotBlank()) {
+                            onCreate(filterName.trim(), selectedIds.toList())
+                        }
+                    },
+                    enabled = filterName.isNotBlank(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.testTag("confirm_create_filter_btn")
+                ) {
+                    Text("Create List")
+                }
             }
         }
-    )
+    }
 }
 
 /**
@@ -2469,6 +2689,10 @@ private fun EditCustomFilterDialog(
         mutableStateListOf<Long>().apply { addAll(customFilter.bookIds) }
     }
 
+    var dialogCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var nameFieldCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var searchFieldCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
     val filteredList = remember(allBooks, bookSearchQuery) {
         if (bookSearchQuery.isBlank()) {
             allBooks
@@ -2480,20 +2704,60 @@ private fun EditCustomFilterDialog(
         }
     }
 
-    AlertDialog(
+    StationaryDialog(
         onDismissRequest = {
             focusManager.clearFocus()
             keyboardController?.hide()
             onDismiss()
         },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
             .fillMaxWidth(0.92f)
-            .widthIn(max = 560.dp),
-        shape = RoundedCornerShape(24.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        title = {
+            .widthIn(max = 560.dp)
+            .onGloballyPositioned { dialogCoordinates = it }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                    val pos = down.position
+                    val dialog = dialogCoordinates
+                    val nameCoords = nameFieldCoordinates
+                    val searchCoords = searchFieldCoordinates
+
+                    var hitTextField = false
+                    if (dialog != null && dialog.isAttached) {
+                        if (nameCoords != null && nameCoords.isAttached) {
+                            val bounds = dialog.localBoundingBoxOf(nameCoords)
+                            if (bounds.contains(pos)) {
+                                hitTextField = true
+                            }
+                        }
+                        if (!hitTextField && searchCoords != null && searchCoords.isAttached) {
+                            val bounds = dialog.localBoundingBoxOf(searchCoords)
+                            if (bounds.contains(pos)) {
+                                hitTextField = true
+                            }
+                        }
+                    }
+                    if (!hitTextField) {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
+                }
+            },
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                },
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -2516,29 +2780,96 @@ private fun EditCustomFilterDialog(
                     )
                 }
             }
-        },
-        text = {
-            Column(
+
+            OutlinedTextField(
+                value = filterName,
+                onValueChange = { filterName = it },
+                placeholder = {
+                    Text(
+                        text = "List name",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(24.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    disabledBorderColor = Color.Transparent,
+                    errorBorderColor = Color.Transparent,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        focusManager.clearFocus()
-                        keyboardController?.hide()
-                    },
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .onGloballyPositioned { nameFieldCoordinates = it }
+                    .testTag("edit_filter_name_input")
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Text(
+                    text = "Included Books (${selectedIds.size} selected)",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                if (allBooks.isNotEmpty()) {
+                    TextButton(
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            if (selectedIds.size == allBooks.size) {
+                                selectedIds.clear()
+                            } else {
+                                selectedIds.clear()
+                                selectedIds.addAll(allBooks.map { it.id })
+                            }
+                        }
+                    ) {
+                        Text(
+                            text = if (selectedIds.size == allBooks.size) "Deselect All" else "Select All",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            if (allBooks.size > 5) {
                 OutlinedTextField(
-                    value = filterName,
-                    onValueChange = { filterName = it },
+                    value = bookSearchQuery,
+                    onValueChange = { bookSearchQuery = it },
                     placeholder = {
                         Text(
-                            text = "List name",
+                            text = "Filter books below...",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (bookSearchQuery.isNotBlank()) {
+                            IconButton(onClick = { bookSearchQuery = "" }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = "Clear",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(24.dp),
@@ -2552,179 +2883,105 @@ private fun EditCustomFilterDialog(
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("edit_filter_name_input")
+                        .onGloballyPositioned { searchFieldCoordinates = it }
                 )
+            }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            if (allBooks.isEmpty()) {
+                Text(
+                    text = "No books in library yet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 240.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Text(
-                        text = "Included Books (${selectedIds.size} selected)",
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    if (allBooks.isNotEmpty()) {
-                        TextButton(
-                            onClick = {
-                                focusManager.clearFocus()
-                                keyboardController?.hide()
-                                if (selectedIds.size == allBooks.size) {
-                                    selectedIds.clear()
-                                } else {
-                                    selectedIds.clear()
-                                    selectedIds.addAll(allBooks.map { it.id })
+                    items(filteredList, key = { it.id }) { book ->
+                        val isChecked = selectedIds.contains(book.id)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    if (isChecked) selectedIds.remove(book.id) else selectedIds.add(book.id)
                                 }
-                            }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(
-                                text = if (selectedIds.size == allBooks.size) "Deselect All" else "Select All",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-
-                if (allBooks.size > 5) {
-                    OutlinedTextField(
-                        value = bookSearchQuery,
-                        onValueChange = { bookSearchQuery = it },
-                        placeholder = {
-                            Text(
-                                text = "Filter books below...",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        },
-                        trailingIcon = {
-                            if (bookSearchQuery.isNotBlank()) {
-                                IconButton(onClick = { bookSearchQuery = "" }) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Close,
-                                        contentDescription = "Clear",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(24.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            disabledBorderColor = Color.Transparent,
-                            errorBorderColor = Color.Transparent,
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                if (allBooks.isEmpty()) {
-                    Text(
-                        text = "No books in library yet.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 240.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                            .padding(horizontal = 4.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        items(filteredList, key = { it.id }) { book ->
-                            val isChecked = selectedIds.contains(book.id)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        focusManager.clearFocus()
-                                        keyboardController?.hide()
-                                        if (isChecked) selectedIds.remove(book.id) else selectedIds.add(book.id)
-                                    }
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Checkbox(
-                                    checked = isChecked,
-                                    onCheckedChange = { checked ->
-                                        focusManager.clearFocus()
-                                        keyboardController?.hide()
-                                        if (checked) selectedIds.add(book.id) else selectedIds.remove(book.id)
-                                    },
-                                    colors = CheckboxDefaults.colors(
-                                        checkedColor = MaterialTheme.colorScheme.primary
-                                    )
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = { checked ->
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    if (checked) selectedIds.add(book.id) else selectedIds.remove(book.id)
+                                },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = MaterialTheme.colorScheme.primary
                                 )
-                                Column(modifier = Modifier.weight(1f)) {
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = book.title,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                if (!book.author.isNullOrBlank()) {
                                     Text(
-                                        text = book.title,
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                        text = book.author,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    if (!book.author.isNullOrBlank()) {
-                                        Text(
-                                            text = book.author,
-                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = {
                     focusManager.clearFocus()
                     keyboardController?.hide()
-                    if (filterName.isNotBlank()) {
-                        onSave(filterName.trim(), selectedIds.toList())
-                    }
-                },
-                enabled = filterName.isNotBlank(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                modifier = Modifier.testTag("save_edit_filter_btn")
-            ) {
-                Text("Save Changes")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = {
-                focusManager.clearFocus()
-                keyboardController?.hide()
-                onDismiss()
-            }) {
-                Text("Cancel")
+                    onDismiss()
+                }) {
+                    Text("Cancel")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        if (filterName.isNotBlank()) {
+                            onSave(filterName.trim(), selectedIds.toList())
+                        }
+                    },
+                    enabled = filterName.isNotBlank(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.testTag("save_edit_filter_btn")
+                ) {
+                    Text("Save Changes")
+                }
             }
         }
-    )
+    }
 }
 
 /**
@@ -2741,111 +2998,144 @@ private fun RenameCustomFilterDialog(
     var filterName by remember { mutableStateOf(customFilter.name) }
     val focusRequester = remember { FocusRequester() }
 
+    var dialogCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var inputCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
     LaunchedEffect(Unit) {
         delay(100)
         focusRequester.requestFocus()
     }
 
-    AlertDialog(
+    StationaryDialog(
         onDismissRequest = {
             focusManager.clearFocus()
             keyboardController?.hide()
             onDismiss()
         },
-        title = {
-            Text(
-                text = "Rename List",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .widthIn(max = 560.dp)
+            .onGloballyPositioned { dialogCoordinates = it }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                    val pos = down.position
+                    val dialog = dialogCoordinates
+                    val input = inputCoordinates
+                    var hitInput = false
+                    if (dialog != null && input != null && dialog.isAttached && input.isAttached) {
+                        val bounds = dialog.localBoundingBoxOf(input)
+                        if (bounds.contains(pos)) {
+                            hitInput = true
+                        }
+                    }
+                    if (!hitInput) {
                         focusManager.clearFocus()
                         keyboardController?.hide()
-                    },
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "Enter a new name for this reading list.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = filterName,
-                    onValueChange = { filterName = it },
-                    placeholder = {
-                        Text(
-                            text = "List name (e.g., Favorites, Research, Sci-Fi)",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(24.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        disabledBorderColor = Color.Transparent,
-                        errorBorderColor = Color.Transparent,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                    ),
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Sentences,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            focusManager.clearFocus()
-                            keyboardController?.hide()
-                            if (filterName.isNotBlank()) {
-                                onRename(filterName.trim())
-                            }
-                        }
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester)
-                        .testTag("rename_filter_input")
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    focusManager.clearFocus()
-                    keyboardController?.hide()
-                    if (filterName.isNotBlank()) {
-                        onRename(filterName.trim())
                     }
-                },
-                enabled = filterName.isNotBlank() && filterName.trim() != customFilter.name,
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                modifier = Modifier.testTag("confirm_rename_filter_btn")
-            ) {
-                Text("Rename")
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
+                }
+            },
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
                     focusManager.clearFocus()
                     keyboardController?.hide()
-                    onDismiss()
                 },
-                modifier = Modifier.testTag("cancel_rename_filter_btn")
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "Rename List",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Text(
+                text = "Enter a new name for this reading list.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            OutlinedTextField(
+                value = filterName,
+                onValueChange = { filterName = it },
+                placeholder = {
+                    Text(
+                        text = "List name (e.g., Favorites, Research, Sci-Fi)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(24.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    disabledBorderColor = Color.Transparent,
+                    errorBorderColor = Color.Transparent,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                ),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        if (filterName.isNotBlank()) {
+                            onRename(filterName.trim())
+                        }
+                    }
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { inputCoordinates = it }
+                    .focusRequester(focusRequester)
+                    .testTag("rename_filter_input")
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Cancel")
+                TextButton(
+                    onClick = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        onDismiss()
+                    },
+                    modifier = Modifier.testTag("cancel_rename_filter_btn")
+                ) {
+                    Text("Cancel")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        if (filterName.isNotBlank()) {
+                            onRename(filterName.trim())
+                        }
+                    },
+                    enabled = filterName.isNotBlank() && filterName.trim() != customFilter.name,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.testTag("confirm_rename_filter_btn")
+                ) {
+                    Text("Rename")
+                }
             }
         }
-    )
+    }
 }
 
 /**
@@ -2866,16 +3156,19 @@ private fun AssignBookToListDialog(
         mutableStateListOf<String>().apply { addAll(initialAssigned) }
     }
 
-    AlertDialog(
+    StationaryDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
             .fillMaxWidth(0.92f)
             .widthIn(max = 560.dp),
-        shape = RoundedCornerShape(24.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        title = {
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
             Column {
                 Text(
                     text = "Add to Filter Lists",
@@ -2890,119 +3183,117 @@ private fun AssignBookToListDialog(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                if (customFilters.isEmpty()) {
-                    Text(
-                        text = "No custom filter lists created yet. Create a list below to easily group and sort your books.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 240.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                            .padding(horizontal = 4.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        items(customFilters, key = { it.id }) { filter ->
-                            val isAssigned = assignedFilterIds.contains(filter.id)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        if (isAssigned) assignedFilterIds.remove(filter.id) else assignedFilterIds.add(filter.id)
-                                    }
-                                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Checkbox(
-                                    checked = isAssigned,
-                                    onCheckedChange = { checked ->
-                                        if (checked) assignedFilterIds.add(filter.id) else assignedFilterIds.remove(filter.id)
-                                    },
-                                    colors = CheckboxDefaults.colors(
-                                        checkedColor = MaterialTheme.colorScheme.primary
-                                    )
-                                )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = filter.name,
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "${filter.bookIds.size} books",
-                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+
+            if (customFilters.isEmpty()) {
+                Text(
+                    text = "No custom filter lists created yet. Create a list below to easily group and sort your books.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 240.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    items(customFilters, key = { it.id }) { filter ->
+                        val isAssigned = assignedFilterIds.contains(filter.id)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    if (isAssigned) assignedFilterIds.remove(filter.id) else assignedFilterIds.add(filter.id)
                                 }
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Checkbox(
+                                checked = isAssigned,
+                                onCheckedChange = { checked ->
+                                    if (checked) assignedFilterIds.add(filter.id) else assignedFilterIds.remove(filter.id)
+                                },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = filter.name,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "${filter.bookIds.size} books",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
                 }
+            }
 
-                // Quick button to make a new list
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+            // Quick button to make a new list
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
+                        onDismiss()
+                        onCreateNewFilter()
+                    }
+            ) {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable {
-                            onDismiss()
-                            onCreateNewFilter()
-                        }
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = "Create New Filter List",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "Create New Filter List",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onSave(assignedFilterIds.toList())
-                },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                modifier = Modifier.testTag("save_book_assignment_btn")
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Done")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        onSave(assignedFilterIds.toList())
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.testTag("save_book_assignment_btn")
+                ) {
+                    Text("Done")
+                }
             }
         }
-    )
+    }
 }
 
 /**
