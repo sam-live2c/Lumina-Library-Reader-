@@ -37,18 +37,30 @@ fun SplashScreen(
     isFullScreen: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val contentModifier = if (isFullScreen) {
+        Modifier.fillMaxSize()
+    } else {
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .testTag("app_splash_screen"),
-        contentAlignment = Alignment.Center
+            .testTag("app_splash_screen")
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(horizontal = 32.dp)
+        Box(
+            modifier = contentModifier,
+            contentAlignment = Alignment.Center
         ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(horizontal = 32.dp)
+            ) {
             // Authentic App Logo itself as configured for launcher and identity
             Box(
                 modifier = Modifier
@@ -106,4 +118,5 @@ fun SplashScreen(
             )
         }
     }
+}
 }

@@ -229,15 +229,9 @@ fun LuminaApp(
         AnimatedContent(
             targetState = currentDestination,
             transitionSpec = {
-                if (initialState is AppDestination.Reader && targetState is AppDestination.Library) {
-                    (fadeIn(animationSpec = tween(140)) + slideInHorizontally(animationSpec = tween(170), initialOffsetX = { -it / 6 }))
-                        .togetherWith(fadeOut(animationSpec = tween(130)) + slideOutHorizontally(animationSpec = tween(170), targetOffsetX = { it }))
-                } else if (initialState is AppDestination.Library && targetState is AppDestination.Reader) {
-                    (fadeIn(animationSpec = tween(170)) + slideInHorizontally(animationSpec = tween(180), initialOffsetX = { it }))
-                        .togetherWith(fadeOut(animationSpec = tween(140)) + slideOutHorizontally(animationSpec = tween(180), targetOffsetX = { -it / 6 }))
-                } else {
-                    fadeIn(animationSpec = tween(140)).togetherWith(fadeOut(animationSpec = tween(120)))
-                }
+                androidx.compose.animation.EnterTransition.None.togetherWith(
+                    androidx.compose.animation.ExitTransition.None
+                )
             },
             label = "AppScreenNavigation"
         ) { destination ->

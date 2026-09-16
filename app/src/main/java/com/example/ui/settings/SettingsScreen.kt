@@ -357,7 +357,7 @@ private fun MainSettingsContent(
             contentPadding = PaddingValues(
                 start = 14.dp,
                 end = 14.dp,
-                top = if (uiState.isFullScreenModeEnabled) 13.dp else 4.dp,
+                top = if (uiState.isFullScreenModeEnabled) 12.dp else 4.dp,
                 bottom = 100.dp
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp),

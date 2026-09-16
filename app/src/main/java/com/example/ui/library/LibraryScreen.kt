@@ -272,7 +272,7 @@ fun LibraryScreen(
                         contentPadding = PaddingValues(
                             start = 14.dp,
                             end = 14.dp,
-                            top = if (isFullScreenModeEnabled) 13.dp else 4.dp,
+                            top = if (isFullScreenModeEnabled) 12.dp else 4.dp,
                             bottom = 100.dp
                         ),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -349,7 +349,7 @@ fun LibraryScreen(
                         contentPadding = PaddingValues(
                             start = 14.dp,
                             end = 14.dp,
-                            top = if (isFullScreenModeEnabled) 13.dp else 4.dp,
+                            top = if (isFullScreenModeEnabled) 12.dp else 4.dp,
                             bottom = 100.dp
                         ),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -795,7 +795,9 @@ private fun LibraryHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
+        Column(
+            verticalArrangement = Arrangement.Center
+        ) {
             Text(
                 text = "LUMINA",
                 style = MaterialTheme.typography.labelSmall.copy(

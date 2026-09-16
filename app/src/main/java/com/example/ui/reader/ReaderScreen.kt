@@ -232,8 +232,7 @@ fun ReaderScreen(
         val isCurrentBookReady = !uiState.isLoading && uiState.book?.id == bookId && (uiState.currentPageBitmap != null || uiState.isContinuousScrollMode)
         if (!isCurrentBookReady) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
+                modifier = canvasInsetsModifier
                     .background(uiState.readerTheme.background),
                 contentAlignment = Alignment.Center
             ) {
