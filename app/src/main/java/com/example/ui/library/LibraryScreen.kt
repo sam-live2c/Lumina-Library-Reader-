@@ -980,8 +980,8 @@ private fun LibraryHeader(
                     LibrarySortOrder.values().forEach { order ->
                         val isSelected = sortOrder == order
                         val subtitle = when (order) {
-                            LibrarySortOrder.RECENT -> "Most recently opened books first"
-                            LibrarySortOrder.DATE_ADDED -> "Pinned → Reading → Bookmarked → Uploads"
+                            LibrarySortOrder.RECENT -> "Most recently opened & read books first"
+                            LibrarySortOrder.DATE_ADDED -> "Newly added & imported books first"
                             LibrarySortOrder.TITLE_ASC -> "Alphabetical order from A to Z"
                             LibrarySortOrder.TITLE_DESC -> "Reverse alphabetical order Z to A"
                             LibrarySortOrder.PROGRESS -> "Highest reading progress first"

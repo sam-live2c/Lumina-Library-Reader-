@@ -95,33 +95,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
         val sorted = when (sortOrder) {
             LibrarySortOrder.DATE_ADDED -> filtered.sortedWith(
-                compareBy<BookEntity> { book ->
-                    when {
-                        book.isPinned -> 0
-                        book.hasBeenOpened && book.currentPage < book.totalPages -> 1
-                        book.getBookmarkPages().isNotEmpty() -> 2
-                        else -> 3
-                    }
-                }
-                    .thenByDescending {
-                        when {
-                            it.isPinned -> if (it.hasBeenOpened) maxOf(it.lastReadTimestamp, it.dateAddedTimestamp) else it.dateAddedTimestamp
-                            it.hasBeenOpened && it.currentPage < it.totalPages -> it.lastReadTimestamp
-                            it.getBookmarkPages().isNotEmpty() -> maxOf(it.lastReadTimestamp, it.dateAddedTimestamp)
-                            else -> it.dateAddedTimestamp
-                        }
-                    }
+                compareByDescending<BookEntity> { it.isPinned }
+                    .thenByDescending { it.dateAddedTimestamp }
                     .thenByDescending { it.id }
             )
             LibrarySortOrder.RECENT -> filtered.sortedWith(
-                compareBy<BookEntity> { book ->
-                    when {
-                        book.isPinned -> 0
-                        book.hasBeenOpened && book.currentPage < book.totalPages -> 1
-                        book.getBookmarkPages().isNotEmpty() -> 2
-                        else -> 3
-                    }
-                }
+                compareByDescending<BookEntity> { it.isPinned }
                     .thenByDescending { if (it.hasBeenOpened) it.lastReadTimestamp else 0L }
                     .thenByDescending { it.dateAddedTimestamp }
                     .thenByDescending { it.id }

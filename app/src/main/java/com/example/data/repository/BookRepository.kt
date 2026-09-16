@@ -158,7 +158,7 @@ class BookRepository(
                     continue
                 }
 
-                val (_, fileSize) = calculateStreamSha256AndCopy(inputStream, tempFile)
+                val (streamSha256, fileSize) = calculateStreamSha256AndCopy(inputStream, tempFile)
                 inputStream.close()
 
                 if (fileSize == 0L) {
@@ -173,6 +173,38 @@ class BookRepository(
                     tempFile.delete()
                     skippedCount++
                     skippedNames.add(fileName)
+                    continue
+                }
+
+                // Check for existing duplicates in the library (by SHA-256 hash or exact file attributes)
+                val allCurrentBooks = bookDao.getAllBooksList()
+                val existingBook = allCurrentBooks.firstOrNull { book ->
+                    val existingFile = File(book.filePath)
+                    if (existingFile.exists()) {
+                        if (existingFile.length() == fileSize) {
+                            val existingSha256 = calculateFileSha256(existingFile)
+                            (existingSha256 != null && existingSha256 == streamSha256) ||
+                            (book.title.equals(cleanTitle, ignoreCase = true) && book.totalPages == totalPages)
+                        } else if (book.title.equals(cleanTitle, ignoreCase = true) && book.totalPages == totalPages && kotlin.math.abs(existingFile.length() - fileSize) < 1024) {
+                            true
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                }
+
+                if (existingBook != null) {
+                    // File already exists in library: prevent creating duplicate entries!
+                    tempFile.delete()
+                    // Update lastReadTimestamp and refresh activity
+                    val updatedBook = existingBook.copy(
+                        lastReadTimestamp = System.currentTimeMillis()
+                    )
+                    bookDao.updateBook(updatedBook)
+                    lastImportedId = existingBook.id
+                    importedCount++
                     continue
                 }
 

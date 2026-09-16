@@ -143,6 +143,11 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun cancelPendingJobs() {
+        renderJob?.cancel()
+        searchJob?.cancel()
+    }
+
     fun clearCurrentBook() {
         renderJob?.cancel()
         searchJob?.cancel()

@@ -87,8 +87,14 @@ fun ReaderScreen(
         viewModel.loadBook(bookId)
         onDispose {
             soundManager.release()
-            viewModel.clearCurrentBook()
+            viewModel.cancelPendingJobs()
         }
+    }
+
+    val handleInstantBack = {
+        keyboardController?.hide()
+        focusManager.clearFocus()
+        onNavigateBack()
     }
 
     BackHandler {
@@ -99,9 +105,7 @@ fun ReaderScreen(
         } else if (uiState.isAnnotationMode) {
             viewModel.toggleAnnotationMode()
         } else {
-            keyboardController?.hide()
-            focusManager.clearFocus()
-            onNavigateBack()
+            handleInstantBack()
         }
     }
 
@@ -299,7 +303,7 @@ fun ReaderScreen(
                 isBookmarked = uiState.isBookmarked,
                 readerTheme = uiState.readerTheme,
                 isFullScreenModeEnabled = uiState.isFullScreenModeEnabled,
-                onBack = onNavigateBack,
+                onBack = handleInstantBack,
                 onToggleBookmark = { viewModel.toggleBookmark() },
                 onOpenSearch = { viewModel.openSearch() },
                 onOpenThemeDialog = { viewModel.openThemeDialog() }
