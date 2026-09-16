@@ -77,23 +77,25 @@ class MainActivity : ComponentActivity() {
     private val incomingPdfUriState = mutableStateOf<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
         AppSettingsManager.init(this)
-        AppSettingsManager.registerActivity(this)
         val initialFullScreen = AppSettingsManager.isFullScreenModeEnabled.value
         if (initialFullScreen) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
-            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
-            val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
-            controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-        } else {
-            enableEdgeToEdge()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                window.attributes = window.attributes.apply {
+                    layoutInDisplayCutoutMode =
+                        android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
+            }
         }
-        applyFullScreenPreference()
-        window.decorView.post {
-            applyFullScreenPreference()
-        }
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        AppSettingsManager.registerActivity(this)
+        AppSettingsManager.applyWindowSystemBars(
+            window,
+            AppSettingsManager.isFullScreenModeEnabled.value,
+            AppSettingsManager.currentAppTheme.value.isDark
+        )
         extractPdfUriFromIntent(intent)
 
         setContent {
@@ -183,8 +185,8 @@ fun LuminaApp(
     var isSplashActive by rememberSaveable { mutableStateOf(true) }
     var currentDestination by rememberSaveable(stateSaver = AppDestinationSaver) { mutableStateOf<AppDestination>(AppDestination.Library) }
 
-    // Dynamic full-screen mode listener: toggles status bar immediately across all pages
-    LaunchedEffect(isFullScreen, currentDestination, isSplashActive, currentTheme) {
+    // Dynamic full-screen mode listener: toggles status bar immediately when preference changes
+    LaunchedEffect(isFullScreen, currentTheme) {
         AppSettingsManager.applySystemBars(activity, isFullScreen, isDarkTheme = currentTheme.isDark)
     }
 

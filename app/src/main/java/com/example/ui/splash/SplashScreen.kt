@@ -40,15 +40,6 @@ fun SplashScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .then(
-                if (!isFullScreen) {
-                    Modifier
-                        .statusBarsPadding()
-                        .navigationBarsPadding()
-                } else {
-                    Modifier
-                }
-            )
             .background(MaterialTheme.colorScheme.background)
             .testTag("app_splash_screen"),
         contentAlignment = Alignment.Center

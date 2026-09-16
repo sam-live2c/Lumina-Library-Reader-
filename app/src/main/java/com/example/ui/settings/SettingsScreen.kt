@@ -16,8 +16,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -327,8 +326,7 @@ private fun MainSettingsContent(
     val clipboardManager = LocalClipboardManager.current
 
     BackHandler(enabled = isSearchFocused) {
-        focusManager.clearFocus(force = true)
-        keyboardController?.hide()
+        focusManager.clearFocus()
     }
 
     Scaffold(
@@ -339,123 +337,129 @@ private fun MainSettingsContent(
             .onGloballyPositioned { rootCoordinates = it }
             .pointerInput(isSearchFocused) {
                 if (!isSearchFocused) return@pointerInput
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                    val root = rootCoordinates
-                    val search = searchFieldCoordinates
-                    if (root != null && search != null && root.isAttached && search.isAttached) {
-                        val searchBounds = root.localBoundingBoxOf(search)
-                        if (!searchBounds.contains(down.position)) {
-                            focusManager.clearFocus(force = true)
-                            keyboardController?.hide()
+                detectTapGestures(
+                    onTap = { position ->
+                        val root = rootCoordinates
+                        val search = searchFieldCoordinates
+                        if (root != null && search != null && root.isAttached && search.isAttached) {
+                            val searchBounds = root.localBoundingBoxOf(search)
+                            if (!searchBounds.contains(position)) {
+                                focusManager.clearFocus()
+                            }
+                        } else {
+                            focusManager.clearFocus()
                         }
                     }
-                }
+                )
             }
     ) { paddingValues ->
         LazyColumn(
             contentPadding = PaddingValues(
                 start = 14.dp,
                 end = 14.dp,
-                top = if (uiState.isFullScreenModeEnabled) 11.dp else 6.dp,
+                top = if (uiState.isFullScreenModeEnabled) 13.dp else 4.dp,
                 bottom = 100.dp
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .navigationBarsPadding()
         ) {
-            // Settings Header (matching Library Screen Header style and alignment)
-            item(key = "settings_header") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            // Settings Header & Search Section (perfectly aligned with Library Screen UX)
+            item(key = "settings_header_section") {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    IconButton(
-                        onClick = onNavigateBack,
+                    // Settings Header
+                    Row(
                         modifier = Modifier
-                            .size(42.dp)
-                            .testTag("settings_back_btn")
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .padding(top = 4.dp, bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "Back to Library",
-                            tint = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.size(24.dp)
+                        IconButton(
+                            onClick = onNavigateBack,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .testTag("settings_back_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "Back to Library",
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Settings",
+                            style = MaterialTheme.typography.displayLarge.copy(
+                                fontSize = 34.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     }
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Settings",
-                        style = MaterialTheme.typography.displayLarge.copy(
-                            fontSize = 34.sp,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-            }
 
-            // Search Settings Pill Field (Matching Reference UI)
-            item(key = "search_field") {
-                OutlinedTextField(
-                    value = settingsSearchQuery,
-                    onValueChange = { settingsSearchQuery = it },
-                    placeholder = {
-                        Text(
-                            text = "Search settings",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.Search,
-                            contentDescription = "Search settings",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                        )
-                    },
-                    trailingIcon = {
-                        if (settingsSearchQuery.isNotBlank()) {
-                            IconButton(onClick = { 
-                                settingsSearchQuery = ""
+                    // Search Settings Pill Field (Matching Reference UI and Library Screen)
+                    OutlinedTextField(
+                        value = settingsSearchQuery,
+                        onValueChange = { settingsSearchQuery = it },
+                        placeholder = {
+                            Text(
+                                text = "Search settings...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Search,
+                                contentDescription = "Search settings",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingIcon = {
+                            if (settingsSearchQuery.isNotBlank()) {
+                                IconButton(onClick = { 
+                                    settingsSearchQuery = ""
+                                    focusManager.clearFocus(force = true)
+                                    keyboardController?.hide()
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = "Clear search",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(
+                            onSearch = {
                                 focusManager.clearFocus(force = true)
                                 keyboardController?.hide()
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Close,
-                                    contentDescription = "Clear search",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
                             }
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(
-                        onSearch = {
-                            focusManager.clearFocus(force = true)
-                            keyboardController?.hide()
-                        }
-                    ),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        disabledBorderColor = Color.Transparent,
-                        errorBorderColor = Color.Transparent,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                    ),
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("settings_search_field")
-                        .onFocusChanged { isSearchFocused = it.isFocused }
-                        .onGloballyPositioned { searchFieldCoordinates = it }
-                )
+                        ),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            disabledBorderColor = Color.Transparent,
+                            errorBorderColor = Color.Transparent,
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                        ),
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("settings_search_field")
+                            .onFocusChanged { isSearchFocused = it.isFocused }
+                            .onGloballyPositioned { searchFieldCoordinates = it }
+                    )
+                }
             }
 
             val query = settingsSearchQuery.trim().lowercase()

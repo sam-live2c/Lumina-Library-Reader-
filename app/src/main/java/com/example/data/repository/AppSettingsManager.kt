@@ -118,10 +118,8 @@ object AppSettingsManager {
                 }
                 if (isFullScreen) {
                     window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
-                    window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                 } else {
                     window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                 }
                 val insetsController = WindowCompat.getInsetsController(window, window.decorView)
                 insetsController.isAppearanceLightStatusBars = !isDarkTheme

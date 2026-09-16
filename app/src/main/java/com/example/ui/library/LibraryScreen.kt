@@ -170,8 +170,7 @@ fun LibraryScreen(
     var searchFieldCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
     BackHandler(enabled = isSearchFocused) {
-        focusManager.clearFocus(force = true)
-        keyboardController?.hide()
+        focusManager.clearFocus()
     }
 
     LaunchedEffect(toastMessage) {
@@ -211,18 +210,20 @@ fun LibraryScreen(
             .onGloballyPositioned { rootCoordinates = it }
             .pointerInput(isSearchFocused) {
                 if (!isSearchFocused) return@pointerInput
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                    val root = rootCoordinates
-                    val search = searchFieldCoordinates
-                    if (root != null && search != null && root.isAttached && search.isAttached) {
-                        val searchBounds = root.localBoundingBoxOf(search)
-                        if (!searchBounds.contains(down.position)) {
-                            focusManager.clearFocus(force = true)
-                            keyboardController?.hide()
+                detectTapGestures(
+                    onTap = { position ->
+                        val root = rootCoordinates
+                        val search = searchFieldCoordinates
+                        if (root != null && search != null && root.isAttached && search.isAttached) {
+                            val searchBounds = root.localBoundingBoxOf(search)
+                            if (!searchBounds.contains(position)) {
+                                focusManager.clearFocus()
+                            }
+                        } else {
+                            focusManager.clearFocus()
                         }
                     }
-                }
+                )
             }
     ) {
         Scaffold(
@@ -275,7 +276,7 @@ fun LibraryScreen(
                             contentPadding = PaddingValues(
                                 start = 14.dp,
                                 end = 14.dp,
-                                top = if (isFullScreenModeEnabled) 18.dp else 12.dp,
+                                top = if (isFullScreenModeEnabled) 13.dp else 4.dp,
                                 bottom = 100.dp
                             ),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -352,7 +353,7 @@ fun LibraryScreen(
                             contentPadding = PaddingValues(
                                 start = 14.dp,
                                 end = 14.dp,
-                                top = if (isFullScreenModeEnabled) 18.dp else 12.dp,
+                                top = if (isFullScreenModeEnabled) 13.dp else 4.dp,
                                 bottom = 100.dp
                             ),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -796,7 +797,8 @@ private fun LibraryHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 4.dp),
+            .height(64.dp)
+            .padding(top = 4.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
