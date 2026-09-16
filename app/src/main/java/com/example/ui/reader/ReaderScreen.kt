@@ -40,6 +40,8 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -63,7 +65,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun ReaderScreen(
     bookId: Long,
     onNavigateBack: () -> Unit,
-    viewModel: ReaderViewModel = viewModel(),
+    viewModel: ReaderViewModel = viewModel(key = "reader_vm_$bookId"),
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -90,6 +92,8 @@ fun ReaderScreen(
             viewModel.cancelPendingJobs()
         }
     }
+
+    val isCurrentBookReady = !uiState.isLoading && uiState.book?.id == bookId && (uiState.currentPageBitmap != null || uiState.isContinuousScrollMode)
 
     val handleInstantBack = {
         keyboardController?.hide()
@@ -226,24 +230,6 @@ fun ReaderScreen(
                     .align(Alignment.CenterEnd)
                     .padding(end = 2.dp)
             )
-        }
-
-        // Clean PDF Open Loading Screen with a circle (guarantees zero flash of previous books)
-        val isCurrentBookReady = !uiState.isLoading && uiState.book?.id == bookId && (uiState.currentPageBitmap != null || uiState.isContinuousScrollMode)
-        if (!isCurrentBookReady) {
-            Box(
-                modifier = canvasInsetsModifier
-                    .background(uiState.readerTheme.background),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    color = uiState.readerTheme.accentColor,
-                    strokeWidth = 3.dp,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .testTag("reader_loading_spinner")
-                )
-            }
         }
 
         // Top Search Bar (When searching inside book)
@@ -450,6 +436,46 @@ fun ReaderScreen(
                 },
                 onDismiss = { viewModel.closeJumpDialog() }
             )
+        }
+
+        // Full Screen Solid Loading Shield (guarantees zero flash of previous book texts/names)
+        if (!isCurrentBookReady) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(999f)
+                    .background(uiState.readerTheme.background)
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator(
+                        color = uiState.readerTheme.accentColor,
+                        strokeWidth = 3.dp,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .testTag("reader_loading_spinner")
+                    )
+                    Text(
+                        text = uiState.book?.title ?: "Opening document...",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 0.3.sp
+                        ),
+                        color = uiState.readerTheme.textColor.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 32.dp)
+                    )
+                }
+            }
         }
     }
 }

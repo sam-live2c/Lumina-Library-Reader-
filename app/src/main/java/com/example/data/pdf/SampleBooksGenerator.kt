@@ -36,7 +36,7 @@ object SampleBooksGenerator {
         val booksDir = File(context.filesDir, "sample_books")
         if (!booksDir.exists()) booksDir.mkdirs()
 
-        val versionMarker = File(booksDir, ".serif_v6")
+        val versionMarker = File(booksDir, ".serif_v8")
         if (!versionMarker.exists()) {
             // Remove legacy sample books to re-render them with proper literary layout
             booksDir.listFiles()?.forEach { file ->
@@ -52,7 +52,17 @@ object SampleBooksGenerator {
         val sampleBooks = listOf(
             createGatsbyBook(),
             createAliceBook(),
-            createMeditationsBook()
+            createMeditationsBook(),
+            createFrankensteinBook(),
+            createPridePrejudiceBook(),
+            createDorianGrayBook(),
+            createDraculaBook(),
+            createTimeMachineBook(),
+            createMetamorphosisBook(),
+            createSherlockHolmesBook(),
+            createMobyDickBook(),
+            createTaleOfTwoCitiesBook(),
+            createArtOfWarBook()
         )
 
         sampleBooks.map { book ->
@@ -551,6 +561,442 @@ object SampleBooksGenerator {
                         "Marcus Aurelius Antoninus Augustus reigned as Roman Emperor from 161 to 180 AD and was the last of the rulers known as the Five Good Emperors.",
                         "His personal writings, titled Meditations, were never meant for publication. They represent private exercises in Stoic philosophy, resilience, empathy, and duty.",
                         "Enjoy your focused reading journey with Lumina Reader."
+                    )
+                )
+            )
+        )
+    }
+
+    fun createFrankensteinBook(): SampleBookInfo {
+        return SampleBookInfo(
+            title = "Frankenstein",
+            author = "Mary Shelley",
+            fileName = "frankenstein_mary_shelley.pdf",
+            pages = listOf(
+                SamplePageContent("Frankenstein", null, emptyList(), isCover = true),
+                SamplePageContent(
+                    header = "Frankenstein",
+                    chapterTitle = "Letter I: Walton to Mrs. Saville",
+                    paragraphs = listOf(
+                        "You will rejoice to hear that no disaster has accompanied the commencement of an enterprise which you have regarded with such evil forebodings.",
+                        "I arrived here yesterday, and my first task is to assure my dear sister of my welfare and increasing confidence in the success of my undertaking.",
+                        "I am already far north of London, and as I walk in the streets of Petersburgh, I feel a cold northern breeze play upon my cheeks, which braces my nerves and fills me with delight.",
+                        "Do you understand this feeling? This breeze, which has travelled from the regions towards which I am advancing, gives me a foretaste of those icy climes."
+                    ),
+                    quote = "What can stop the determined heart and resolved will of man?"
+                ),
+                SamplePageContent(
+                    header = "Frankenstein",
+                    chapterTitle = "Chapter IV: The Spark of Being",
+                    paragraphs = listOf(
+                        "It was on a dreary night of November that I beheld the accomplishment of my toils.",
+                        "With an anxiety that almost amounted to agony, I collected the instruments of life around me, that I might infuse a spark of being into the lifeless thing that lay at my feet.",
+                        "It was already one in the morning; the rain pattered dismally against the panes, and my candle was nearly burnt out, when, by the glimmer of the half-extinguished light, I saw the dull yellow eye of the creature open; it breathed hard, and a convulsive motion agitated its limbs.",
+                        "How can I describe my emotions at this catastrophe, or how delineate the wretch whom with such infinite pains and care I had endeavoured to form?"
+                    ),
+                    quote = "Beware; for I am fearless, and therefore powerful."
+                ),
+                SamplePageContent(
+                    header = "Frankenstein",
+                    chapterTitle = "Chapter X: Encounter on the Glacier",
+                    paragraphs = listOf(
+                        "I spent the following day traversing the valley. I stood beside the sources of the Arveiron, which take their rise in a glacier, that with slow pace is advancing down from the summit of the hills.",
+                        "Suddenly I beheld the figure of a man, at some distance, advancing towards me with superhuman speed. He bounded over the crevices in the ice, among which I had walked with caution.",
+                        "“Devil,” I exclaimed, “do you dare approach me? And do not you fear the fierce vengeance of my arm wreaked on your miserable head? Begone, vile insect! Or rather, stay, that I may trample you to dust!”",
+                        "“I expected this reception,” said the daemon. “All men hate the wretched; how, then, must I be hated, who am miserable beyond all living things!”"
+                    ),
+                    quote = "Life, although it may only be an accumulation of anguish, is dear to me, and I will defend it."
+                ),
+                SamplePageContent(
+                    header = "Frankenstein",
+                    chapterTitle = "Epilogue & Literary Legacy",
+                    paragraphs = listOf(
+                        "Published in 1818, Mary Shelley's Frankenstein; or, The Modern Prometheus stands as one of the founding masterpieces of science fiction and gothic horror.",
+                        "Written when Shelley was just eighteen years old, the novel explores profound themes of scientific responsibility, hubris, alienation, and empathy.",
+                        "Thank you for reading this Lumina Literary Classics edition."
+                    )
+                )
+            )
+        )
+    }
+
+    fun createPridePrejudiceBook(): SampleBookInfo {
+        return SampleBookInfo(
+            title = "Pride and Prejudice",
+            author = "Jane Austen",
+            fileName = "pride_and_prejudice_austen.pdf",
+            pages = listOf(
+                SamplePageContent("Pride and Prejudice", null, emptyList(), isCover = true),
+                SamplePageContent(
+                    header = "Pride and Prejudice",
+                    chapterTitle = "Chapter I: A Truth Universally Acknowledged",
+                    paragraphs = listOf(
+                        "It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.",
+                        "However little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered the rightful property of some one or other of their daughters.",
+                        "“My dear Mr. Bennet,” said his lady to him one day, “have you heard that Netherfield Park is let at last?”",
+                        "Mr. Bennet replied that he had not. “But it is,” returned she; “for Mrs. Long has just been here, and she told me all about it.”"
+                    ),
+                    quote = "It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife."
+                ),
+                SamplePageContent(
+                    header = "Pride and Prejudice",
+                    chapterTitle = "Chapter III: The Assembly at Meryton",
+                    paragraphs = listOf(
+                        "Mr. Darcy danced only once with Mrs. Hurst and once with Miss Bingley, declined being introduced to any other lady, and spent the rest of the evening in walking about the room, speaking occasionally to one of his own party.",
+                        "His character was decided. He was the proudest, most disagreeable man in the world, and everybody hoped that he would never come there again.",
+                        "Elizabeth Bennet had been obliged, by the scarcity of gentlemen, to sit down for two dances; and during part of that time, Mr. Darcy had been standing near enough for her to overhear a conversation between him and Mr. Bingley.",
+                        "“Which do you mean?” and turning round he looked for a moment at Elizabeth, till catching her eye, he withdrew his own and coldly said: “She is tolerable, but not handsome enough to tempt me.”"
+                    ),
+                    quote = "I could easily forgive his pride, if he had not mortified mine."
+                ),
+                SamplePageContent(
+                    header = "Pride and Prejudice",
+                    chapterTitle = "Chapter LVIII: The Declaration",
+                    paragraphs = listOf(
+                        "Elizabeth was too much embarrassed to say a word. After a short pause, her companion added: “You are too generous to trifle with me. If your feelings are still what they were last April, tell me so at once. My affections and wishes are unchanged, but one word from you will silence me on this subject for ever.”",
+                        "Elizabeth, feeling all the more than common awkwardness and anxiety of his situation, now forced herself to speak; and immediately, though not very fluently, gave him to understand that her sentiments had undergone so material a change since the period to which he alluded.",
+                        "The happiness which this reply produced was such as he had probably never felt before, and he expressed himself on the occasion as sensibly and warmly as a man violently in love can be supposed to do."
+                    ),
+                    quote = "You must allow me to tell you how ardently I admire and love you."
+                ),
+                SamplePageContent(
+                    header = "Pride and Prejudice",
+                    chapterTitle = "Epilogue & Historical Significance",
+                    paragraphs = listOf(
+                        "First published in 1813, Jane Austen's Pride and Prejudice is celebrated for its incisive wit, brilliant characterization, and timeless critique of 19th-century societal norms and romantic idealism.",
+                        "Elizabeth Bennet and Fitzwilliam Darcy remain one of literature’s most enduring couples, exemplifying the triumph of genuine understanding over social pretense.",
+                        "Thank you for reading this Lumina Literary Classics edition."
+                    )
+                )
+            )
+        )
+    }
+
+    fun createDorianGrayBook(): SampleBookInfo {
+        return SampleBookInfo(
+            title = "The Picture of Dorian Gray",
+            author = "Oscar Wilde",
+            fileName = "picture_of_dorian_gray_wilde.pdf",
+            pages = listOf(
+                SamplePageContent("The Picture of Dorian Gray", null, emptyList(), isCover = true),
+                SamplePageContent(
+                    header = "The Picture of Dorian Gray",
+                    chapterTitle = "The Studio of Basil Hallward",
+                    paragraphs = listOf(
+                        "The studio was filled with the rich odour of roses, and when the light summer wind stirred amidst the trees of the garden, there came through the open door the heavy scent of the lilac, or the more delicate perfume of the pink-flowering thorn.",
+                        "From the corner of the divan of Persian saddle-bags on which he was lying, smoking innumerable cigarettes, Lord Henry Wotton could just catch the gleam of the honey-sweet and honey-coloured blossoms of a laburnum.",
+                        "In the centre of the room, clamped to an upright easel, stood the full-length portrait of a young man of extraordinary personal beauty, and in front of it, some little distance away, was sitting the artist himself, Basil Hallward."
+                    ),
+                    quote = "The only way to get rid of a temptation is to yield to it."
+                ),
+                SamplePageContent(
+                    header = "The Picture of Dorian Gray",
+                    chapterTitle = "The Wish of Youth",
+                    paragraphs = listOf(
+                        "“How sad it is!” murmured Dorian Gray with his eyes still fixed upon his own portrait. “How sad it is! I shall grow old, and horrible, and dreadful. But this picture will remain always young.”",
+                        "“It will never be older than this particular day of June. . . . If it were only the other way! If it were I who was to be always young, and the picture that was to grow old!”",
+                        "“For that—for that—I would give everything! Yes, there is nothing in the whole world I would not give! I would give my soul for that!”",
+                        "Lord Henry laughed. “I don't think you would like that arrangement, Basil.”"
+                    ),
+                    quote = "Youth is the only thing worth having. When I find that I am growing old, I shall kill myself."
+                ),
+                SamplePageContent(
+                    header = "The Picture of Dorian Gray",
+                    chapterTitle = "Reflections & Tragedy",
+                    paragraphs = listOf(
+                        "Oscar Wilde's sole novel, published in 1890, explores aestheticism, vanity, hedonism, and moral degeneration.",
+                        "The supernatural portrait serves as a visceral mirror of Dorian's decaying soul while his physical countenance remains radiantly pure.",
+                        "Wilde’s sharp aphorisms and haunting philosophical inquiries make this one of the cornerstone classics of late Victorian literature."
+                    )
+                )
+            )
+        )
+    }
+
+    fun createDraculaBook(): SampleBookInfo {
+        return SampleBookInfo(
+            title = "Dracula",
+            author = "Bram Stoker",
+            fileName = "dracula_bram_stoker.pdf",
+            pages = listOf(
+                SamplePageContent("Dracula", null, emptyList(), isCover = true),
+                SamplePageContent(
+                    header = "Dracula",
+                    chapterTitle = "Jonathan Harker's Journal",
+                    paragraphs = listOf(
+                        "3 May. Bistritz.—Left Munich at 8:35 P.M., on 1st May, arriving at Vienna early next morning; should have arrived at 6:46, but train was an hour late.",
+                        "Buda-Pesth seems a wonderful place, from the glimpse which I got of it from the train and the little I could walk through the streets. I feared to go very far from the station, as we had arrived late and would start as near the correct time as possible.",
+                        "The impression I had was that we were leaving the West and entering the East; the most western of splendid bridges over the Danube took us among the traditions of Turkish rule."
+                    ),
+                    quote = "Welcome to my house! Enter freely and of your own will!"
+                ),
+                SamplePageContent(
+                    header = "Dracula",
+                    chapterTitle = "The Castle in the Carpathians",
+                    paragraphs = listOf(
+                        "The castle is on the very edge of a terrible precipice. A stone falling from the window would fall a thousand feet without touching anything!",
+                        "As far as the eye can reach is a sea of green tree tops, with occasionally a deep rift where there is a chasm.",
+                        "Here and there are silver threads where the rivers wind in deep gorges through the forests.",
+                        "Dracula turned to me with his strange, red-lit eyes and smiled: “We are in Transylvania; and Transylvania is not England. Our ways are not your ways, and there shall be to you many strange things.”"
+                    ),
+                    quote = "Listen to them, the children of the night. What music they make!"
+                ),
+                SamplePageContent(
+                    header = "Dracula",
+                    chapterTitle = "Gothic Legacy & Impact",
+                    paragraphs = listOf(
+                        "Published in 1897, Bram Stoker's Dracula redefined vampire folklore and shaped the gothic horror genre for generations.",
+                        "Structured as an epistolary novel through diaries, letters, ship logs, and newspaper clippings, Stoker created a vividly modern suspense thriller."
+                    )
+                )
+            )
+        )
+    }
+
+    fun createTimeMachineBook(): SampleBookInfo {
+        return SampleBookInfo(
+            title = "The Time Machine",
+            author = "H. G. Wells",
+            fileName = "the_time_machine_wells.pdf",
+            pages = listOf(
+                SamplePageContent("The Time Machine", null, emptyList(), isCover = true),
+                SamplePageContent(
+                    header = "The Time Machine",
+                    chapterTitle = "Chapter I: The Fourth Dimension",
+                    paragraphs = listOf(
+                        "The Time Traveller (for so it will be convenient to speak of him) was expounding a recondite matter to us. His grey eyes shone and twinkled, and his usually pale face was flushed and animated.",
+                        "The fire burnt brightly, and the soft radiance of the incandescent lights in the lilies of silver caught the bubbles that flashed and passed in our glasses.",
+                        "“Clearly,” the Time Traveller proceeded, “any real body must have extension in four directions: it must have Length, Breadth, Thickness, and—Duration.”"
+                    ),
+                    quote = "There is no difference between Time and any of the three dimensions of Space except that our consciousness moves along it."
+                ),
+                SamplePageContent(
+                    header = "The Time Machine",
+                    chapterTitle = "The Golden Age of 802,701 AD",
+                    paragraphs = listOf(
+                        "I drew a long breath, clutched the lever with both hands, and went off with a thud. The laboratory grew faint and hazy. Night followed day like the flapping of a black wing.",
+                        "As I put on pace, night and day flapped together in one continuous greyness; the sky took on a wonderful deepness of blue, a splendid luminous color like that of early twilight.",
+                        "I stopped in the year Eight Hundred and Two Thousand, Seven Hundred and One AD, stepping out into a world of lush gardens, crystalline architecture, and the gentle Eloi."
+                    ),
+                    quote = "Face this world. Learn its ways, watch it, be careful of too hasty guesses."
+                ),
+                SamplePageContent(
+                    header = "The Time Machine",
+                    chapterTitle = "The Morlocks and the Future",
+                    paragraphs = listOf(
+                        "H. G. Wells' 1895 novella popularized the concept of time travel via purposeful mechanical apparatus.",
+                        "Through the stark evolutionary divide between the surface-dwelling Eloi and the subterranean Morlocks, Wells delivered a penetrating critique of Victorian class stratification and dystopian destiny."
+                    )
+                )
+            )
+        )
+    }
+
+    fun createMetamorphosisBook(): SampleBookInfo {
+        return SampleBookInfo(
+            title = "The Metamorphosis",
+            author = "Franz Kafka",
+            fileName = "the_metamorphosis_kafka.pdf",
+            pages = listOf(
+                SamplePageContent("The Metamorphosis", null, emptyList(), isCover = true),
+                SamplePageContent(
+                    header = "The Metamorphosis",
+                    chapterTitle = "Chapter I: The Awakening",
+                    paragraphs = listOf(
+                        "One morning, when Gregor Samsa woke from troubled dreams, he found himself transformed in his bed into a horrible vermin.",
+                        "He lay on his armour-like back, and if he lifted his head a little he could see his brown belly, slightly domed and divided by arches into stiff sections.",
+                        "The bedding was hardly able to cover it and seemed ready to slide off any moment. His many legs, pitifully thin compared with the size of the rest of him, waved about helplessly as he looked.",
+                        "“What's happened to me?” he thought. It wasn't a dream."
+                    ),
+                    quote = "One morning, when Gregor Samsa woke from troubled dreams, he found himself transformed in his bed into a horrible vermin."
+                ),
+                SamplePageContent(
+                    header = "The Metamorphosis",
+                    chapterTitle = "Isolation and Family",
+                    paragraphs = listOf(
+                        "Gregor's room was a proper human room, although a little too small, lying peacefully between its four familiar walls.",
+                        "A collection of textile samples lay spread out on the table—Samsa was a travelling salesman—and above it there hung a picture that he had recently cut out of an illustrated magazine and housed in a nice, gilded frame.",
+                        "Gregor then turned to look out the window at the dull weather. Drops of rain could be heard hitting the pane, which made him feel quite sad.",
+                        "“How about if I sleep a little bit longer and forget all this nonsense,” he thought, but that was something he was unable to do because he was used to sleeping on his right, and in his present state couldn't get into that position."
+                    ),
+                    quote = "I cannot make you understand. I cannot make anyone understand what is happening inside me."
+                ),
+                SamplePageContent(
+                    header = "The Metamorphosis",
+                    chapterTitle = "Existential Masterpiece",
+                    paragraphs = listOf(
+                        "Published in 1915, Franz Kafka's Die Verwandlung remains one of the most celebrated and analyzed texts in modern world literature.",
+                        "With tragic absurdity and compassionate precision, Kafka captures the burdens of familial obligation, bureaucratic alienation, and existential loneliness."
+                    )
+                )
+            )
+        )
+    }
+
+    fun createSherlockHolmesBook(): SampleBookInfo {
+        return SampleBookInfo(
+            title = "The Adventures of Sherlock Holmes",
+            author = "Arthur Conan Doyle",
+            fileName = "sherlock_holmes_doyle.pdf",
+            pages = listOf(
+                SamplePageContent("The Adventures of Sherlock Holmes", null, emptyList(), isCover = true),
+                SamplePageContent(
+                    header = "Sherlock Holmes",
+                    chapterTitle = "A Scandal in Bohemia",
+                    paragraphs = listOf(
+                        "To Sherlock Holmes she is always THE woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex.",
+                        "It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind.",
+                        "He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position."
+                    ),
+                    quote = "It is a capital mistake to theorize before one has data. Insensibly one begins to twist facts to suit theories, instead of theories to suit facts."
+                ),
+                SamplePageContent(
+                    header = "Sherlock Holmes",
+                    chapterTitle = "The Science of Deduction",
+                    paragraphs = listOf(
+                        "“You see, but you do not observe. The distinction is clear. For example, you have frequently seen the steps which lead up from the hall to this room.”",
+                        "“Frequently.”",
+                        "“How often?”",
+                        "“Well, some hundreds of times.”",
+                        "“Then how many are there?”",
+                        "“How many? I don't know.”",
+                        "“Quite so! You have not observed. And yet you have seen. That is just my point. Now, I know that there are seventeen steps, because I have both seen and observed.”"
+                    ),
+                    quote = "You see, but you do not observe. The distinction is clear."
+                ),
+                SamplePageContent(
+                    header = "Sherlock Holmes",
+                    chapterTitle = "The Red-Headed League",
+                    paragraphs = listOf(
+                        "“My dear Watson,” said Holmes, as we sat on either side of the fire in Baker Street, “life is infinitely stranger than anything which the mind of man could invent.”",
+                        "“We would not dare to conceive the things which are really mere commonplaces of existence.”",
+                        "“If we could fly out of that window hand in hand, hover over this great city, gently remove the roofs, and peep in at the queer things which are going on, the strange coincidences, the plannings, the cross-purposes, it would make all fiction with its conventionalities and foreseen conclusions most stale and unprofitable.”"
+                    ),
+                    quote = "When you have eliminated the impossible, whatever remains, however improbable, must be the truth."
+                ),
+                SamplePageContent(
+                    header = "Sherlock Holmes",
+                    chapterTitle = "Detective Fiction Legacy",
+                    paragraphs = listOf(
+                        "First serialized in The Strand Magazine between 1891 and 1892, Sir Arthur Conan Doyle's stories created the definitive archetype of the brilliant consulting detective.",
+                        "Sherlock Holmes and Dr. John H. Watson remain the most famous investigative duo in history."
+                    )
+                )
+            )
+        )
+    }
+
+    fun createMobyDickBook(): SampleBookInfo {
+        return SampleBookInfo(
+            title = "Moby Dick",
+            author = "Herman Melville",
+            fileName = "moby_dick_melville.pdf",
+            pages = listOf(
+                SamplePageContent("Moby Dick", null, emptyList(), isCover = true),
+                SamplePageContent(
+                    header = "Moby Dick",
+                    chapterTitle = "Chapter I: Loomings",
+                    paragraphs = listOf(
+                        "Call me Ishmael. Some years ago—never mind how long precisely—having little or no money in my purse, and nothing particular to interest me on shore, I thought I would sail about a little and see the watery part of the world.",
+                        "It is a way I have of driving off the spleen and regulating the circulation.",
+                        "Whenever I find myself growing grim about the mouth; whenever it is a damp, drizzly November in my soul; whenever I find myself involuntarily pausing before coffin warehouses, and bringing up the rear of every funeral I meet; and especially whenever my hypos get such an upper hand of me, that it requires a strong moral principle to prevent me from deliberately stepping into the street, and methodically knocking people's hats off—then, I account it high time to get to sea as soon as I can."
+                    ),
+                    quote = "Call me Ishmael."
+                ),
+                SamplePageContent(
+                    header = "Moby Dick",
+                    chapterTitle = "The White Whale & Captain Ahab",
+                    paragraphs = listOf(
+                        "For it was the whiteness of the whale that above all things appalled me. But how can I hope to explain myself here; and yet, in some dim, random way, explain myself I must, else all these chapters might be naught.",
+                        "Ahab stood before them with his ivory leg braced in an auger hole drilled into the quarter-deck. His face was bronze, carved by decades of relentless storms.",
+                        "“Aye, aye! and I'll chase him round Good Hope, and round the Horn, and round the Norway Maelstrom, and round perdition's flames before I give him up!”"
+                    ),
+                    quote = "I know not all that may be coming, but be it what it will, I'll go to it laughing."
+                ),
+                SamplePageContent(
+                    header = "Moby Dick",
+                    chapterTitle = "American Epic Legacy",
+                    paragraphs = listOf(
+                        "Published in 1851, Herman Melville's Moby-Dick is recognized as one of the supreme epics of world literature.",
+                        "Weaving whaling lore, Shakespearean monologue, biblical symbolism, and existential philosophy, Melville created an unforgettable meditation on obsession and humanity's confrontation with nature."
+                    )
+                )
+            )
+        )
+    }
+
+    fun createTaleOfTwoCitiesBook(): SampleBookInfo {
+        return SampleBookInfo(
+            title = "A Tale of Two Cities",
+            author = "Charles Dickens",
+            fileName = "a_tale_of_two_cities_dickens.pdf",
+            pages = listOf(
+                SamplePageContent("A Tale of Two Cities", null, emptyList(), isCover = true),
+                SamplePageContent(
+                    header = "A Tale of Two Cities",
+                    chapterTitle = "Book I: The Period",
+                    paragraphs = listOf(
+                        "It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity, it was the season of Light, it was the season of Darkness, it was the spring of hope, it was the winter of despair, we had everything before us, we had nothing before us, we were all going direct to Heaven, we were all going direct the other way.",
+                        "In short, the period was so far like the present period, that some of its noisiest authorities insisted on its being received, for good or for evil, in the superlative degree of comparison only."
+                    ),
+                    quote = "It was the best of times, it was the worst of times."
+                ),
+                SamplePageContent(
+                    header = "A Tale of Two Cities",
+                    chapterTitle = "Sydney Carton's Sacrifice",
+                    paragraphs = listOf(
+                        "“It is a far, far better thing that I do, than I have ever done; it is a far, far better rest that I go to than I have ever known.”",
+                        "Sydney Carton looked upon the tumbril and the roaring streets of revolutionary Paris. In his heart, he saw the lives he had redeemed with his own, thriving in peace under the calm English sky.",
+                        "He saw a long line of the handsomest and most honorable descendants bearing his name, holding his memory sacred."
+                    ),
+                    quote = "It is a far, far better thing that I do, than I have ever done; it is a far, far better rest that I go to than I have ever known."
+                ),
+                SamplePageContent(
+                    header = "A Tale of Two Cities",
+                    chapterTitle = "Dickens' Historical Masterpiece",
+                    paragraphs = listOf(
+                        "Published in 1859, Charles Dickens' historical novel set in London and Paris before and during the French Revolution is one of the best-selling books in literary history.",
+                        "Its themes of resurrection, social justice, tyranny, and unconditional love continue to inspire readers worldwide."
+                    )
+                )
+            )
+        )
+    }
+
+    fun createArtOfWarBook(): SampleBookInfo {
+        return SampleBookInfo(
+            title = "The Art of War",
+            author = "Sun Tzu",
+            fileName = "the_art_of_war_sun_tzu.pdf",
+            pages = listOf(
+                SamplePageContent("The Art of War", null, emptyList(), isCover = true),
+                SamplePageContent(
+                    header = "The Art of War",
+                    chapterTitle = "Chapter I: Laying Plans",
+                    paragraphs = listOf(
+                        "Sun Tzu said: The art of war is of vital importance to the State.",
+                        "It is a matter of life and death, a road either to safety or to ruin. Hence it is a subject of inquiry which can on no account be neglected.",
+                        "The art of war, then, is governed by five constant factors, to be taken into account in one's deliberations: (1) The Moral Law; (2) Heaven; (3) Earth; (4) The Commander; (5) Method and discipline.",
+                        "All warfare is based on deception. Hence, when able to attack, we must seem unable; when using our forces, we must seem inactive; when we are near, we must make the enemy believe we are far away."
+                    ),
+                    quote = "All warfare is based on deception."
+                ),
+                SamplePageContent(
+                    header = "The Art of War",
+                    chapterTitle = "Chapter III: Attack by Stratagem",
+                    paragraphs = listOf(
+                        "In the practical art of war, the best thing of all is to take the enemy's country whole and intact; to shatter and destroy it is not so good.",
+                        "Hence to fight and conquer in all your battles is not supreme excellence; supreme excellence consists in breaking the enemy's resistance without fighting.",
+                        "Thus the highest form of generalship is to balk the enemy's plans; the next best is to prevent the junction of the enemy's forces; the next in order is to attack the enemy's army in the field; and the worst policy of all is to besiege walled cities."
+                    ),
+                    quote = "If you know the enemy and know yourself, you need not fear the result of a hundred battles."
+                ),
+                SamplePageContent(
+                    header = "The Art of War",
+                    chapterTitle = "Timeless Strategic Wisdom",
+                    paragraphs = listOf(
+                        "Written in ancient China over 2,500 years ago, Sun Tzu's The Art of War remains the world's most revered treatise on strategy, diplomacy, psychology, and leadership.",
+                        "Its foundational principles emphasize foresight, psychological insight, restraint, and calculated harmony with nature."
                     )
                 )
             )

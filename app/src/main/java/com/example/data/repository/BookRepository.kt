@@ -41,7 +41,7 @@ class BookRepository(
     suspend fun initializeDefaultsIfNeeded() = withContext(Dispatchers.IO) {
         try {
             val sampleBooksDir = File(context.filesDir, "sample_books")
-            val versionMarker = File(sampleBooksDir, ".serif_v6")
+            val versionMarker = File(sampleBooksDir, ".serif_v8")
             val needsRefresh = !versionMarker.exists()
             val count = bookDao.getBookCount()
 
@@ -70,7 +70,7 @@ class BookRepository(
                                 lastReadTimestamp = if (existing.hasBeenOpened) existing.lastReadTimestamp else 0L
                             )
                         )
-                    } else if (count == 0) {
+                    } else {
                         val bookEntity = BookEntity(
                             title = info.title,
                             author = info.author,
@@ -371,6 +371,32 @@ class BookRepository(
         val updatedStr = currentBookmarks.sorted().joinToString(",")
         bookDao.updateBookmarks(bookId, updatedStr)
         isNowBookmarked
+    }
+
+    suspend fun clearBookmarks(bookId: Long) = withContext(Dispatchers.IO) {
+        bookDao.updateBookmarks(bookId, "")
+    }
+
+    suspend fun markBookUnread(bookId: Long) = withContext(Dispatchers.IO) {
+        val book = bookDao.getBookByIdSync(bookId) ?: return@withContext
+        bookDao.updateBook(
+            book.copy(
+                hasBeenOpened = false,
+                currentPage = 1,
+                lastReadTimestamp = 0L
+            )
+        )
+    }
+
+    suspend fun markBookCompleted(bookId: Long) = withContext(Dispatchers.IO) {
+        val book = bookDao.getBookByIdSync(bookId) ?: return@withContext
+        bookDao.updateBook(
+            book.copy(
+                hasBeenOpened = true,
+                currentPage = book.totalPages,
+                lastReadTimestamp = System.currentTimeMillis()
+            )
+        )
     }
 
     suspend fun togglePin(bookId: Long): Boolean = withContext(Dispatchers.IO) {

@@ -61,6 +61,7 @@ data class LibraryUiState(
     val selectedBookToCopy: BookEntity? = null,
     val isCreateFilterDialogOpen: Boolean = false,
     val editingCustomFilter: CustomFilter? = null,
+    val renamingCustomFilter: CustomFilter? = null,
     val bookForListAssignment: BookEntity? = null,
     val isOrganizedAndReady: Boolean = false
 )
@@ -95,6 +96,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val _bookToCopyState = MutableStateFlow<BookEntity?>(null)
     private val _isCreateFilterDialogOpenState = MutableStateFlow(false)
     private val _editingCustomFilterState = MutableStateFlow<CustomFilter?>(null)
+    private val _renamingCustomFilterState = MutableStateFlow<CustomFilter?>(null)
     private val _bookForListAssignmentState = MutableStateFlow<BookEntity?>(null)
     private val _isOrganizedAndReadyState = MutableStateFlow(false)
 
@@ -241,66 +243,51 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         ImportStatus(isImporting, queueProgress, queueCurrentName, importError, importToast)
     }
 
-    private data class DialogAndViewState(
-        val bookToDelete: BookEntity?,
-        val bookToCopy: BookEntity?,
-        val viewMode: LibraryViewMode,
-        val filter: LibraryFilter,
-        val activeFilterId: String,
-        val query: String,
-        val sortOrder: LibrarySortOrder,
-        val customFilters: List<CustomFilter>,
-        val isCreateFilterDialogOpen: Boolean,
-        val editingCustomFilter: CustomFilter?,
-        val bookForListAssignment: BookEntity?,
-        val isOrganizedAndReady: Boolean
-    )
-
     private data class Tuple5<A, B, C, D, E>(val a: A, val b: B, val c: C, val d: D, val e: E)
 
-    private val _viewAndControlFlow = combine(
-        combine(
-            _bookToDeleteState,
-            _bookToCopyState,
-            _viewModeState,
-            _filterState,
-            _activeFilterIdState
-        ) { bookToDelete, bookToCopy, viewMode, filter, activeFilterId ->
-            Tuple5(bookToDelete, bookToCopy, viewMode, filter, activeFilterId)
-        },
-        combine(
-            _searchQueryState,
-            _sortOrderState,
-            _customFiltersState,
-            _isCreateFilterDialogOpenState,
-            _editingCustomFilterState
-        ) { query, sortOrder, customFilters, isCreateOpen, editFilter ->
-            Tuple5(query, sortOrder, customFilters, isCreateOpen, editFilter)
-        },
+    private data class DialogState(
+        val isCreateFilterDialogOpen: Boolean,
+        val editingCustomFilter: CustomFilter?,
+        val renamingCustomFilter: CustomFilter?,
+        val bookForListAssignment: BookEntity?,
+        val bookToDelete: BookEntity?,
+        val bookToCopy: BookEntity?
+    )
+
+    private val _dialogsFlow = combine(
+        _isCreateFilterDialogOpenState,
+        _editingCustomFilterState,
+        _renamingCustomFilterState,
         _bookForListAssignmentState,
-        _isOrganizedAndReadyState
-    ) { t1, t2, bookForList, isOrganized ->
-        DialogAndViewState(
-            bookToDelete = t1.a,
-            bookToCopy = t1.b,
-            viewMode = t1.c,
-            filter = t1.d,
-            activeFilterId = t1.e,
-            query = t2.a,
-            sortOrder = t2.b,
-            customFilters = t2.c,
-            isCreateFilterDialogOpen = t2.d,
-            editingCustomFilter = t2.e,
+        combine(_bookToDeleteState, _bookToCopyState) { del, cpy -> Pair(del, cpy) }
+    ) { isCreateOpen, editFilter, renameFilter, bookForList, delAndCpy ->
+        DialogState(
+            isCreateFilterDialogOpen = isCreateOpen,
+            editingCustomFilter = editFilter,
+            renamingCustomFilter = renameFilter,
             bookForListAssignment = bookForList,
-            isOrganizedAndReady = isOrganized
+            bookToDelete = delAndCpy.first,
+            bookToCopy = delAndCpy.second
         )
+    }
+
+    private val _controlsFlow = combine(
+        _viewModeState,
+        _filterState,
+        _activeFilterIdState,
+        _searchQueryState,
+        _sortOrderState
+    ) { viewMode, filter, activeFilterId, query, sortOrder ->
+        Tuple5(viewMode, filter, activeFilterId, query, sortOrder)
     }
 
     val uiState: StateFlow<LibraryUiState> = combine(
         _filteredBooksFlow,
         _importStatusFlow,
-        _viewAndControlFlow
-    ) { booksAndChips, importStatus, ctrl ->
+        _dialogsFlow,
+        _controlsFlow,
+        combine(_customFiltersState, _isOrganizedAndReadyState) { cf, org -> Pair(cf, org) }
+    ) { booksAndChips, importStatus, dialogs, controls, cfAndOrg ->
         val booksInfo = booksAndChips.first
         val chips = booksAndChips.second
         val books = booksInfo.first
@@ -311,24 +298,25 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             books = books,
             filteredBooks = filtered,
             booksLeftToRead = leftToRead,
-            currentFilter = ctrl.filter,
-            activeFilterId = ctrl.activeFilterId,
-            customFilters = ctrl.customFilters,
+            currentFilter = controls.b,
+            activeFilterId = controls.c,
+            customFilters = cfAndOrg.first,
             filterChipItems = chips,
-            searchQuery = ctrl.query,
-            sortOrder = ctrl.sortOrder,
-            viewMode = ctrl.viewMode,
+            searchQuery = controls.d,
+            sortOrder = controls.e,
+            viewMode = controls.a,
             isImporting = importStatus.isImporting,
             importQueueProgress = importStatus.queueProgress,
             importQueueCurrentName = importStatus.queueCurrentName,
             importError = importStatus.importError,
             importToastMessage = importStatus.importToast,
-            selectedBookToDelete = ctrl.bookToDelete,
-            selectedBookToCopy = ctrl.bookToCopy,
-            isCreateFilterDialogOpen = ctrl.isCreateFilterDialogOpen,
-            editingCustomFilter = ctrl.editingCustomFilter,
-            bookForListAssignment = ctrl.bookForListAssignment,
-            isOrganizedAndReady = ctrl.isOrganizedAndReady
+            selectedBookToDelete = dialogs.bookToDelete,
+            selectedBookToCopy = dialogs.bookToCopy,
+            isCreateFilterDialogOpen = dialogs.isCreateFilterDialogOpen,
+            editingCustomFilter = dialogs.editingCustomFilter,
+            renamingCustomFilter = dialogs.renamingCustomFilter,
+            bookForListAssignment = dialogs.bookForListAssignment,
+            isOrganizedAndReady = cfAndOrg.second
         )
     }.stateIn(
         scope = viewModelScope,
@@ -451,6 +439,26 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         _editingCustomFilterState.value = null
     }
 
+    fun openRenameFilterDialog(customFilter: CustomFilter) {
+        _renamingCustomFilterState.value = customFilter
+    }
+
+    fun closeRenameFilterDialog() {
+        _renamingCustomFilterState.value = null
+    }
+
+    fun renameCustomFilter(id: String, newName: String) {
+        val trimmed = newName.trim()
+        if (trimmed.isBlank()) return
+        val updated = _customFiltersState.value.map {
+            if (it.id == id) it.copy(name = trimmed) else it
+        }
+        _customFiltersState.value = updated
+        saveCustomFilters(updated)
+        _renamingCustomFilterState.value = null
+        _importToastMessageState.value = "Renamed list to \"$trimmed\""
+    }
+
     fun updateCustomFilter(id: String, name: String, bookIds: Set<Long>) {
         val trimmed = name.trim()
         if (trimmed.isBlank()) return
@@ -472,7 +480,72 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             setFilterById("ALL")
         }
         _editingCustomFilterState.value = null
+        _renamingCustomFilterState.value = null
         _importToastMessageState.value = "Deleted list \"${target?.name ?: ""}\""
+    }
+
+    fun removeBookFromCustomFilter(bookId: Long, filterId: String) {
+        val targetList = _customFiltersState.value.find { it.id == filterId }
+        val updated = _customFiltersState.value.map { filter ->
+            if (filter.id == filterId) {
+                filter.copy(bookIds = filter.bookIds - bookId)
+            } else {
+                filter
+            }
+        }
+        _customFiltersState.value = updated
+        saveCustomFilters(updated)
+        _importToastMessageState.value = "Removed from \"${targetList?.name ?: "list"}\""
+    }
+
+    fun removeBookFromCurrentFilter(book: BookEntity) {
+        val activeId = _activeFilterIdState.value
+        when (activeId) {
+            "ALL" -> {
+                // In ALL, confirm delete book entirely from library
+                confirmDeleteBook(book)
+            }
+            "PINNED" -> {
+                togglePinBook(book)
+                _importToastMessageState.value = "Removed from Favorites"
+            }
+            "BOOKMARKED" -> {
+                clearBookBookmarks(book)
+            }
+            "READING" -> {
+                markBookAsUnread(book)
+            }
+            "COMPLETED" -> {
+                markBookAsUnread(book)
+            }
+            "UNREAD" -> {
+                markBookAsCompleted(book)
+            }
+            else -> {
+                removeBookFromCustomFilter(book.id, activeId)
+            }
+        }
+    }
+
+    fun markBookAsUnread(book: BookEntity) {
+        viewModelScope.launch {
+            repository.markBookUnread(book.id)
+            _importToastMessageState.value = "Marked \"${book.title}\" as unread"
+        }
+    }
+
+    fun markBookAsCompleted(book: BookEntity) {
+        viewModelScope.launch {
+            repository.markBookCompleted(book.id)
+            _importToastMessageState.value = "Marked \"${book.title}\" as completed"
+        }
+    }
+
+    fun clearBookBookmarks(book: BookEntity) {
+        viewModelScope.launch {
+            repository.clearBookmarks(book.id)
+            _importToastMessageState.value = "Cleared bookmarks for \"${book.title}\""
+        }
     }
 
     fun openAssignBookToListDialog(book: BookEntity) {

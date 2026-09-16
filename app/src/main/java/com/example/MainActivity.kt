@@ -240,12 +240,14 @@ fun LuminaApp(
                     )
                 }
                 is AppDestination.Reader -> {
-                    ReaderScreen(
-                        bookId = destination.bookId,
-                        onNavigateBack = {
-                            currentDestination = AppDestination.Library
-                        }
-                    )
+                    androidx.compose.runtime.key(destination.bookId) {
+                        ReaderScreen(
+                            bookId = destination.bookId,
+                            onNavigateBack = {
+                                currentDestination = AppDestination.Library
+                            }
+                        )
+                    }
                 }
                 is AppDestination.Settings -> {
                     SettingsScreen(

@@ -16,6 +16,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -80,6 +81,12 @@ import androidx.compose.material.icons.outlined.SortByAlpha
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material.icons.outlined.ViewList
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -336,6 +343,7 @@ fun LibraryScreen(
                             gridItems(uiState.filteredBooks, key = { it.id }) { book ->
                                 BookCardItem(
                                     book = book,
+                                    currentFilterId = uiState.activeFilterId,
                                     onClick = {
                                         focusManager.clearFocus()
                                         keyboardController?.hide()
@@ -353,6 +361,14 @@ fun LibraryScreen(
                                         keyboardController?.hide()
                                         viewModel.openAssignBookToListDialog(book)
                                     },
+                                    onRemoveFromCurrentFilter = if (uiState.activeFilterId != "ALL") {
+                                        {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                            viewModel.removeBookFromCurrentFilter(book)
+                                            toastMessage = "Removed \"${book.title}\" from current list"
+                                        }
+                                    } else null,
                                     onCopy = {
                                         focusManager.clearFocus()
                                         keyboardController?.hide()
@@ -417,6 +433,7 @@ fun LibraryScreen(
                             items(uiState.filteredBooks, key = { it.id }) { book ->
                                 BookListItem(
                                     book = book,
+                                    currentFilterId = uiState.activeFilterId,
                                     onClick = {
                                         focusManager.clearFocus()
                                         keyboardController?.hide()
@@ -434,6 +451,14 @@ fun LibraryScreen(
                                         keyboardController?.hide()
                                         viewModel.openAssignBookToListDialog(book)
                                     },
+                                    onRemoveFromCurrentFilter = if (uiState.activeFilterId != "ALL") {
+                                        {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                            viewModel.removeBookFromCurrentFilter(book)
+                                            toastMessage = "Removed \"${book.title}\" from current list"
+                                        }
+                                    } else null,
                                     onCopy = {
                                         focusManager.clearFocus()
                                         keyboardController?.hide()
@@ -672,6 +697,17 @@ fun LibraryScreen(
                 )
             }
 
+            // Custom Filter Rename Dialog
+            uiState.renamingCustomFilter?.let { filterToRename ->
+                RenameCustomFilterDialog(
+                    customFilter = filterToRename,
+                    onDismiss = { viewModel.closeRenameFilterDialog() },
+                    onRename = { newName ->
+                        viewModel.renameCustomFilter(filterToRename.id, newName)
+                    }
+                )
+            }
+
             // Assign Book to Custom Filter Lists Dialog
             uiState.bookForListAssignment?.let { bookToAssign ->
                 AssignBookToListDialog(
@@ -843,6 +879,11 @@ private fun LibraryHeaderSection(
                 focusManager.clearFocus()
                 keyboardController?.hide()
                 viewModel.openCreateFilterDialog()
+            },
+            onRenameCustomFilter = { customFilter ->
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                viewModel.openRenameFilterDialog(customFilter)
             },
             onEditCustomFilter = { customFilter ->
                 focusManager.clearFocus()
@@ -1310,6 +1351,7 @@ private fun FilterChipsRow(
     filterChips: List<FilterChipItem>,
     onFilterSelected: (String) -> Unit,
     onAddNewFilter: () -> Unit,
+    onRenameCustomFilter: (CustomFilter) -> Unit,
     onEditCustomFilter: (CustomFilter) -> Unit,
     onDeleteCustomFilter: (String) -> Unit
 ) {
@@ -1333,7 +1375,13 @@ private fun FilterChipsRow(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .combinedClickable(
-                            onClick = { onFilterSelected(chip.id) },
+                            onClick = {
+                                if (isSelected && chip.isCustom && chip.customFilter != null) {
+                                    showMenu = true
+                                } else {
+                                    onFilterSelected(chip.id)
+                                }
+                            },
                             onLongClick = {
                                 if (chip.isCustom && chip.customFilter != null) {
                                     showMenu = true
@@ -1374,7 +1422,7 @@ private fun FilterChipsRow(
                     }
                 }
 
-                // Dropdown menu for custom lists (Edit / Delete)
+                // Dropdown menu for custom lists (Rename / Edit / Delete)
                 if (chip.isCustom && chip.customFilter != null) {
                     DropdownMenu(
                         expanded = showMenu,
@@ -1386,14 +1434,29 @@ private fun FilterChipsRow(
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Edit List & Books", fontWeight = FontWeight.Medium) },
+                            text = { Text("Rename List", fontWeight = FontWeight.Medium) },
+                            onClick = {
+                                showMenu = false
+                                onRenameCustomFilter(chip.customFilter)
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            modifier = Modifier.testTag("menu_rename_filter_${chip.id}")
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Edit Books", fontWeight = FontWeight.Medium) },
                             onClick = {
                                 showMenu = false
                                 onEditCustomFilter(chip.customFilter)
                             },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Default.Edit,
+                                    imageVector = Icons.Filled.List,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1420,12 +1483,12 @@ private fun FilterChipsRow(
             }
         }
 
-        // WhatsApp-style "+ New List" button
+        // "+ New List" button (without border)
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
             contentColor = MaterialTheme.colorScheme.primary,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+            border = null,
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
                 .clickable { onAddNewFilter() }
@@ -1460,9 +1523,11 @@ private fun FilterChipsRow(
 @Composable
 private fun BookCardItem(
     book: BookEntity,
+    currentFilterId: String = "ALL",
     onClick: () -> Unit,
     onTogglePin: () -> Unit,
     onAssignToList: () -> Unit,
+    onRemoveFromCurrentFilter: (() -> Unit)? = null,
     onCopy: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -1640,6 +1705,29 @@ private fun BookCardItem(
                             },
                             modifier = Modifier.testTag("menu_assign_card_${book.id}")
                         )
+                        if (onRemoveFromCurrentFilter != null) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = "Remove from List",
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onRemoveFromCurrentFilter()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Outlined.DeleteOutline,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                },
+                                modifier = Modifier.testTag("menu_remove_from_list_card_${book.id}")
+                            )
+                        }
                         DropdownMenuItem(
                             text = {
                                 Text(
@@ -1770,9 +1858,11 @@ private fun BookCardItem(
 @Composable
 private fun BookListItem(
     book: BookEntity,
+    currentFilterId: String = "ALL",
     onClick: () -> Unit,
     onTogglePin: () -> Unit,
     onAssignToList: () -> Unit,
+    onRemoveFromCurrentFilter: (() -> Unit)? = null,
     onCopy: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -1995,6 +2085,29 @@ private fun BookListItem(
                         },
                         modifier = Modifier.testTag("menu_assign_list_${book.id}")
                     )
+                    if (onRemoveFromCurrentFilter != null) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "Remove from List",
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onRemoveFromCurrentFilter()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.DeleteOutline,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            },
+                            modifier = Modifier.testTag("menu_remove_from_list_item_${book.id}")
+                        )
+                    }
                     DropdownMenuItem(
                         text = {
                             Text(
@@ -2073,6 +2186,8 @@ private fun CreateCustomFilterDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String, selectedBookIds: List<Long>) -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     var filterName by remember { mutableStateOf("") }
     var bookSearchQuery by remember { mutableStateOf("") }
     val selectedIds = remember { mutableStateListOf<Long>() }
@@ -2089,7 +2204,11 @@ private fun CreateCustomFilterDialog(
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            onDismiss()
+        },
         properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
             .fillMaxWidth(0.92f)
@@ -2098,30 +2217,30 @@ private fun CreateCustomFilterDialog(
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         title = {
-            Column {
-                Text(
-                    text = "New Filter List",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Create a custom filter to quickly sort and group books",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(
+                text = "New List",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    },
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // List Name Input
                 OutlinedTextField(
                     value = filterName,
                     onValueChange = { filterName = it },
-                    label = { Text("List Name (e.g. Study, Fiction, Work)") },
-                    placeholder = { Text("Enter filter name") },
+                    label = { Text("List Name") },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
@@ -2136,7 +2255,7 @@ private fun CreateCustomFilterDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Select Books (${selectedIds.size} selected)",
+                        text = "Included Books (${selectedIds.size} selected)",
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -2144,6 +2263,8 @@ private fun CreateCustomFilterDialog(
                     if (allBooks.isNotEmpty()) {
                         TextButton(
                             onClick = {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
                                 if (selectedIds.size == allBooks.size) {
                                     selectedIds.clear()
                                 } else {
@@ -2185,7 +2306,7 @@ private fun CreateCustomFilterDialog(
                 // Books Selection Checklist
                 if (allBooks.isEmpty()) {
                     Text(
-                        text = "No books in library yet. You can still create the list and add books later.",
+                        text = "No books in library yet.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -2206,6 +2327,8 @@ private fun CreateCustomFilterDialog(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
                                         if (isChecked) selectedIds.remove(book.id) else selectedIds.add(book.id)
                                     }
                                     .padding(horizontal = 8.dp, vertical = 6.dp),
@@ -2215,6 +2338,8 @@ private fun CreateCustomFilterDialog(
                                 Checkbox(
                                     checked = isChecked,
                                     onCheckedChange = { checked ->
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
                                         if (checked) selectedIds.add(book.id) else selectedIds.remove(book.id)
                                     },
                                     colors = CheckboxDefaults.colors(
@@ -2247,6 +2372,8 @@ private fun CreateCustomFilterDialog(
         confirmButton = {
             Button(
                 onClick = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
                     if (filterName.isNotBlank()) {
                         onCreate(filterName.trim(), selectedIds.toList())
                     }
@@ -2260,7 +2387,11 @@ private fun CreateCustomFilterDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                onDismiss()
+            }) {
                 Text("Cancel")
             }
         }
@@ -2278,6 +2409,8 @@ private fun EditCustomFilterDialog(
     onSave: (name: String, selectedBookIds: List<Long>) -> Unit,
     onDelete: () -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     var filterName by remember(customFilter.id) { mutableStateOf(customFilter.name) }
     var bookSearchQuery by remember { mutableStateOf("") }
     val selectedIds = remember(customFilter.id) {
@@ -2296,7 +2429,11 @@ private fun EditCustomFilterDialog(
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            onDismiss()
+        },
         properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
             .fillMaxWidth(0.92f)
@@ -2315,7 +2452,11 @@ private fun EditCustomFilterDialog(
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                IconButton(onClick = onDelete) {
+                IconButton(onClick = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    onDelete()
+                }) {
                     Icon(
                         imageVector = Icons.Outlined.DeleteOutline,
                         contentDescription = "Delete list",
@@ -2326,7 +2467,15 @@ private fun EditCustomFilterDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    },
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedTextField(
@@ -2354,6 +2503,8 @@ private fun EditCustomFilterDialog(
                     if (allBooks.isNotEmpty()) {
                         TextButton(
                             onClick = {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
                                 if (selectedIds.size == allBooks.size) {
                                     selectedIds.clear()
                                 } else {
@@ -2415,6 +2566,8 @@ private fun EditCustomFilterDialog(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
                                         if (isChecked) selectedIds.remove(book.id) else selectedIds.add(book.id)
                                     }
                                     .padding(horizontal = 8.dp, vertical = 6.dp),
@@ -2424,6 +2577,8 @@ private fun EditCustomFilterDialog(
                                 Checkbox(
                                     checked = isChecked,
                                     onCheckedChange = { checked ->
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
                                         if (checked) selectedIds.add(book.id) else selectedIds.remove(book.id)
                                     },
                                     colors = CheckboxDefaults.colors(
@@ -2456,6 +2611,8 @@ private fun EditCustomFilterDialog(
         confirmButton = {
             Button(
                 onClick = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
                     if (filterName.isNotBlank()) {
                         onSave(filterName.trim(), selectedIds.toList())
                     }
@@ -2469,7 +2626,119 @@ private fun EditCustomFilterDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                onDismiss()
+            }) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+/**
+ * Rename Custom Filter List Dialog
+ */
+@Composable
+private fun RenameCustomFilterDialog(
+    customFilter: CustomFilter,
+    onDismiss: () -> Unit,
+    onRename: (newName: String) -> Unit
+) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    var filterName by remember { mutableStateOf(customFilter.name) }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        delay(100)
+        focusRequester.requestFocus()
+    }
+
+    AlertDialog(
+        onDismissRequest = {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            onDismiss()
+        },
+        title = {
+            Text(
+                text = "Rename List",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    },
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Enter a new name for this reading list.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = filterName,
+                    onValueChange = { filterName = it },
+                    label = { Text("List Name") },
+                    placeholder = { Text("e.g., Favorites, Research, Sci-Fi") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            if (filterName.isNotBlank()) {
+                                onRename(filterName.trim())
+                            }
+                        }
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester)
+                        .testTag("rename_filter_input")
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    if (filterName.isNotBlank()) {
+                        onRename(filterName.trim())
+                    }
+                },
+                enabled = filterName.isNotBlank() && filterName.trim() != customFilter.name,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                modifier = Modifier.testTag("confirm_rename_filter_btn")
+            ) {
+                Text("Rename")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    onDismiss()
+                },
+                modifier = Modifier.testTag("cancel_rename_filter_btn")
+            ) {
                 Text("Cancel")
             }
         }
