@@ -188,7 +188,7 @@ fun LibraryScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
-            contentWindowInsets = WindowInsets.statusBars,
+            contentWindowInsets = if (isFullScreenModeEnabled) WindowInsets(0, 0, 0, 0) else WindowInsets.statusBars,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             floatingActionButton = {
                 ExtendedFloatingActionButton(
@@ -223,6 +223,7 @@ fun LibraryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
+                    .then(if (isFullScreenModeEnabled) Modifier.padding(top = 5.dp) else Modifier)
             ) {
                 LazyVerticalGrid(
                     columns = if (uiState.viewMode == LibraryViewMode.GRID) {

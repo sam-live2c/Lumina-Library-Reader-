@@ -103,7 +103,7 @@ fun ReaderTopBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
+                .then(if (isFullScreenModeEnabled) Modifier.padding(top = 13.dp) else Modifier.statusBarsPadding())
                 .padding(horizontal = 14.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween

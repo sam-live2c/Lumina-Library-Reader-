@@ -95,6 +95,7 @@ fun PhysicalBookReaderCanvas(
     totalPages: Int,
     isBookmarked: Boolean,
     readerTheme: ReaderThemeMode,
+    isFullScreen: Boolean = false,
     flipStyle: PageFlipStyle = PageFlipStyle.REALISTIC_CURL,
     isSmartMarginFit: Boolean = false,
     pageVerticalPosition: PageVerticalPosition = PageVerticalPosition.CENTER,
@@ -529,7 +530,7 @@ fun PhysicalBookReaderCanvas(
             exit = fadeOut() + scaleOut(),
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 56.dp, end = 16.dp)
+                .padding(top = if (isFullScreen) 21.dp else 56.dp, end = 16.dp)
         ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),

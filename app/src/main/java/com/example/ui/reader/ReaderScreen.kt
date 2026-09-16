@@ -102,7 +102,9 @@ fun ReaderScreen(
     var isOverDismissTarget by remember { mutableStateOf(false) }
 
     val canvasInsetsModifier = if (uiState.isFullScreenModeEnabled) {
-        Modifier.fillMaxSize()
+        Modifier
+            .fillMaxSize()
+            .padding(top = 5.dp)
     } else {
         Modifier
             .fillMaxSize()
@@ -130,6 +132,7 @@ fun ReaderScreen(
                     currentPageIndex = uiState.currentPageIndex,
                     readerTheme = uiState.readerTheme,
                     pdfRendererManager = viewModel.pdfManager,
+                    isFullScreen = uiState.isFullScreenModeEnabled,
                     isSmartMarginFit = uiState.isSmartMarginFitEnabled,
                     isAnnotationMode = uiState.isAnnotationMode,
                     activeTool = uiState.activeTool,
@@ -159,6 +162,7 @@ fun ReaderScreen(
                     totalPages = uiState.totalPages,
                     isBookmarked = uiState.isBookmarked,
                     readerTheme = uiState.readerTheme,
+                    isFullScreen = uiState.isFullScreenModeEnabled,
                     flipStyle = uiState.flipStyle,
                     isSmartMarginFit = uiState.isSmartMarginFitEnabled,
                     pageVerticalPosition = uiState.pageVerticalPosition,
@@ -376,6 +380,7 @@ fun ReaderScreen(
                 currentPage = uiState.currentPageIndex,
                 totalPages = uiState.totalPages,
                 readerTheme = uiState.readerTheme,
+                isFullScreenModeEnabled = uiState.isFullScreenModeEnabled,
                 onSelectPage = {
                     soundManager.playPageTurnSound()
                     viewModel.goToPage(it)
@@ -398,6 +403,7 @@ fun ReaderScreen(
                 currentPage = uiState.currentPageIndex,
                 totalPages = uiState.totalPages,
                 readerTheme = uiState.readerTheme,
+                isFullScreenModeEnabled = uiState.isFullScreenModeEnabled,
                 onJump = {
                     soundManager.playPageTurnSound()
                     viewModel.goToPage(it)

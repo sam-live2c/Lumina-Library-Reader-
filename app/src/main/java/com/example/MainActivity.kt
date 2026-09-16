@@ -79,6 +79,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppSettingsManager.init(this)
+        AppSettingsManager.registerActivity(this)
         enableEdgeToEdge()
         applyFullScreenPreference()
         window.decorView.post {
@@ -96,6 +97,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        AppSettingsManager.unregisterActivity(this)
     }
 
     override fun onResume() {
@@ -168,9 +174,7 @@ fun LuminaApp(
 
     // Dynamic full-screen mode listener: toggles status bar immediately across all pages
     LaunchedEffect(isFullScreen, currentDestination, isSplashActive, currentTheme) {
-        if (currentDestination !is AppDestination.Reader) {
-            AppSettingsManager.applySystemBars(activity, isFullScreen, isDarkTheme = currentTheme.isDark)
-        }
+        AppSettingsManager.applySystemBars(activity, isFullScreen, isDarkTheme = currentTheme.isDark)
     }
 
     // Handle opening PDF directly from other applications ("Open with..." or "Share to")

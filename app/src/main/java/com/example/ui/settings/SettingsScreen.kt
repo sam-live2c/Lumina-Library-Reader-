@@ -296,7 +296,7 @@ private fun MainSettingsContent(
     val clipboardManager = LocalClipboardManager.current
 
     Scaffold(
-        contentWindowInsets = WindowInsets.statusBars,
+        contentWindowInsets = if (uiState.isFullScreenModeEnabled) WindowInsets(0, 0, 0, 0) else WindowInsets.statusBars,
         containerColor = MaterialTheme.colorScheme.background,
         modifier = modifier.fillMaxSize()
     ) { paddingValues ->
@@ -304,7 +304,7 @@ private fun MainSettingsContent(
             contentPadding = PaddingValues(
                 start = 14.dp,
                 end = 14.dp,
-                top = 6.dp,
+                top = if (uiState.isFullScreenModeEnabled) 11.dp else 6.dp,
                 bottom = 100.dp
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -335,24 +335,14 @@ private fun MainSettingsContent(
                         )
                     }
                     Spacer(modifier = Modifier.width(6.dp))
-                    Column {
-                        Text(
-                            text = "PREFERENCES",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                letterSpacing = 2.5.sp,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = LuminaAccentPrimary
-                        )
-                        Text(
-                            text = "Settings",
-                            style = MaterialTheme.typography.displayLarge.copy(
-                                fontSize = 34.sp,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
+                    Text(
+                        text = "Settings",
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontSize = 34.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
                 }
             }
 

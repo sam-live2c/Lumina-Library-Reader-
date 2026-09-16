@@ -1,5 +1,6 @@
 package com.example.ui.reader
 
+import android.app.Activity
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -49,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -60,12 +63,15 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.repository.AppSettingsManager
 import com.example.ui.components.LuminaLuxurySlider
 import com.example.ui.theme.LuminaAccentPrimary
 import com.example.ui.theme.ReaderThemeMode
@@ -149,11 +155,29 @@ fun ReaderThemeAppearanceDialog(
             ) {}
         }
     ) {
+        val sheetView = LocalView.current
+        val context = LocalContext.current
+        val activity = context as? Activity
+
+        LaunchedEffect(sheetView, isFullScreenModeEnabled, currentTheme) {
+            val sheetWindow = AppSettingsManager.findWindow(sheetView)
+            AppSettingsManager.applyWindowSystemBars(
+                window = sheetWindow,
+                isFullScreen = isFullScreenModeEnabled,
+                isDarkTheme = currentTheme.isDark
+            )
+            AppSettingsManager.applySystemBars(
+                activity = activity,
+                isFullScreen = isFullScreenModeEnabled,
+                isDarkTheme = currentTheme.isDark
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .navigationBarsPadding()
+                .then(if (isFullScreenModeEnabled) Modifier.padding(bottom = 16.dp) else Modifier.navigationBarsPadding())
         ) {
             // Header: Typography & Reading Style
             Row(
@@ -685,6 +709,7 @@ fun BookmarksBottomSheet(
     currentPage: Int,
     totalPages: Int,
     readerTheme: ReaderThemeMode = ReaderThemeMode.WHITE,
+    isFullScreenModeEnabled: Boolean = false,
     onSelectPage: (Int) -> Unit,
     onToggleBookmark: (Int) -> Unit,
     onDismiss: () -> Unit
@@ -723,11 +748,29 @@ fun BookmarksBottomSheet(
             ) {}
         }
     ) {
+        val sheetView = LocalView.current
+        val context = LocalContext.current
+        val activity = context as? Activity
+
+        LaunchedEffect(sheetView, isFullScreenModeEnabled, readerTheme) {
+            val sheetWindow = AppSettingsManager.findWindow(sheetView)
+            AppSettingsManager.applyWindowSystemBars(
+                window = sheetWindow,
+                isFullScreen = isFullScreenModeEnabled,
+                isDarkTheme = readerTheme.isDark
+            )
+            AppSettingsManager.applySystemBars(
+                activity = activity,
+                isFullScreen = isFullScreenModeEnabled,
+                isDarkTheme = readerTheme.isDark
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .navigationBarsPadding()
+                .then(if (isFullScreenModeEnabled) Modifier.padding(bottom = 16.dp) else Modifier.navigationBarsPadding())
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -858,9 +901,20 @@ fun JumpToPageDialog(
     currentPage: Int,
     totalPages: Int,
     readerTheme: ReaderThemeMode,
+    isFullScreenModeEnabled: Boolean = false,
     onJump: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val dialogView = LocalView.current
+    LaunchedEffect(dialogView, isFullScreenModeEnabled, readerTheme) {
+        val dialogWindow = AppSettingsManager.findWindow(dialogView)
+        AppSettingsManager.applyWindowSystemBars(
+            window = dialogWindow,
+            isFullScreen = isFullScreenModeEnabled,
+            isDarkTheme = readerTheme.isDark
+        )
+    }
+
     var selectedPage by remember { mutableFloatStateOf(currentPage.toFloat()) }
     val accentColor = readerTheme.accentColor
     val isDark = readerTheme.isDark

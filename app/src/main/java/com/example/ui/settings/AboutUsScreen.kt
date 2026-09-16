@@ -88,10 +88,11 @@ fun AboutUsScreen(
     val isFullScreen by AppSettingsManager.isFullScreenModeEnabled.collectAsStateWithLifecycle()
 
     Scaffold(
-        contentWindowInsets = WindowInsets.statusBars,
+        contentWindowInsets = if (isFullScreen) WindowInsets(0, 0, 0, 0) else WindowInsets.statusBars,
         topBar = {
             TopAppBar(
-                windowInsets = TopAppBarDefaults.windowInsets,
+                modifier = if (isFullScreen) Modifier.padding(top = 5.dp) else Modifier,
+                windowInsets = if (isFullScreen) WindowInsets(0, 0, 0, 0) else TopAppBarDefaults.windowInsets,
                 title = {
                     Text(
                         text = "About Lumina",

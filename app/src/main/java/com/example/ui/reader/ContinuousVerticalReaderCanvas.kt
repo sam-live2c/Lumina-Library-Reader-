@@ -72,6 +72,7 @@ fun ContinuousVerticalReaderCanvas(
     currentPageIndex: Int,
     readerTheme: ReaderThemeMode,
     pdfRendererManager: PdfRendererManager,
+    isFullScreen: Boolean = false,
     isSmartMarginFit: Boolean = false,
     isAnnotationMode: Boolean = false,
     activeTool: AnnotationType = AnnotationType.HIGHLIGHTER,
@@ -212,8 +213,8 @@ fun ContinuousVerticalReaderCanvas(
                 contentPadding = PaddingValues(
                     start = horizPad,
                     end = horizPad,
-                    top = 56.dp,
-                    bottom = 110.dp
+                    top = if (isFullScreen) 12.dp else 56.dp,
+                    bottom = if (isFullScreen) 32.dp else 110.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -319,7 +320,7 @@ fun ContinuousVerticalReaderCanvas(
             exit = fadeOut() + scaleOut(),
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 56.dp, end = 16.dp)
+                .padding(top = if (isFullScreen) 21.dp else 56.dp, end = 16.dp)
         ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
