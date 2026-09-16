@@ -263,165 +263,157 @@ fun LibraryScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                AnimatedContent(
-                    targetState = uiState.viewMode,
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(150))
-                    },
-                    label = "books_view_mode_transition"
-                ) { mode ->
-                    if (mode == LibraryViewMode.GRID) {
-                        LazyVerticalGrid(
-                            columns = GridCells.Adaptive(minSize = 152.dp),
-                            contentPadding = PaddingValues(
-                                start = 14.dp,
-                                end = 14.dp,
-                                top = if (isFullScreenModeEnabled) 13.dp else 4.dp,
-                                bottom = 100.dp
-                            ),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp),
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .testTag("books_grid")
-                        ) {
-                            // 1. All top page components scroll together with the grid
-                            item(span = { GridItemSpan(maxLineSpan) }, key = "library_header_section") {
-                                LibraryHeaderSection(
-                                    uiState = uiState,
-                                    viewModel = viewModel,
-                                    focusManager = focusManager,
-                                    keyboardController = keyboardController,
-                                    isSearchFocused = isSearchFocused,
-                                    onSearchFocusChange = { isSearchFocused = it },
-                                    onSearchCoordinatesPositioned = { searchFieldCoordinates = it },
-                                    onOpenBook = onOpenBook,
-                                    onOpenSettings = onOpenSettings,
-                                    onToast = { toastMessage = it }
-                                )
-                            }
+                if (uiState.viewMode == LibraryViewMode.GRID) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 152.dp),
+                        contentPadding = PaddingValues(
+                            start = 14.dp,
+                            end = 14.dp,
+                            top = if (isFullScreenModeEnabled) 13.dp else 4.dp,
+                            bottom = 100.dp
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("books_grid")
+                    ) {
+                        // 1. All top page components scroll together with the grid
+                        item(span = { GridItemSpan(maxLineSpan) }, key = "library_header_section") {
+                            LibraryHeaderSection(
+                                uiState = uiState,
+                                viewModel = viewModel,
+                                focusManager = focusManager,
+                                keyboardController = keyboardController,
+                                isSearchFocused = isSearchFocused,
+                                onSearchFocusChange = { isSearchFocused = it },
+                                onSearchCoordinatesPositioned = { searchFieldCoordinates = it },
+                                onOpenBook = onOpenBook,
+                                onOpenSettings = onOpenSettings,
+                                onToast = { toastMessage = it }
+                            )
+                        }
 
-                            if (uiState.filteredBooks.isEmpty()) {
-                                item(span = { GridItemSpan(maxLineSpan) }, key = "empty_state") {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 14.dp, vertical = 32.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        EmptyLibraryState(
-                                            onUpload = {
-                                                focusManager.clearFocus()
-                                                keyboardController?.hide()
-                                                multiPdfPickerLauncher.launch(arrayOf("application/pdf"))
-                                            }
-                                        )
-                                    }
-                                }
-                            } else {
-                                gridItems(uiState.filteredBooks, key = { it.id }) { book ->
-                                    BookCardItem(
-                                        book = book,
-                                        onClick = {
+                        if (uiState.filteredBooks.isEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }, key = "empty_state") {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 32.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    EmptyLibraryState(
+                                        onUpload = {
                                             focusManager.clearFocus()
                                             keyboardController?.hide()
-                                            onOpenBook(book.id)
-                                        },
-                                        onTogglePin = {
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                            val msg = if (!book.isPinned) "Pinned \"${book.title}\" to top" else "Unpinned \"${book.title}\""
-                                            toastMessage = msg
-                                            viewModel.togglePinBook(book)
-                                        },
-                                        onCopy = {
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                            viewModel.initiateCopyBook(book)
-                                        },
-                                        onDelete = {
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                            viewModel.confirmDeleteBook(book)
+                                            multiPdfPickerLauncher.launch(arrayOf("application/pdf"))
                                         }
                                     )
                                 }
+                            }
+                        } else {
+                            gridItems(uiState.filteredBooks, key = { it.id }) { book ->
+                                BookCardItem(
+                                    book = book,
+                                    onClick = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        onOpenBook(book.id)
+                                    },
+                                    onTogglePin = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        val msg = if (!book.isPinned) "Pinned \"${book.title}\" to top" else "Unpinned \"${book.title}\""
+                                        toastMessage = msg
+                                        viewModel.togglePinBook(book)
+                                    },
+                                    onCopy = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        viewModel.initiateCopyBook(book)
+                                    },
+                                    onDelete = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        viewModel.confirmDeleteBook(book)
+                                    }
+                                )
                             }
                         }
-                    } else {
-                        LazyColumn(
-                            contentPadding = PaddingValues(
-                                start = 14.dp,
-                                end = 14.dp,
-                                top = if (isFullScreenModeEnabled) 13.dp else 4.dp,
-                                bottom = 100.dp
-                            ),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .testTag("books_list")
-                        ) {
-                            // 1. All top page components scroll together with the list
-                            item(key = "library_header_section") {
-                                LibraryHeaderSection(
-                                    uiState = uiState,
-                                    viewModel = viewModel,
-                                    focusManager = focusManager,
-                                    keyboardController = keyboardController,
-                                    isSearchFocused = isSearchFocused,
-                                    onSearchFocusChange = { isSearchFocused = it },
-                                    onSearchCoordinatesPositioned = { searchFieldCoordinates = it },
-                                    onOpenBook = onOpenBook,
-                                    onOpenSettings = onOpenSettings,
-                                    onToast = { toastMessage = it }
-                                )
-                            }
+                    }
+                } else {
+                    LazyColumn(
+                        contentPadding = PaddingValues(
+                            start = 14.dp,
+                            end = 14.dp,
+                            top = if (isFullScreenModeEnabled) 13.dp else 4.dp,
+                            bottom = 100.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("books_list")
+                    ) {
+                        // 1. All top page components scroll together with the list
+                        item(key = "library_header_section") {
+                            LibraryHeaderSection(
+                                uiState = uiState,
+                                viewModel = viewModel,
+                                focusManager = focusManager,
+                                keyboardController = keyboardController,
+                                isSearchFocused = isSearchFocused,
+                                onSearchFocusChange = { isSearchFocused = it },
+                                onSearchCoordinatesPositioned = { searchFieldCoordinates = it },
+                                onOpenBook = onOpenBook,
+                                onOpenSettings = onOpenSettings,
+                                onToast = { toastMessage = it }
+                            )
+                        }
 
-                            if (uiState.filteredBooks.isEmpty()) {
-                                item(key = "empty_state") {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 14.dp, vertical = 32.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        EmptyLibraryState(
-                                            onUpload = {
-                                                focusManager.clearFocus()
-                                                keyboardController?.hide()
-                                                multiPdfPickerLauncher.launch(arrayOf("application/pdf"))
-                                            }
-                                        )
-                                    }
-                                }
-                            } else {
-                                items(uiState.filteredBooks, key = { it.id }) { book ->
-                                    BookListItem(
-                                        book = book,
-                                        onClick = {
+                        if (uiState.filteredBooks.isEmpty()) {
+                            item(key = "empty_state") {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 32.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    EmptyLibraryState(
+                                        onUpload = {
                                             focusManager.clearFocus()
                                             keyboardController?.hide()
-                                            onOpenBook(book.id)
-                                        },
-                                        onTogglePin = {
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                            val msg = if (!book.isPinned) "Pinned \"${book.title}\" to top" else "Unpinned \"${book.title}\""
-                                            toastMessage = msg
-                                            viewModel.togglePinBook(book)
-                                        },
-                                        onCopy = {
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                            viewModel.initiateCopyBook(book)
-                                        },
-                                        onDelete = {
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                            viewModel.confirmDeleteBook(book)
+                                            multiPdfPickerLauncher.launch(arrayOf("application/pdf"))
                                         }
                                     )
                                 }
+                            }
+                        } else {
+                            items(uiState.filteredBooks, key = { it.id }) { book ->
+                                BookListItem(
+                                    book = book,
+                                    onClick = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        onOpenBook(book.id)
+                                    },
+                                    onTogglePin = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        val msg = if (!book.isPinned) "Pinned \"${book.title}\" to top" else "Unpinned \"${book.title}\""
+                                        toastMessage = msg
+                                        viewModel.togglePinBook(book)
+                                    },
+                                    onCopy = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        viewModel.initiateCopyBook(book)
+                                    },
+                                    onDelete = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        viewModel.confirmDeleteBook(book)
+                                    }
+                                )
                             }
                         }
                     }
