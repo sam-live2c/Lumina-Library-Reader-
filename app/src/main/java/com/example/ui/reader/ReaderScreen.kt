@@ -306,7 +306,10 @@ fun ReaderScreen(
                 onBack = handleInstantBack,
                 onToggleBookmark = { viewModel.toggleBookmark() },
                 onOpenSearch = { viewModel.openSearch() },
-                onOpenThemeDialog = { viewModel.openThemeDialog() }
+                onOpenThemeDialog = { viewModel.openThemeDialog() },
+                onSharePdf = {
+                    PdfShareHelper.sharePdf(context, uiState.book)
+                }
             )
         }
 

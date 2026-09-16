@@ -66,6 +66,7 @@ import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Sort
 import androidx.compose.material.icons.outlined.SortByAlpha
 import androidx.compose.material.icons.outlined.TrendingUp
@@ -129,6 +130,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
@@ -143,6 +145,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.model.BookEntity
 import com.example.data.repository.AppSettingsManager
+import com.example.ui.reader.PdfShareHelper
 import com.example.ui.settings.LibrarySortOrder
 import com.example.ui.settings.LibraryViewMode
 import com.example.ui.settings.SettingsSubpage
@@ -1273,6 +1276,7 @@ private fun BookCardItem(
     onCopy: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
@@ -1424,6 +1428,27 @@ private fun BookCardItem(
                         DropdownMenuItem(
                             text = {
                                 Text(
+                                    text = "Share PDF",
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                PdfShareHelper.sharePdf(context, book)
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.Share,
+                                    contentDescription = null,
+                                    tint = LuminaAccentPrimary
+                                )
+                            },
+                            modifier = Modifier.testTag("menu_share_card_${book.id}")
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
                                     text = "Copy Book",
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -1534,6 +1559,7 @@ private fun BookListItem(
     onCopy: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
@@ -1727,6 +1753,27 @@ private fun BookListItem(
                         )
                     },
                     modifier = Modifier.testTag("menu_pin_list_${book.id}")
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = "Share PDF",
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    },
+                    onClick = {
+                        showMenu = false
+                        PdfShareHelper.sharePdf(context, book)
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Outlined.Share,
+                            contentDescription = null,
+                            tint = LuminaAccentPrimary
+                        )
+                    },
+                    modifier = Modifier.testTag("menu_share_list_${book.id}")
                 )
                 DropdownMenuItem(
                     text = {

@@ -214,62 +214,6 @@ fun InBookSearchBar(
                         )
                     }
                 }
-
-                // Matches Counter & Navigation Chevrons
-                if (matches.isNotEmpty()) {
-                    Text(
-                        text = "${currentMatchIndex + 1}/${matches.size}",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = readerTheme.accentColor,
-                        modifier = Modifier.padding(horizontal = 4.dp)
-                    )
-
-                    IconButton(
-                        onClick = {
-                            isSuggestionsOpen = false
-                            keyboardController?.hide()
-                            focusManager.clearFocus()
-                            onPreviousMatch()
-                        },
-                        modifier = Modifier
-                            .size(36.dp)
-                            .testTag("search_prev_match")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.KeyboardArrowUp,
-                            contentDescription = "Previous match",
-                            tint = barText,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = {
-                            isSuggestionsOpen = false
-                            keyboardController?.hide()
-                            focusManager.clearFocus()
-                            onNextMatch()
-                        },
-                        modifier = Modifier
-                            .size(36.dp)
-                            .testTag("search_next_match")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.KeyboardArrowDown,
-                            contentDescription = "Next match",
-                            tint = barText,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                } else if (query.isNotBlank()) {
-                    Text(
-                        text = "0 found",
-                        fontSize = 12.sp,
-                        color = barSubtext,
-                        modifier = Modifier.padding(horizontal = 6.dp)
-                    )
-                }
             }
 
             // Results List Dropdown preview (Shows search results & page jump items)

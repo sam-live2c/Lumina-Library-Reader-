@@ -74,6 +74,7 @@ import com.example.ui.theme.ReaderThemeMode
 
 import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Share
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,6 +89,7 @@ fun ReaderTopBar(
     onToggleBookmark: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenThemeDialog: () -> Unit,
+    onSharePdf: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val barBg = readerTheme.background
@@ -145,8 +147,23 @@ fun ReaderTopBar(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
+                // Share PDF across platforms
+                IconButton(
+                    onClick = onSharePdf,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .testTag("reader_share_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Share,
+                        contentDescription = "Share PDF",
+                        tint = barText,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
                 // Search in Book
                 IconButton(
                     onClick = onOpenSearch,
@@ -158,7 +175,7 @@ fun ReaderTopBar(
                         imageVector = Icons.Outlined.Search,
                         contentDescription = "Search in book",
                         tint = barText,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
@@ -172,7 +189,7 @@ fun ReaderTopBar(
                         imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                         contentDescription = if (isBookmarked) "Remove Bookmark" else "Add Bookmark",
                         tint = if (isBookmarked) accentColor else barText,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
@@ -187,7 +204,7 @@ fun ReaderTopBar(
                         imageVector = Icons.Outlined.FormatSize,
                         contentDescription = "Text and Theme Settings",
                         tint = barText,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
