@@ -80,7 +80,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         AppSettingsManager.init(this)
         AppSettingsManager.registerActivity(this)
-        enableEdgeToEdge()
+        val initialFullScreen = AppSettingsManager.isFullScreenModeEnabled.value
+        if (initialFullScreen) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+            val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+            controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        } else {
+            enableEdgeToEdge()
+        }
         applyFullScreenPreference()
         window.decorView.post {
             applyFullScreenPreference()
@@ -132,26 +141,28 @@ class MainActivity : ComponentActivity() {
 
     private fun extractPdfUriFromIntent(intent: Intent?) {
         if (intent == null) return
-        val action = intent.action
-        val type = intent.type
-
-        val uri: Uri? = when {
-            action == Intent.ACTION_VIEW -> {
-                intent.data ?: intent.clipData?.getItemAt(0)?.uri
+        try {
+            val action = intent.action
+            val uri: Uri? = when {
+                action == Intent.ACTION_VIEW -> {
+                    intent.data ?: intent.clipData?.getItemAt(0)?.uri
+                }
+                action == Intent.ACTION_SEND -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra(Intent.EXTRA_STREAM)
+                    } ?: intent.clipData?.getItemAt(0)?.uri ?: intent.data
+                }
+                else -> intent.data ?: intent.clipData?.getItemAt(0)?.uri
             }
-            action == Intent.ACTION_SEND -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-                } else {
-                    @Suppress("DEPRECATION")
-                    intent.getParcelableExtra(Intent.EXTRA_STREAM)
-                } ?: intent.clipData?.getItemAt(0)?.uri ?: intent.data
-            }
-            else -> intent.data ?: intent.clipData?.getItemAt(0)?.uri
-        }
 
-        if (uri != null) {
-            incomingPdfUriState.value = uri
+            if (uri != null) {
+                incomingPdfUriState.value = uri
+            }
+        } catch (t: Throwable) {
+            t.printStackTrace()
         }
     }
 }
@@ -204,7 +215,7 @@ fun LuminaApp(
     }
 
     if (isSplashActive) {
-        SplashScreen()
+        SplashScreen(isFullScreen = isFullScreen)
     } else {
         when (val destination = currentDestination) {
             is AppDestination.Library -> {
@@ -215,6 +226,7 @@ fun LuminaApp(
                         currentDestination = AppDestination.Reader(bookId)
                     },
                     onOpenSettings = { subpage ->
+                        settingsViewModel.navigateTo(subpage ?: SettingsSubpage.MAIN)
                         currentDestination = AppDestination.Settings(subpage)
                     }
                 )
@@ -232,6 +244,7 @@ fun LuminaApp(
                     initialSubpage = destination.initialSubpage,
                     viewModel = settingsViewModel,
                     onNavigateBack = {
+                        settingsViewModel.navigateTo(SettingsSubpage.MAIN)
                         currentDestination = AppDestination.Library
                     }
                 )

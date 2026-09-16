@@ -110,6 +110,19 @@ object AppSettingsManager {
                             WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
                     }
                 }
+                window.statusBarColor = android.graphics.Color.TRANSPARENT
+                window.navigationBarColor = android.graphics.Color.TRANSPARENT
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    window.isNavigationBarContrastEnforced = false
+                    window.isStatusBarContrastEnforced = false
+                }
+                if (isFullScreen) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+                    window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+                }
                 val insetsController = WindowCompat.getInsetsController(window, window.decorView)
                 insetsController.isAppearanceLightStatusBars = !isDarkTheme
                 insetsController.isAppearanceLightNavigationBars = !isDarkTheme

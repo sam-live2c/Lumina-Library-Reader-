@@ -1753,9 +1753,14 @@ private fun BookCoverThumbnail(
         }
     }
 
-    if (bitmapLoaded != null) {
+    val currentBmp = bitmapLoaded?.takeIf { !it.isRecycled }
+    val imgBitmap = currentBmp?.let { bmp ->
+        try { bmp.asImageBitmap() } catch (_: Throwable) { null }
+    }
+
+    if (imgBitmap != null) {
         Image(
-            bitmap = bitmapLoaded!!.asImageBitmap(),
+            bitmap = imgBitmap,
             contentDescription = title,
             contentScale = ContentScale.Crop,
             modifier = modifier

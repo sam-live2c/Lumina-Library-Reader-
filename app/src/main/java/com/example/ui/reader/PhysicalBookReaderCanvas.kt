@@ -150,6 +150,14 @@ fun PhysicalBookReaderCanvas(
         }
     }
 
+    // Instantly snap to rest on programmatic page changes without showing transition steps
+    LaunchedEffect(currentPageIndex) {
+        animProgress.snapTo(0f)
+        activeDirection = FlipDirection.NONE
+        panOffsetX.snapTo(0f)
+        panOffsetY.snapTo(0f)
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -1336,12 +1344,17 @@ private fun DrawScope.drawPageBitmap(
     pageVerticalPosition: PageVerticalPosition = PageVerticalPosition.CENTER,
     theme: ReaderThemeMode = ReaderThemeMode.WHITE
 ): PageLayoutMetrics {
+    if (bitmap.isRecycled) return calculatePageLayoutMetrics(0f, 0f, width, height, isSmartMarginFit, pageVerticalPosition)
     val bmpW = bitmap.width.toFloat()
     val bmpH = bitmap.height.toFloat()
     val metrics = calculatePageLayoutMetrics(bmpW, bmpH, width, height, isSmartMarginFit, pageVerticalPosition)
     if (bmpW <= 0f || bmpH <= 0f) return metrics
 
-    val imageBitmap = bitmap.asImageBitmap()
+    val imageBitmap = try {
+        bitmap.asImageBitmap()
+    } catch (_: Throwable) {
+        return metrics
+    }
     val left = metrics.left
     val top = metrics.top
     val targetW = metrics.width
@@ -1362,13 +1375,15 @@ private fun DrawScope.drawPageBitmap(
     )
 
     // 2. Render Book Page Graphic with 100% natural proportions
-    drawImage(
-        image = imageBitmap,
-        srcOffset = IntOffset.Zero,
-        srcSize = IntSize(bitmap.width, bitmap.height),
-        dstOffset = IntOffset(left.toInt(), top.toInt()),
-        dstSize = IntSize(targetW.toInt(), targetH.toInt())
-    )
+    try {
+        drawImage(
+            image = imageBitmap,
+            srcOffset = IntOffset.Zero,
+            srcSize = IntSize(bitmap.width, bitmap.height),
+            dstOffset = IntOffset(left.toInt(), top.toInt()),
+            dstSize = IntSize(targetW.toInt(), targetH.toInt())
+        )
+    } catch (_: Throwable) {}
 
     return metrics
 }

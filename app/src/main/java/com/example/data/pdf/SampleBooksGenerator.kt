@@ -135,10 +135,16 @@ object SampleBooksGenerator {
             document.finishPage(page)
         }
 
-        FileOutputStream(destFile).use { out ->
-            document.writeTo(out)
+        try {
+            FileOutputStream(destFile).use { out ->
+                document.writeTo(out)
+            }
+        } catch (t: Throwable) {
+            t.printStackTrace()
+            try { destFile.delete() } catch (_: Throwable) {}
+        } finally {
+            try { document.close() } catch (_: Throwable) {}
         }
-        document.close()
     }
 
     private fun renderCoverPage(

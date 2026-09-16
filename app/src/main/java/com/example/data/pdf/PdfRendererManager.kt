@@ -25,9 +25,14 @@ class PdfRendererManager(private val context: Context) {
     private var fileDescriptor: ParcelFileDescriptor? = null
     private var pdfRenderer: PdfRenderer? = null
 
-    // Cache up to 64 rendered high-res pages in memory to stabilize scrolling and reading
-    private val pageCache = object : LruCache<String, Bitmap>(64) {
-        override fun sizeOf(key: String, value: Bitmap): Int = 1
+    // Allocate at most 1/8th of max heap (between 16MB and 48MB) for cached pages to prevent OutOfMemoryError
+    private val maxMemoryKb = (Runtime.getRuntime().maxMemory() / 1024).toInt()
+    private val cacheSizeKb = (maxMemoryKb / 8).coerceIn(16 * 1024, 48 * 1024)
+
+    private val pageCache = object : LruCache<String, Bitmap>(cacheSizeKb) {
+        override fun sizeOf(key: String, value: Bitmap): Int {
+            return max(1, value.byteCount / 1024)
+        }
     }
 
     // Cache page dimensions (pageWidth x pageHeight) for instant zero-jump layout sizing
@@ -46,35 +51,41 @@ class PdfRendererManager(private val context: Context) {
 
     suspend fun openFile(filePath: String): Int = withContext(Dispatchers.IO) {
         mutex.withLock {
-            if (currentFilePath == filePath && pdfRenderer != null) {
-                return@withContext pdfRenderer!!.pageCount
-            }
-            closeInternal()
-            val file = File(filePath)
-            if (!file.exists()) {
-                throw IllegalArgumentException("PDF file does not exist at $filePath")
-            }
-            val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-            val renderer = PdfRenderer(pfd)
-            fileDescriptor = pfd
-            pdfRenderer = renderer
-            currentFilePath = filePath
-            
-            // Warm dimension cache for initial pages rapidly without bitmap overhead
-            val pageCount = renderer.pageCount
-            val scanLimit = minOf(pageCount, 50)
-            for (i in 0 until scanLimit) {
-                val dimKey = "${filePath}_$i"
-                if (!dimensionCache.containsKey(dimKey)) {
-                    try {
-                        val p = renderer.openPage(i)
-                        dimensionCache[dimKey] = Pair(p.width, p.height)
-                        p.close()
-                    } catch (_: Throwable) {}
+            try {
+                if (currentFilePath == filePath && pdfRenderer != null) {
+                    return@withContext pdfRenderer!!.pageCount
                 }
-            }
+                closeInternal()
+                val file = File(filePath)
+                if (!file.exists() || file.length() == 0L) {
+                    return@withContext 0
+                }
+                val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+                val renderer = PdfRenderer(pfd)
+                fileDescriptor = pfd
+                pdfRenderer = renderer
+                currentFilePath = filePath
+                
+                // Warm dimension cache for initial pages rapidly without bitmap overhead
+                val pageCount = renderer.pageCount
+                val scanLimit = minOf(pageCount, 50)
+                for (i in 0 until scanLimit) {
+                    val dimKey = "${filePath}_$i"
+                    if (!dimensionCache.containsKey(dimKey)) {
+                        try {
+                            val p = renderer.openPage(i)
+                            dimensionCache[dimKey] = Pair(p.width, p.height)
+                            p.close()
+                        } catch (_: Throwable) {}
+                    }
+                }
 
-            pageCount
+                pageCount
+            } catch (t: Throwable) {
+                t.printStackTrace()
+                closeInternal()
+                0
+            }
         }
     }
 
@@ -136,22 +147,31 @@ class PdfRendererManager(private val context: Context) {
 
                 dimensionCache[cacheKey] = Pair(pageWidth, pageHeight)
 
-                // Calculate high-resolution scale for razor sharp text rendering
+                // Calculate balanced resolution scale so text is crisp without causing OutOfMemory
                 val scale = max(
-                    targetWidth.toFloat() / pageWidth.toFloat(),
-                    targetHeight.toFloat() / pageHeight.toFloat()
-                ).coerceIn(1.5f, 2.5f)
+                    targetWidth.toFloat() / max(1, pageWidth).toFloat(),
+                    targetHeight.toFloat() / max(1, pageHeight).toFloat()
+                ).coerceIn(1.2f, 2.2f)
 
-                val outWidth = (pageWidth * scale).toInt()
-                val outHeight = (pageHeight * scale).toInt()
+                val maxDimW = 1440
+                val maxDimH = 2560
+                val outWidth = (pageWidth * scale).toInt().coerceIn(320, maxDimW)
+                val outHeight = (pageHeight * scale).toInt().coerceIn(480, maxDimH)
 
                 val bitmap = try {
                     Bitmap.createBitmap(outWidth, outHeight, Bitmap.Config.ARGB_8888)
                 } catch (oom: OutOfMemoryError) {
-                    // Fallback to half resolution if device is low on memory
-                    val halfScale = scale * 0.7f
-                    Bitmap.createBitmap((pageWidth * halfScale).toInt(), (pageHeight * halfScale).toInt(), Bitmap.Config.ARGB_8888)
-                }
+                    pageCache.evictAll()
+                    System.gc()
+                    try {
+                        // Fallback to RGB_565 (2 bytes per pixel instead of 4) at lower resolution
+                        val halfW = (outWidth * 0.7f).toInt().coerceAtLeast(320)
+                        val halfH = (outHeight * 0.7f).toInt().coerceAtLeast(480)
+                        Bitmap.createBitmap(halfW, halfH, Bitmap.Config.RGB_565)
+                    } catch (oom2: OutOfMemoryError) {
+                        null
+                    }
+                } ?: return@withContext null
 
                 val canvas = Canvas(bitmap)
                 canvas.drawColor(Color.WHITE)
@@ -172,29 +192,31 @@ class PdfRendererManager(private val context: Context) {
     suspend fun prefetchWindow(
         filePath: String,
         centerPageIndex: Int,
-        forwardCount: Int = 4,
-        backwardCount: Int = 2,
+        forwardCount: Int = 2,
+        backwardCount: Int = 1,
         targetWidth: Int = 1080,
         targetHeight: Int = 1920
     ) = withContext(Dispatchers.IO) {
-        // Collect page indices to prefetch (prioritize forward, then backward)
-        val pagesToPrefetch = mutableListOf<Int>()
-        for (i in 1..forwardCount) {
-            val forwardIdx = centerPageIndex + i
-            if (forwardIdx >= 0) pagesToPrefetch.add(forwardIdx)
-        }
-        for (i in 1..backwardCount) {
-            val backwardIdx = centerPageIndex - i
-            if (backwardIdx >= 0) pagesToPrefetch.add(backwardIdx)
-        }
-
-        for (pIdx in pagesToPrefetch) {
-            val cacheKey = "${filePath}_${pIdx}"
-            val existing = pageCache.get(cacheKey)
-            if (existing == null || existing.isRecycled) {
-                renderPage(filePath, pIdx, targetWidth, targetHeight)
+        try {
+            // Collect page indices to prefetch (prioritize forward, then backward)
+            val pagesToPrefetch = mutableListOf<Int>()
+            for (i in 1..forwardCount) {
+                val forwardIdx = centerPageIndex + i
+                if (forwardIdx >= 0) pagesToPrefetch.add(forwardIdx)
             }
-        }
+            for (i in 1..backwardCount) {
+                val backwardIdx = centerPageIndex - i
+                if (backwardIdx >= 0) pagesToPrefetch.add(backwardIdx)
+            }
+
+            for (pIdx in pagesToPrefetch) {
+                val cacheKey = "${filePath}_${pIdx}"
+                val existing = pageCache.get(cacheKey)
+                if (existing == null || existing.isRecycled) {
+                    renderPage(filePath, pIdx, targetWidth, targetHeight)
+                }
+            }
+        } catch (_: Throwable) {}
     }
 
     suspend fun generateCoverThumbnail(filePath: String, destPath: String): Boolean = withContext(Dispatchers.IO) {
@@ -216,16 +238,20 @@ class PdfRendererManager(private val context: Context) {
 
                 // Target standard thumbnail dimensions ~360x520 without forcing high scale that causes OOM
                 val scale = minOf(420f / pw.toFloat(), 640f / ph.toFloat(), 1.0f).coerceAtLeast(0.15f)
-                val outW = (pw * scale).toInt().coerceIn(160, 600)
-                val outH = (ph * scale).toInt().coerceIn(240, 900)
+                val outW = (pw * scale).toInt().coerceIn(160, 480)
+                val outH = (ph * scale).toInt().coerceIn(240, 720)
 
                 val bitmap = try {
-                    Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+                    Bitmap.createBitmap(outW, outH, Bitmap.Config.RGB_565)
                 } catch (oom: OutOfMemoryError) {
                     val halfW = (outW * 0.75f).toInt().coerceAtLeast(100)
                     val halfH = (outH * 0.75f).toInt().coerceAtLeast(150)
-                    Bitmap.createBitmap(halfW, halfH, Bitmap.Config.ARGB_8888)
-                }
+                    try {
+                        Bitmap.createBitmap(halfW, halfH, Bitmap.Config.RGB_565)
+                    } catch (_: OutOfMemoryError) {
+                        null
+                    }
+                } ?: return@withContext false
 
                 val canvas = Canvas(bitmap)
                 canvas.drawColor(Color.WHITE)
@@ -236,7 +262,7 @@ class PdfRendererManager(private val context: Context) {
                 FileOutputStream(destFile).use { out ->
                     bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
                 }
-                bitmap.recycle()
+                try { bitmap.recycle() } catch (_: Throwable) {}
                 destFile.exists() && destFile.length() > 0
             } catch (t: Throwable) {
                 t.printStackTrace()
@@ -250,15 +276,17 @@ class PdfRendererManager(private val context: Context) {
     }
 
     private fun closeInternal() {
-        try { pdfRenderer?.close() } catch (_: Exception) {}
-        try { fileDescriptor?.close() } catch (_: Exception) {}
+        try { pdfRenderer?.close() } catch (_: Throwable) {}
+        try { fileDescriptor?.close() } catch (_: Throwable) {}
         pdfRenderer = null
         fileDescriptor = null
         currentFilePath = null
     }
 
     fun close() {
+        try {
+            pageCache.evictAll()
+        } catch (_: Throwable) {}
         closeInternal()
-        pageCache.evictAll()
     }
 }

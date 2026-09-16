@@ -39,57 +39,61 @@ class BookRepository(
     suspend fun getBookByIdSync(id: Long): BookEntity? = bookDao.getBookByIdSync(id)
 
     suspend fun initializeDefaultsIfNeeded() = withContext(Dispatchers.IO) {
-        val sampleBooksDir = File(context.filesDir, "sample_books")
-        val versionMarker = File(sampleBooksDir, ".serif_v6")
-        val needsRefresh = !versionMarker.exists()
-        val count = bookDao.getBookCount()
+        try {
+            val sampleBooksDir = File(context.filesDir, "sample_books")
+            val versionMarker = File(sampleBooksDir, ".serif_v6")
+            val needsRefresh = !versionMarker.exists()
+            val count = bookDao.getBookCount()
 
-        if (needsRefresh) {
-            SampleBooksGenerator.purgeLegacySampleBooks(context)
-        }
+            if (needsRefresh) {
+                SampleBooksGenerator.purgeLegacySampleBooks(context)
+            }
 
-        if (count == 0 || needsRefresh) {
-            val sampleBooks = SampleBooksGenerator.createSampleBooksIfNotExist(context)
-            val baseTime = System.currentTimeMillis()
-            val existingBooks = bookDao.getAllBooksList()
+            if (count == 0 || needsRefresh) {
+                val sampleBooks = SampleBooksGenerator.createSampleBooksIfNotExist(context)
+                val baseTime = System.currentTimeMillis()
+                val existingBooks = bookDao.getAllBooksList()
 
-            sampleBooks.forEachIndexed { index, (info, file) ->
-                val pageCount = pdfRendererManager.getPageCount(file.absolutePath)
-                val coverFile = File(context.filesDir, "covers/${file.nameWithoutExtension}_cover.jpg")
-                pdfRendererManager.generateCoverThumbnail(file.absolutePath, coverFile.absolutePath)
+                sampleBooks.forEachIndexed { index, (info, file) ->
+                    val pageCount = pdfRendererManager.getPageCount(file.absolutePath)
+                    val coverFile = File(context.filesDir, "covers/${file.nameWithoutExtension}_cover.jpg")
+                    pdfRendererManager.generateCoverThumbnail(file.absolutePath, coverFile.absolutePath)
 
-                val existing = existingBooks.find { it.title.equals(info.title, ignoreCase = true) && it.isSample }
-                if (existing != null) {
-                    // Update existing sample book with newly rendered layout, path and cover
-                    bookDao.updateBook(
-                        existing.copy(
+                    val existing = existingBooks.find { it.title.equals(info.title, ignoreCase = true) && it.isSample }
+                    if (existing != null) {
+                        // Update existing sample book with newly rendered layout, path and cover
+                        bookDao.updateBook(
+                            existing.copy(
+                                filePath = file.absolutePath,
+                                totalPages = if (pageCount > 0) pageCount else info.pages.size,
+                                coverImagePath = if (coverFile.exists() && coverFile.length() > 0) coverFile.absolutePath else existing.coverImagePath,
+                                lastReadTimestamp = if (existing.hasBeenOpened) existing.lastReadTimestamp else 0L
+                            )
+                        )
+                    } else if (count == 0) {
+                        val bookEntity = BookEntity(
+                            title = info.title,
+                            author = info.author,
                             filePath = file.absolutePath,
                             totalPages = if (pageCount > 0) pageCount else info.pages.size,
-                            coverImagePath = if (coverFile.exists() && coverFile.length() > 0) coverFile.absolutePath else existing.coverImagePath,
-                            lastReadTimestamp = if (existing.hasBeenOpened) existing.lastReadTimestamp else 0L
+                            currentPage = 1,
+                            bookmarks = "",
+                            coverImagePath = if (coverFile.exists() && coverFile.length() > 0) coverFile.absolutePath else null,
+                            isSample = true,
+                            lastReadTimestamp = 0L,
+                            dateAddedTimestamp = baseTime - (index * 60_000L),
+                            hasBeenOpened = false
                         )
-                    )
-                } else if (count == 0) {
-                    val bookEntity = BookEntity(
-                        title = info.title,
-                        author = info.author,
-                        filePath = file.absolutePath,
-                        totalPages = if (pageCount > 0) pageCount else info.pages.size,
-                        currentPage = 1,
-                        bookmarks = "",
-                        coverImagePath = if (coverFile.exists() && coverFile.length() > 0) coverFile.absolutePath else null,
-                        isSample = true,
-                        lastReadTimestamp = 0L,
-                        dateAddedTimestamp = baseTime - (index * 60_000L),
-                        hasBeenOpened = false
-                    )
-                    bookDao.insertBook(bookEntity)
+                        bookDao.insertBook(bookEntity)
+                    }
                 }
             }
-        }
 
-        // Self-heal covers on initialization
-        ensureAllCoversGenerated()
+            // Self-heal covers on initialization
+            ensureAllCoversGenerated()
+        } catch (t: Throwable) {
+            t.printStackTrace()
+        }
     }
 
     suspend fun ensureAllCoversGenerated() = withContext(Dispatchers.IO) {
@@ -201,7 +205,7 @@ class BookRepository(
                 val newId = bookDao.insertBook(book)
                 lastImportedId = newId
                 importedCount++
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 e.printStackTrace()
                 skippedCount++
                 skippedNames.add(fileName)

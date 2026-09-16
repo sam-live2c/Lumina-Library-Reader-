@@ -672,18 +672,69 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                     currentSearchMatchIndex = 0
                 )
             }
+            // Do not call goToPage while user is typing; results appear in suggestions
+        }
+    }
+
+    fun submitSearch() {
+        val state = _uiState.value
+        val book = state.book ?: return
+        val query = state.searchQuery.trim()
+        if (query.isBlank()) {
+            closeSearch()
+            return
+        }
+
+        // Close search bar input so user only sees search results
+        _uiState.update { it.copy(isSearchOpen = false) }
+
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            val results = if (state.searchResults.isNotEmpty()) {
+                state.searchResults
+            } else {
+                searchManager.searchInBook(book.title, book.filePath, state.totalPages, query)
+            }
+            _uiState.update {
+                it.copy(
+                    searchResults = results,
+                    currentSearchMatchIndex = 0,
+                    isSearchOpen = false
+                )
+            }
             if (results.isNotEmpty()) {
                 goToPage(results.first().pageIndex)
             }
         }
     }
 
-    fun selectSearchMatch(index: Int) {
+    fun selectSearchMatch(index: Int, closeSearchBar: Boolean = false) {
         val state = _uiState.value
         if (index in state.searchResults.indices) {
             val match = state.searchResults[index]
-            _uiState.update { it.copy(currentSearchMatchIndex = index) }
+            _uiState.update {
+                it.copy(
+                    currentSearchMatchIndex = index,
+                    isSearchOpen = if (closeSearchBar) false else it.isSearchOpen
+                )
+            }
             goToPage(match.pageIndex)
+        }
+    }
+
+    fun dismissSearchBarInput() {
+        _uiState.update { it.copy(isSearchOpen = false) }
+    }
+
+    fun clearSearchResults() {
+        searchJob?.cancel()
+        _uiState.update {
+            it.copy(
+                isSearchOpen = false,
+                searchQuery = "",
+                searchResults = emptyList(),
+                currentSearchMatchIndex = 0
+            )
         }
     }
 

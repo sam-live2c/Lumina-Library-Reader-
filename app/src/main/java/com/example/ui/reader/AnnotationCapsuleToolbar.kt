@@ -7,6 +7,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -171,25 +173,10 @@ fun AnnotationFloatingFab(
         ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
     }
 
-    Box(
+    Surface(
         modifier = modifier
             .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
             .size(52.dp)
-            .shadow(
-                elevation = if (isDragging) 10.dp else 6.dp,
-                shape = CircleShape,
-                clip = false
-            )
-            .clip(CircleShape)
-            .background(
-                if (isAnnotationMode) readerTheme.accentColor
-                else fabBg
-            )
-            .border(
-                width = 1.dp,
-                color = if (isAnnotationMode) Color.Transparent else fabBorder,
-                shape = CircleShape
-            )
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = {
@@ -249,14 +236,22 @@ fun AnnotationFloatingFab(
                 )
             }
             .testTag("annotation_fab_toggle"),
-        contentAlignment = Alignment.Center
+        shape = CircleShape,
+        color = if (isAnnotationMode) readerTheme.accentColor else fabBg,
+        shadowElevation = if (isDragging) 10.dp else 6.dp,
+        border = BorderStroke(1.dp, if (isAnnotationMode) Color.Transparent else fabBorder)
     ) {
-        Icon(
-            imageVector = if (isAnnotationMode) Icons.Filled.Close else Icons.Outlined.Create,
-            contentDescription = if (isAnnotationMode) "Close annotation toolbar" else "Annotate document",
-            tint = if (isAnnotationMode) Color.White else readerTheme.textColor,
-            modifier = Modifier.size(22.dp)
-        )
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (isAnnotationMode) Icons.Filled.Close else Icons.Outlined.Create,
+                contentDescription = if (isAnnotationMode) "Close annotation toolbar" else "Annotate document",
+                tint = if (isAnnotationMode) Color.White else readerTheme.textColor,
+                modifier = Modifier.size(22.dp)
+            )
+        }
     }
 }
 

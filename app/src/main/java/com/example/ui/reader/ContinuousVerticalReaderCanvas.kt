@@ -138,9 +138,13 @@ fun ContinuousVerticalReaderCanvas(
 
     // Synchronize programmatic page changes (e.g. from jump dialog, bookmark, search match)
     LaunchedEffect(currentPageIndex) {
-        val targetIndex = (currentPageIndex - 1).coerceIn(0, totalPages - 1)
-        if (!listState.isScrollInProgress && listState.firstVisibleItemIndex != targetIndex) {
-            listState.scrollToItem(targetIndex)
+        if (totalPages > 0) {
+            val targetIndex = (currentPageIndex - 1).coerceIn(0, totalPages - 1)
+            if (!listState.isScrollInProgress && listState.firstVisibleItemIndex != targetIndex) {
+                try {
+                    listState.scrollToItem(targetIndex)
+                } catch (_: Throwable) {}
+            }
         }
     }
 
@@ -454,13 +458,16 @@ private fun VerticalPdfPageCard(
                     )
                 }
             } else {
-                pageBitmap?.let { bmp ->
-                    Image(
-                        bitmap = bmp.asImageBitmap(),
-                        contentDescription = "Page $pageNum of $totalPages",
-                        contentScale = if (isSmartMarginFit) ContentScale.FillWidth else ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                pageBitmap?.takeIf { !it.isRecycled }?.let { bmp ->
+                    val imgBitmap = try { bmp.asImageBitmap() } catch (_: Throwable) { null }
+                    if (imgBitmap != null) {
+                        Image(
+                            bitmap = imgBitmap,
+                            contentDescription = "Page $pageNum of $totalPages",
+                            contentScale = if (isSmartMarginFit) ContentScale.FillWidth else ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
 

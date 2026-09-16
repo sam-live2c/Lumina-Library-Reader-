@@ -1,16 +1,21 @@
 package com.example.ui.reader
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.FindInPage
 import androidx.compose.material.icons.outlined.Search
@@ -71,6 +78,7 @@ fun InBookSearchBar(
     onNextMatch: () -> Unit,
     onPreviousMatch: () -> Unit,
     onSelectMatch: (Int) -> Unit = {},
+    onSubmitSearch: () -> Unit = {},
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -172,13 +180,10 @@ fun InBookSearchBar(
                         cursorBrush = SolidColor(readerTheme.accentColor),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = {
-                            // On Enter/Search: Close suggestions dropdown, dismiss keyboard, and stay on active match
                             isSuggestionsOpen = false
                             keyboardController?.hide()
                             focusManager.clearFocus()
-                            if (matches.isNotEmpty()) {
-                                onSelectMatch(currentMatchIndex.coerceIn(0, matches.size - 1))
-                            }
+                            onSubmitSearch()
                         }),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -319,6 +324,133 @@ fun InBookSearchBar(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun SearchResultsPill(
+    query: String,
+    currentMatchIndex: Int,
+    totalMatches: Int,
+    readerTheme: ReaderThemeMode,
+    isFullScreenModeEnabled: Boolean = false,
+    onPreviousMatch: () -> Unit,
+    onNextMatch: () -> Unit,
+    onReopenSearch: () -> Unit,
+    onClearResults: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val barBg = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
+        ReaderThemeMode.CREAM -> Color(0xFFFAF6EE)
+        ReaderThemeMode.SEPIA -> Color(0xFFF5EBD9)
+        ReaderThemeMode.NIGHT -> Color(0xFF1E2634)
+    }
+    val barBorder = when (readerTheme) {
+        ReaderThemeMode.WHITE -> Color(0x22000000)
+        ReaderThemeMode.CREAM -> Color(0x338C5E2D)
+        ReaderThemeMode.SEPIA -> Color(0x337C4F22)
+        ReaderThemeMode.NIGHT -> Color(0x33FFFFFF)
+    }
+    val textColor = readerTheme.textColor
+    val subtextColor = readerTheme.textSecondaryColor
+
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = barBg,
+        shadowElevation = 6.dp,
+        border = BorderStroke(1.dp, barBorder),
+        modifier = modifier
+            .then(if (isFullScreenModeEnabled) Modifier.padding(top = 10.dp) else Modifier.statusBarsPadding())
+            .padding(horizontal = 16.dp)
+            .height(44.dp)
+            .testTag("search_results_pill")
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(horizontal = 6.dp)
+        ) {
+            IconButton(
+                onClick = onPreviousMatch,
+                modifier = Modifier
+                    .size(36.dp)
+                    .testTag("search_pill_prev")
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowLeft,
+                    contentDescription = "Previous match",
+                    tint = textColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Text(
+                text = "${currentMatchIndex + 1} / $totalMatches",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = readerTheme.accentColor
+            )
+
+            IconButton(
+                onClick = onNextMatch,
+                modifier = Modifier
+                    .size(36.dp)
+                    .testTag("search_pill_next")
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowRight,
+                    contentDescription = "Next match",
+                    tint = textColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(20.dp)
+                    .background(barBorder)
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onReopenSearch() }
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Search,
+                    contentDescription = null,
+                    tint = subtextColor,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "\"$query\"",
+                    fontSize = 13.sp,
+                    color = textColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 140.dp)
+                )
+            }
+
+            IconButton(
+                onClick = onClearResults,
+                modifier = Modifier
+                    .size(36.dp)
+                    .testTag("search_pill_close")
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Clear,
+                    contentDescription = "Close search results",
+                    tint = subtextColor,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }

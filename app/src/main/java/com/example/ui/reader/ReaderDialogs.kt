@@ -1,11 +1,22 @@
 package com.example.ui.reader
 
 import android.app.Activity
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,15 +28,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
@@ -37,6 +56,7 @@ import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.StayCurrentLandscape
 import androidx.compose.material.icons.outlined.Swipe
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,7 +74,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,7 +110,6 @@ import androidx.compose.material.icons.outlined.ViewStream
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReaderThemeAppearanceDialog(
     currentTheme: ReaderThemeMode,
@@ -105,7 +126,23 @@ fun ReaderThemeAppearanceDialog(
     onToggleFullScreenMode: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
+    var sheetVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        sheetVisible = true
+    }
+
+    val handleDismiss: () -> Unit = {
+        sheetVisible = false
+        coroutineScope.launch {
+            delay(180)
+            onDismiss()
+        }
+    }
+
+    BackHandler(enabled = true, onBack = handleDismiss)
+
     var brightnessLevel by remember { mutableFloatStateOf(0.85f) }
     val accentColor = currentTheme.accentColor
 
@@ -140,85 +177,145 @@ fun ReaderThemeAppearanceDialog(
         uncheckedBorderColor = Color.Transparent
     )
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = sheetBg,
-        tonalElevation = 0.dp,
-        dragHandle = {
+    val scrimAlpha by animateFloatAsState(
+        targetValue = if (sheetVisible) 0.54f else 0f,
+        animationSpec = tween(180),
+        label = "scrimAlpha"
+    )
+
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(150f)
+    ) {
+        // Scrim background
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = scrimAlpha))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = handleDismiss
+                )
+        )
+
+        // Sliding Bottom Sheet
+        AnimatedVisibility(
+            visible = sheetVisible,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(240, easing = FastOutSlowInEasing)
+            ),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(180, easing = FastOutSlowInEasing)
+            )
+        ) {
             Surface(
                 modifier = Modifier
-                    .padding(vertical = 10.dp)
-                    .size(width = 36.dp, height = 4.dp),
-                shape = CircleShape,
-                color = textSecondary.copy(alpha = 0.35f)
-            ) {}
-        }
-    ) {
-        val sheetView = LocalView.current
-        val context = LocalContext.current
-        val activity = context as? Activity
-
-        LaunchedEffect(sheetView, isFullScreenModeEnabled, currentTheme) {
-            val sheetWindow = AppSettingsManager.findWindow(sheetView)
-            AppSettingsManager.applyWindowSystemBars(
-                window = sheetWindow,
-                isFullScreen = isFullScreenModeEnabled,
-                isDarkTheme = currentTheme.isDark
-            )
-            AppSettingsManager.applySystemBars(
-                activity = activity,
-                isFullScreen = isFullScreenModeEnabled,
-                isDarkTheme = currentTheme.isDark
-            )
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .then(if (isFullScreenModeEnabled) Modifier.padding(bottom = 16.dp) else Modifier.navigationBarsPadding())
-        ) {
-            // Header: Typography & Reading Style
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = accentColor.copy(alpha = 0.15f),
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = "Aa",
-                                fontFamily = FontFamily.Serif,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = accentColor
-                            )
+                    .fillMaxWidth()
+                    .widthIn(max = 640.dp)
+                    .offset { IntOffset(0, dragOffsetY.roundToInt().coerceAtLeast(0)) }
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {}
+                    .then(
+                        if (isFullScreenModeEnabled) {
+                            Modifier.padding(bottom = 12.dp)
+                        } else {
+                            Modifier.navigationBarsPadding()
                         }
+                    ),
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                color = sheetBg,
+                tonalElevation = 0.dp,
+                shadowElevation = 16.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 640.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp, vertical = 10.dp)
+                ) {
+                    // Drag handle
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .pointerInput(Unit) {
+                                detectVerticalDragGestures(
+                                    onVerticalDrag = { _, dragAmount ->
+                                        if (dragAmount > 0 || dragOffsetY > 0) {
+                                            dragOffsetY = (dragOffsetY + dragAmount).coerceAtLeast(0f)
+                                        }
+                                    },
+                                    onDragEnd = {
+                                        if (dragOffsetY > 120f) {
+                                            handleDismiss()
+                                        } else {
+                                            dragOffsetY = 0f
+                                        }
+                                    },
+                                    onDragCancel = {
+                                        dragOffsetY = 0f
+                                    }
+                                )
+                            }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(width = 38.dp, height = 4.dp),
+                            shape = CircleShape,
+                            color = textSecondary.copy(alpha = 0.35f)
+                        ) {}
                     }
 
-                    Text(
-                        text = "Display & Themes",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 0.3.sp
-                        ),
-                        color = textColor
-                    )
-                }
+                    // Header: Typography & Reading Style
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = accentColor.copy(alpha = 0.15f),
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "Aa",
+                                        fontFamily = FontFamily.Serif,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        color = accentColor
+                                    )
+                                }
+                            }
 
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(36.dp).testTag("theme_dialog_done")
-                ) {
+                            Text(
+                                text = "Display & Themes",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = 0.3.sp
+                                ),
+                                color = textColor
+                            )
+                        }
+
+                        IconButton(
+                            onClick = handleDismiss,
+                            modifier = Modifier.size(36.dp).testTag("theme_dialog_done")
+                        ) {
                     Icon(
                         imageVector = Icons.Outlined.Close,
                         contentDescription = "Close",
@@ -565,6 +662,8 @@ fun ReaderThemeAppearanceDialog(
             }
 
             Spacer(modifier = Modifier.height(28.dp))
+                }
+            }
         }
     }
 }
@@ -702,7 +801,6 @@ private fun FlipPillOption(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookmarksBottomSheet(
     bookmarkedPages: List<Int>,
@@ -714,7 +812,22 @@ fun BookmarksBottomSheet(
     onToggleBookmark: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState()
+    val coroutineScope = rememberCoroutineScope()
+    var sheetVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        sheetVisible = true
+    }
+
+    val handleDismiss: () -> Unit = {
+        sheetVisible = false
+        coroutineScope.launch {
+            delay(180)
+            onDismiss()
+        }
+    }
+
+    BackHandler(enabled = true, onBack = handleDismiss)
 
     val sheetBg = when (readerTheme) {
         ReaderThemeMode.WHITE -> Color(0xFFFFFFFF)
@@ -733,50 +846,108 @@ fun BookmarksBottomSheet(
     val textColor = readerTheme.textColor
     val textSecondary = readerTheme.textSecondaryColor
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = sheetBg,
-        tonalElevation = 0.dp,
-        dragHandle = {
+    val scrimAlpha by animateFloatAsState(
+        targetValue = if (sheetVisible) 0.54f else 0f,
+        animationSpec = tween(180),
+        label = "bookmarksScrimAlpha"
+    )
+
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(150f)
+    ) {
+        // Scrim background
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = scrimAlpha))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = handleDismiss
+                )
+        )
+
+        // Sliding Bottom Sheet
+        AnimatedVisibility(
+            visible = sheetVisible,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(240, easing = FastOutSlowInEasing)
+            ),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(180, easing = FastOutSlowInEasing)
+            )
+        ) {
             Surface(
                 modifier = Modifier
-                    .padding(vertical = 12.dp)
-                    .size(width = 36.dp, height = 4.dp),
-                shape = CircleShape,
-                color = textSecondary.copy(alpha = 0.4f)
-            ) {}
-        }
-    ) {
-        val sheetView = LocalView.current
-        val context = LocalContext.current
-        val activity = context as? Activity
-
-        LaunchedEffect(sheetView, isFullScreenModeEnabled, readerTheme) {
-            val sheetWindow = AppSettingsManager.findWindow(sheetView)
-            AppSettingsManager.applyWindowSystemBars(
-                window = sheetWindow,
-                isFullScreen = isFullScreenModeEnabled,
-                isDarkTheme = readerTheme.isDark
-            )
-            AppSettingsManager.applySystemBars(
-                activity = activity,
-                isFullScreen = isFullScreenModeEnabled,
-                isDarkTheme = readerTheme.isDark
-            )
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .then(if (isFullScreenModeEnabled) Modifier.padding(bottom = 16.dp) else Modifier.navigationBarsPadding())
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxWidth()
+                    .widthIn(max = 640.dp)
+                    .offset { IntOffset(0, dragOffsetY.roundToInt().coerceAtLeast(0)) }
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {}
+                    .then(
+                        if (isFullScreenModeEnabled) {
+                            Modifier.padding(bottom = 12.dp)
+                        } else {
+                            Modifier.navigationBarsPadding()
+                        }
+                    ),
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                color = sheetBg,
+                tonalElevation = 0.dp,
+                shadowElevation = 16.dp
             ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 10.dp)
+                ) {
+                    // Drag handle
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .pointerInput(Unit) {
+                                detectVerticalDragGestures(
+                                    onVerticalDrag = { _, dragAmount ->
+                                        if (dragAmount > 0 || dragOffsetY > 0) {
+                                            dragOffsetY = (dragOffsetY + dragAmount).coerceAtLeast(0f)
+                                        }
+                                    },
+                                    onDragEnd = {
+                                        if (dragOffsetY > 120f) {
+                                            handleDismiss()
+                                        } else {
+                                            dragOffsetY = 0f
+                                        }
+                                    },
+                                    onDragCancel = {
+                                        dragOffsetY = 0f
+                                    }
+                                )
+                            }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(width = 38.dp, height = 4.dp),
+                            shape = CircleShape,
+                            color = textSecondary.copy(alpha = 0.4f)
+                        ) {}
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                 Text(
                     text = "Saved Bookmarks",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -831,7 +1002,7 @@ fun BookmarksBottomSheet(
                         Card(
                             onClick = {
                                 onSelectPage(page)
-                                onDismiss()
+                                handleDismiss()
                             },
                             shape = RoundedCornerShape(14.dp),
                             colors = CardDefaults.cardColors(
@@ -892,6 +1063,8 @@ fun BookmarksBottomSheet(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+                }
+            }
         }
     }
 }
@@ -905,15 +1078,7 @@ fun JumpToPageDialog(
     onJump: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val dialogView = LocalView.current
-    LaunchedEffect(dialogView, isFullScreenModeEnabled, readerTheme) {
-        val dialogWindow = AppSettingsManager.findWindow(dialogView)
-        AppSettingsManager.applyWindowSystemBars(
-            window = dialogWindow,
-            isFullScreen = isFullScreenModeEnabled,
-            isDarkTheme = readerTheme.isDark
-        )
-    }
+    BackHandler(enabled = true, onBack = onDismiss)
 
     var selectedPage by remember { mutableFloatStateOf(currentPage.toFloat()) }
     val accentColor = readerTheme.accentColor
@@ -933,70 +1098,89 @@ fun JumpToPageDialog(
     val cardText = readerTheme.textColor
     val cardSubtext = readerTheme.textSecondaryColor
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+    Box(
         modifier = Modifier
-            .fillMaxWidth(0.92f)
-            .widthIn(max = 560.dp),
-        containerColor = cardBg,
-        tonalElevation = 0.dp,
-        shape = RoundedCornerShape(24.dp),
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = accentColor.copy(alpha = 0.15f),
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Outlined.MenuBook,
-                                contentDescription = null,
-                                tint = accentColor,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
+            .fillMaxSize()
+            .zIndex(150f),
+        contentAlignment = Alignment.Center
+    ) {
+        // Scrim
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.54f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
+        )
 
-                    Text(
-                        text = "Jump to Page",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.2.sp
-                        ),
-                        color = cardText
-                    )
-                }
-
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = "Close",
-                        tint = cardSubtext
-                    )
-                }
-            }
-        },
-        text = {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 520.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {},
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = cardBg),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(24.dp)
             ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = accentColor.copy(alpha = 0.15f),
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.MenuBook,
+                                    contentDescription = null,
+                                    tint = accentColor,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "Jump to Page",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.2.sp
+                            ),
+                            color = cardText
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Close",
+                            tint = cardSubtext
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // Page Number Showcase
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -1059,6 +1243,8 @@ fun JumpToPageDialog(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // Luxury Sleek Regulator Slider
                 LuminaLuxurySlider(
                     value = selectedPage,
@@ -1071,6 +1257,8 @@ fun JumpToPageDialog(
                         .fillMaxWidth()
                         .testTag("jump_page_slider")
                 )
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Quick Nudge Stepper Controls
                 Row(
@@ -1106,40 +1294,49 @@ fun JumpToPageDialog(
                         onClick = { selectedPage = totalPages.toFloat() }
                     )
                 }
-            }
-        },
-        confirmButton = {
-            Surface(
-                onClick = {
-                    onJump(selectedPage.toInt().coerceIn(1, totalPages))
-                    onDismiss()
-                },
-                shape = RoundedCornerShape(14.dp),
-                color = accentColor,
-                modifier = Modifier.testTag("jump_confirm_button")
-            ) {
-                Text(
-                    text = "Jump to Page",
-                    color = if (readerTheme.isDark) Color(0xFF161D28) else Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Text(
-                    text = "Cancel",
-                    color = cardSubtext,
-                    fontWeight = FontWeight.Medium
-                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(
+                            text = "Cancel",
+                            color = cardSubtext,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Surface(
+                        onClick = {
+                            onJump(selectedPage.toInt().coerceIn(1, totalPages))
+                            onDismiss()
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        color = accentColor,
+                        modifier = Modifier.testTag("jump_confirm_button")
+                    ) {
+                        Text(
+                            text = "Jump to Page",
+                            color = if (readerTheme.isDark) Color(0xFF161D28) else Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+                        )
+                    }
+                }
             }
         }
-    )
+    }
 }
 
 @Composable

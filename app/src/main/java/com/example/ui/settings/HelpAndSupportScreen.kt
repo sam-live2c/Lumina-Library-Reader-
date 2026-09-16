@@ -203,7 +203,7 @@ fun HelpAndSupportScreen(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "Back to Settings"
+                            contentDescription = "Back"
                         )
                     }
                 },

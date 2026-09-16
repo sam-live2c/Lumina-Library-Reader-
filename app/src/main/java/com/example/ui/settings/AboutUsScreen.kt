@@ -106,7 +106,7 @@ fun AboutUsScreen(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "Back to Settings"
+                            contentDescription = "Back"
                         )
                     }
                 },

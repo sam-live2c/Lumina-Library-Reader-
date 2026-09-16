@@ -3,6 +3,8 @@ package com.example.ui.settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -145,17 +147,35 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    remember(initialSubpage) {
+    val isDirectSubpage = remember(initialSubpage) {
+        initialSubpage != null && initialSubpage != SettingsSubpage.MAIN
+    }
+
+    LaunchedEffect(initialSubpage) {
         if (initialSubpage != null && initialSubpage != SettingsSubpage.MAIN) {
             viewModel.navigateTo(initialSubpage)
         }
-        true
+    }
+
+    val activeSubpage = if (isDirectSubpage && uiState.currentSubpage == SettingsSubpage.MAIN) {
+        initialSubpage ?: SettingsSubpage.MAIN
+    } else {
+        uiState.currentSubpage
+    }
+
+    val handleBack: () -> Unit = {
+        if (isDirectSubpage) {
+            viewModel.navigateTo(SettingsSubpage.MAIN)
+            onNavigateBack()
+        } else {
+            if (!viewModel.navigateBack()) {
+                onNavigateBack()
+            }
+        }
     }
 
     BackHandler {
-        if (!viewModel.navigateBack()) {
-            onNavigateBack()
-        }
+        handleBack()
     }
 
     LaunchedEffect(uiState.toastMessage) {
@@ -167,15 +187,9 @@ fun SettingsScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         AnimatedContent(
-            targetState = uiState.currentSubpage,
+            targetState = activeSubpage,
             transitionSpec = {
-                if (targetState != SettingsSubpage.MAIN) {
-                    (slideInHorizontally(tween(220)) { it } + fadeIn(tween(220)))
-                        .togetherWith(slideOutHorizontally(tween(200)) { -it / 3 } + fadeOut(tween(200)))
-                } else {
-                    (slideInHorizontally(tween(220)) { -it / 3 } + fadeIn(tween(220)))
-                        .togetherWith(slideOutHorizontally(tween(200)) { it } + fadeOut(tween(200)))
-                }
+                EnterTransition.None.togetherWith(ExitTransition.None)
             },
             label = "SettingsSubpageTransition"
         ) { subpage ->
@@ -202,27 +216,27 @@ fun SettingsScreen(
                 }
                 SettingsSubpage.PRIVACY_POLICY -> {
                     PrivacyPolicyScreen(
-                        onNavigateBack = { viewModel.navigateBack() }
+                        onNavigateBack = handleBack
                     )
                 }
                 SettingsSubpage.ABOUT_US -> {
                     AboutUsScreen(
-                        onNavigateBack = { viewModel.navigateBack() }
+                        onNavigateBack = handleBack
                     )
                 }
                 SettingsSubpage.TERMS_AND_CONDITIONS -> {
                     TermsAndConditionsScreen(
-                        onNavigateBack = { viewModel.navigateBack() }
+                        onNavigateBack = handleBack
                     )
                 }
                 SettingsSubpage.HOW_TO_USE -> {
                     HowToUseScreen(
-                        onNavigateBack = { viewModel.navigateBack() }
+                        onNavigateBack = handleBack
                     )
                 }
                 SettingsSubpage.HELP_AND_SUPPORT -> {
                     HelpAndSupportScreen(
-                        onNavigateBack = { viewModel.navigateBack() },
+                        onNavigateBack = handleBack,
                         onSubmitFeedback = { category, msg ->
                             viewModel.submitFeedback(category, msg) {}
                         },

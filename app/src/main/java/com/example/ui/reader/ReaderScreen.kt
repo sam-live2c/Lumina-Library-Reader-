@@ -241,8 +241,29 @@ fun ReaderScreen(
                 onQueryChange = { viewModel.updateSearchQuery(it) },
                 onNextMatch = { viewModel.nextSearchMatch() },
                 onPreviousMatch = { viewModel.previousSearchMatch() },
-                onSelectMatch = { viewModel.selectSearchMatch(it) },
+                onSelectMatch = { viewModel.selectSearchMatch(it, closeSearchBar = true) },
+                onSubmitSearch = { viewModel.submitSearch() },
                 onClose = { viewModel.closeSearch() }
+            )
+        }
+
+        // Floating Search Results Pill (After search is entered, search bar closes and user only sees search results)
+        AnimatedVisibility(
+            visible = !uiState.isSearchOpen && uiState.searchResults.isNotEmpty() && !uiState.isHudVisible && !uiState.isAnnotationMode,
+            enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(160)),
+            exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(140)),
+            modifier = Modifier.align(Alignment.TopCenter)
+        ) {
+            SearchResultsPill(
+                query = uiState.searchQuery,
+                currentMatchIndex = uiState.currentSearchMatchIndex,
+                totalMatches = uiState.searchResults.size,
+                readerTheme = uiState.readerTheme,
+                isFullScreenModeEnabled = uiState.isFullScreenModeEnabled,
+                onPreviousMatch = { viewModel.previousSearchMatch() },
+                onNextMatch = { viewModel.nextSearchMatch() },
+                onReopenSearch = { viewModel.openSearch() },
+                onClearResults = { viewModel.clearSearchResults() }
             )
         }
 
