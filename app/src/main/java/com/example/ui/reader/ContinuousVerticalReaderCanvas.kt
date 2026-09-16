@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -465,6 +466,7 @@ private fun VerticalPdfPageCard(
                             bitmap = imgBitmap,
                             contentDescription = "Page $pageNum of $totalPages",
                             contentScale = if (isSmartMarginFit) ContentScale.FillWidth else ContentScale.Fit,
+                            filterQuality = FilterQuality.High,
                             modifier = Modifier.fillMaxSize()
                         )
                     }

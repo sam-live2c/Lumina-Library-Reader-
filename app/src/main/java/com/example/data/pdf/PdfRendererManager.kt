@@ -133,18 +133,17 @@ class PdfRendererManager(private val context: Context) {
 
                 dimensionCache[cacheKey] = Pair(pageWidth, pageHeight)
 
-                // Preserve natural aspect ratio while scaling cleanly to fit high-DPI mobile screens
+                // High-DPI Retina scaling: preserve aspect ratio and render with razor-sharp vector clarity
                 val pageAspect = pageWidth.toFloat() / max(1, pageHeight).toFloat()
-                val scale = minOf(
-                    targetWidth.toFloat() / max(1, pageWidth).toFloat(),
-                    targetHeight.toFloat() / max(1, pageHeight).toFloat()
-                ).coerceIn(1.0f, 1.6f)
+                val widthScale = targetWidth.toFloat() / max(1, pageWidth).toFloat()
+                val heightScale = targetHeight.toFloat() / max(1, pageHeight).toFloat()
+                val scale = maxOf(widthScale, heightScale, 2.2f).coerceIn(2.0f, 3.2f)
 
                 var outWidth = (pageWidth * scale).toInt().coerceAtLeast(64)
                 var outHeight = (pageHeight * scale).toInt().coerceAtLeast(64)
 
-                // Cap maximum dimension to 1920px for crystal-clear text and ultra-fast ~30ms rendering
-                val maxDimension = 1920
+                // Cap maximum dimension to 2880px for pin-sharp text on Quad-HD and 4K displays
+                val maxDimension = 2880
                 if (outWidth > maxDimension || outHeight > maxDimension) {
                     if (outWidth >= outHeight) {
                         outWidth = maxDimension

@@ -42,6 +42,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -1398,7 +1399,8 @@ private fun DrawScope.drawPageBitmap(
             srcOffset = IntOffset.Zero,
             srcSize = IntSize(bitmap.width, bitmap.height),
             dstOffset = IntOffset(left.toInt(), top.toInt()),
-            dstSize = IntSize(targetW.toInt(), targetH.toInt())
+            dstSize = IntSize(targetW.toInt(), targetH.toInt()),
+            filterQuality = FilterQuality.High
         )
     } catch (_: Throwable) {}
 
