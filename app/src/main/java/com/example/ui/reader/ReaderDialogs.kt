@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,6 +32,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -218,19 +220,15 @@ fun ReaderThemeAppearanceDialog(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .fillMaxHeight()
                     .widthIn(max = 640.dp)
+                    .statusBarsPadding()
+                    .padding(top = if (isFullScreenModeEnabled) 20.dp else 8.dp)
                     .offset { IntOffset(0, dragOffsetY.roundToInt().coerceAtLeast(0)) }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
-                    ) {}
-                    .then(
-                        if (isFullScreenModeEnabled) {
-                            Modifier.padding(bottom = 12.dp)
-                        } else {
-                            Modifier.navigationBarsPadding()
-                        }
-                    ),
+                    ) {},
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
                 color = sheetBg,
                 tonalElevation = 0.dp,
@@ -238,9 +236,9 @@ fun ReaderThemeAppearanceDialog(
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 640.dp)
+                        .fillMaxSize()
                         .verticalScroll(rememberScrollState())
+                        .then(if (isFullScreenModeEnabled) Modifier else Modifier.navigationBarsPadding())
                         .padding(horizontal = 24.dp, vertical = 10.dp)
                 ) {
                     // Drag handle
@@ -887,19 +885,15 @@ fun BookmarksBottomSheet(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .fillMaxHeight()
                     .widthIn(max = 640.dp)
+                    .statusBarsPadding()
+                    .padding(top = if (isFullScreenModeEnabled) 20.dp else 8.dp)
                     .offset { IntOffset(0, dragOffsetY.roundToInt().coerceAtLeast(0)) }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
-                    ) {}
-                    .then(
-                        if (isFullScreenModeEnabled) {
-                            Modifier.padding(bottom = 12.dp)
-                        } else {
-                            Modifier.navigationBarsPadding()
-                        }
-                    ),
+                    ) {},
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
                 color = sheetBg,
                 tonalElevation = 0.dp,
@@ -907,7 +901,8 @@ fun BookmarksBottomSheet(
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
+                        .then(if (isFullScreenModeEnabled) Modifier else Modifier.navigationBarsPadding())
                         .padding(horizontal = 20.dp, vertical = 10.dp)
                 ) {
                     // Drag handle
@@ -967,19 +962,21 @@ fun BookmarksBottomSheet(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .weight(1f)
                         .padding(vertical = 36.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Bookmark,
                         contentDescription = null,
                         tint = LuminaAccentPrimary.copy(alpha = 0.4f),
-                        modifier = Modifier.size(44.dp)
+                        modifier = Modifier.size(48.dp)
                     )
+                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = "No bookmarks yet",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = textColor
                     )
                     Text(
@@ -987,14 +984,14 @@ fun BookmarksBottomSheet(
                         style = MaterialTheme.typography.bodySmall,
                         color = textSecondary.copy(alpha = 0.8f),
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 24.dp)
+                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp)
                     )
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 350.dp),
+                        .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(bookmarkedPages) { page ->
