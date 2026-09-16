@@ -6,9 +6,14 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Email
@@ -81,14 +87,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Intent
@@ -117,8 +130,17 @@ fun HelpAndSupportScreen(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     var searchQuery by remember { mutableStateOf("") }
+    var isSearchFocused by remember { mutableStateOf(false) }
+    var rootCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var searchFieldCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var expandedIndex by remember { mutableIntStateOf(0) }
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    BackHandler(enabled = isSearchFocused) {
+        focusManager.clearFocus(force = true)
+        keyboardController?.hide()
+    }
 
     LaunchedEffect(feedbackSuccessMessage) {
         feedbackSuccessMessage?.let {
@@ -214,7 +236,24 @@ fun HelpAndSupportScreen(
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
-        modifier = modifier.fillMaxSize()
+        modifier = modifier
+            .fillMaxSize()
+            .onGloballyPositioned { rootCoordinates = it }
+            .pointerInput(isSearchFocused) {
+                if (!isSearchFocused) return@pointerInput
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val root = rootCoordinates
+                    val search = searchFieldCoordinates
+                    if (root != null && search != null && root.isAttached && search.isAttached) {
+                        val searchBounds = root.localBoundingBoxOf(search)
+                        if (!searchBounds.contains(down.position)) {
+                            focusManager.clearFocus(force = true)
+                            keyboardController?.hide()
+                        }
+                    }
+                }
+            }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -315,16 +354,24 @@ fun HelpAndSupportScreen(
                     if (searchQuery.isNotBlank()) {
                         IconButton(onClick = { 
                             searchQuery = ""
-                            focusManager.clearFocus()
+                            focusManager.clearFocus(force = true)
+                            keyboardController?.hide()
                         }) {
                             Icon(
-                                imageVector = Icons.Outlined.CheckCircle,
+                                imageVector = Icons.Outlined.Close,
                                 contentDescription = "Clear",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = {
+                        focusManager.clearFocus(force = true)
+                        keyboardController?.hide()
+                    }
+                ),
                 singleLine = true,
                 shape = RoundedCornerShape(24.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -338,6 +385,8 @@ fun HelpAndSupportScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("help_search_field")
+                    .onFocusChanged { isSearchFocused = it.isFocused }
+                    .onGloballyPositioned { searchFieldCoordinates = it }
             )
 
             // Frequently Asked Questions

@@ -16,7 +16,11 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -115,16 +119,24 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Intent
@@ -254,14 +266,15 @@ fun SettingsScreen(
             exit = fadeOut(tween(160)) + slideOutVertically(tween(180)) { it / 2 },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .zIndex(9999f)
                 .navigationBarsPadding()
                 .padding(bottom = 28.dp)
         ) {
             Surface(
                 shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant,
-                shadowElevation = 6.dp,
-                tonalElevation = 4.dp,
+                shadowElevation = 0.dp,
+                tonalElevation = 0.dp,
                 modifier = Modifier
                     .padding(horizontal = 24.dp)
                     .testTag("settings_theme_toast")
@@ -304,15 +317,41 @@ private fun MainSettingsContent(
     var showSoundPickerSheet by remember { mutableStateOf(false) }
     var showSortPickerSheet by remember { mutableStateOf(false) }
     var settingsSearchQuery by remember { mutableStateOf("") }
+    var isSearchFocused by remember { mutableStateOf(false) }
+    var rootCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var searchFieldCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
 
+    BackHandler(enabled = isSearchFocused) {
+        focusManager.clearFocus(force = true)
+        keyboardController?.hide()
+    }
+
     Scaffold(
         contentWindowInsets = if (uiState.isFullScreenModeEnabled) WindowInsets(0, 0, 0, 0) else WindowInsets.statusBars,
         containerColor = MaterialTheme.colorScheme.background,
-        modifier = modifier.fillMaxSize()
+        modifier = modifier
+            .fillMaxSize()
+            .onGloballyPositioned { rootCoordinates = it }
+            .pointerInput(isSearchFocused) {
+                if (!isSearchFocused) return@pointerInput
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val root = rootCoordinates
+                    val search = searchFieldCoordinates
+                    if (root != null && search != null && root.isAttached && search.isAttached) {
+                        val searchBounds = root.localBoundingBoxOf(search)
+                        if (!searchBounds.contains(down.position)) {
+                            focusManager.clearFocus(force = true)
+                            keyboardController?.hide()
+                        }
+                    }
+                }
+            }
     ) { paddingValues ->
         LazyColumn(
             contentPadding = PaddingValues(
@@ -383,7 +422,8 @@ private fun MainSettingsContent(
                         if (settingsSearchQuery.isNotBlank()) {
                             IconButton(onClick = { 
                                 settingsSearchQuery = ""
-                                focusManager.clearFocus()
+                                focusManager.clearFocus(force = true)
+                                keyboardController?.hide()
                             }) {
                                 Icon(
                                     imageVector = Icons.Outlined.Close,
@@ -393,6 +433,13 @@ private fun MainSettingsContent(
                             }
                         }
                     },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            focusManager.clearFocus(force = true)
+                            keyboardController?.hide()
+                        }
+                    ),
                     shape = RoundedCornerShape(20.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color.Transparent,
@@ -406,6 +453,8 @@ private fun MainSettingsContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("settings_search_field")
+                        .onFocusChanged { isSearchFocused = it.isFocused }
+                        .onGloballyPositioned { searchFieldCoordinates = it }
                 )
             }
 
