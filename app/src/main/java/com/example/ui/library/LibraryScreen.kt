@@ -2218,7 +2218,7 @@ private fun BookListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 0.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
@@ -2352,14 +2352,14 @@ private fun BookListItem(
                 IconButton(
                     onClick = { showMenu = true },
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(42.dp)
                         .testTag("book_list_options_${book.id}")
                 ) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
                         contentDescription = "Options",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
