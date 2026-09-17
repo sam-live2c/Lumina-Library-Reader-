@@ -71,6 +71,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.History
@@ -505,6 +506,11 @@ fun LibraryScreen(
                                         keyboardController?.hide()
                                         viewModel.initiateCopyBook(book)
                                     },
+                                    onRename = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        viewModel.initiateRenameBook(book)
+                                    },
                                     onDelete = {
                                         focusManager.clearFocus()
                                         keyboardController?.hide()
@@ -594,6 +600,11 @@ fun LibraryScreen(
                                         focusManager.clearFocus()
                                         keyboardController?.hide()
                                         viewModel.initiateCopyBook(book)
+                                    },
+                                    onRename = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        viewModel.initiateRenameBook(book)
                                     },
                                     onDelete = {
                                         focusManager.clearFocus()
@@ -817,6 +828,17 @@ fun LibraryScreen(
                         }
                     }
                 }
+            }
+
+            // Rename PDF Confirmation Dialog
+            uiState.selectedBookToRename?.let { bookToRename ->
+                RenameBookDialog(
+                    book = bookToRename,
+                    onDismiss = { viewModel.cancelRenameBook() },
+                    onRename = { newTitle ->
+                        viewModel.executeRenameBook(newTitle)
+                    }
+                )
             }
 
             // Delete Confirmation Dialog
@@ -1756,6 +1778,7 @@ private fun BookCardItem(
     onTogglePin: () -> Unit,
     onAssignToList: () -> Unit,
     onRemoveFromCurrentFilter: (() -> Unit)? = null,
+    onRename: () -> Unit,
     onCopy: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -1911,6 +1934,27 @@ private fun BookCardItem(
                                 )
                             },
                             modifier = Modifier.testTag("menu_pin_card_${book.id}")
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "Rename PDF",
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onRename()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.Edit,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            modifier = Modifier.testTag("menu_rename_card_${book.id}")
                         )
                         DropdownMenuItem(
                             text = {
@@ -2091,6 +2135,7 @@ private fun BookListItem(
     onTogglePin: () -> Unit,
     onAssignToList: () -> Unit,
     onRemoveFromCurrentFilter: (() -> Unit)? = null,
+    onRename: () -> Unit,
     onCopy: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -2291,6 +2336,27 @@ private fun BookListItem(
                             )
                         },
                         modifier = Modifier.testTag("menu_pin_list_${book.id}")
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = "Rename PDF",
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onRename()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Edit,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        modifier = Modifier.testTag("menu_rename_list_${book.id}")
                     )
                     DropdownMenuItem(
                         text = {
@@ -2603,64 +2669,100 @@ private fun CreateCustomFilterDialog(
                 )
             }
 
-            // Books Selection Checklist
-            if (allBooks.isEmpty()) {
-                Text(
-                    text = "No books in library yet.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 240.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    items(filteredList, key = { it.id }) { book ->
-                        val isChecked = selectedIds.contains(book.id)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
-                                    if (isChecked) selectedIds.remove(book.id) else selectedIds.add(book.id)
-                                }
-                                .padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Checkbox(
-                                checked = isChecked,
-                                onCheckedChange = { checked ->
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
-                                    if (checked) selectedIds.add(book.id) else selectedIds.remove(book.id)
-                                },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = MaterialTheme.colorScheme.primary
+            // Books Selection Checklist - Preserves fixed height container so dialog does not shrink on empty state or filtered searches
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(230.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (allBooks.isEmpty()) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AutoStories,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Text(
+                            text = "No books in library yet",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                } else if (filteredList.isEmpty()) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Text(
+                            text = "No matching books found",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        items(filteredList, key = { it.id }) { book ->
+                            val isChecked = selectedIds.contains(book.id)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        if (isChecked) selectedIds.remove(book.id) else selectedIds.add(book.id)
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Checkbox(
+                                    checked = isChecked,
+                                    onCheckedChange = { checked ->
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        if (checked) selectedIds.add(book.id) else selectedIds.remove(book.id)
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = MaterialTheme.colorScheme.primary
+                                    )
                                 )
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = book.title,
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                if (!book.author.isNullOrBlank()) {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = book.author,
-                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        text = book.title,
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
+                                    if (!book.author.isNullOrBlank()) {
+                                        Text(
+                                            text = book.author,
+                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -2918,63 +3020,100 @@ private fun EditCustomFilterDialog(
                 )
             }
 
-            if (allBooks.isEmpty()) {
-                Text(
-                    text = "No books in library yet.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 240.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    items(filteredList, key = { it.id }) { book ->
-                        val isChecked = selectedIds.contains(book.id)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
-                                    if (isChecked) selectedIds.remove(book.id) else selectedIds.add(book.id)
-                                }
-                                .padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Checkbox(
-                                checked = isChecked,
-                                onCheckedChange = { checked ->
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
-                                    if (checked) selectedIds.add(book.id) else selectedIds.remove(book.id)
-                                },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = MaterialTheme.colorScheme.primary
+            // Books Selection Checklist - Preserves fixed height container so dialog does not shrink on empty state or filtered searches
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(230.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (allBooks.isEmpty()) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AutoStories,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Text(
+                            text = "No books in library yet",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                } else if (filteredList.isEmpty()) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Text(
+                            text = "No matching books found",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        items(filteredList, key = { it.id }) { book ->
+                            val isChecked = selectedIds.contains(book.id)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        if (isChecked) selectedIds.remove(book.id) else selectedIds.add(book.id)
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Checkbox(
+                                    checked = isChecked,
+                                    onCheckedChange = { checked ->
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        if (checked) selectedIds.add(book.id) else selectedIds.remove(book.id)
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = MaterialTheme.colorScheme.primary
+                                    )
                                 )
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = book.title,
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                if (!book.author.isNullOrBlank()) {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = book.author,
-                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        text = book.title,
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
+                                    if (!book.author.isNullOrBlank()) {
+                                        Text(
+                                            text = book.author,
+                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -3170,6 +3309,193 @@ private fun RenameCustomFilterDialog(
 }
 
 /**
+ * Rename Book / PDF Dialog
+ */
+@Composable
+private fun RenameBookDialog(
+    book: BookEntity,
+    onDismiss: () -> Unit,
+    onRename: (newName: String) -> Unit
+) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    var bookTitle by remember(book.id) { mutableStateOf(book.title) }
+    val focusRequester = remember { FocusRequester() }
+
+    var dialogCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var inputCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
+    LaunchedEffect(book.id) {
+        delay(100)
+        focusRequester.requestFocus()
+    }
+
+    StationaryDialog(
+        onDismissRequest = {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            onDismiss()
+        },
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .widthIn(max = 560.dp)
+            .onGloballyPositioned { dialogCoordinates = it }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                    val pos = down.position
+                    val dialog = dialogCoordinates
+                    val input = inputCoordinates
+                    var hitInput = false
+                    if (dialog != null && input != null && dialog.isAttached && input.isAttached) {
+                        val bounds = dialog.localBoundingBoxOf(input)
+                        if (bounds.contains(pos)) {
+                            hitInput = true
+                        }
+                    }
+                    if (!hitInput) {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
+                }
+            },
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                },
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Edit,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(26.dp)
+                )
+                Text(
+                    text = "Rename PDF",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Enter a new name for this PDF document. Reading progress, bookmarks, and annotations will be preserved.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                OutlinedTextField(
+                    value = bookTitle,
+                    onValueChange = { bookTitle = it },
+                    placeholder = {
+                        Text(
+                            text = "PDF Name / Title",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    },
+                    trailingIcon = {
+                        if (bookTitle.isNotEmpty()) {
+                            IconButton(
+                                onClick = { bookTitle = "" },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Clear",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        disabledBorderColor = Color.Transparent,
+                        errorBorderColor = Color.Transparent,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            if (bookTitle.isNotBlank()) {
+                                onRename(bookTitle.trim())
+                            }
+                        }
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned { inputCoordinates = it }
+                        .focusRequester(focusRequester)
+                        .testTag("rename_pdf_input")
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        onDismiss()
+                    },
+                    modifier = Modifier.testTag("cancel_rename_pdf_btn")
+                ) {
+                    Text("Cancel")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        if (bookTitle.isNotBlank()) {
+                            onRename(bookTitle.trim())
+                        }
+                    },
+                    enabled = bookTitle.isNotBlank() && bookTitle.trim() != book.title,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.testTag("confirm_rename_pdf_btn")
+                ) {
+                    Text("Rename")
+                }
+            }
+        }
+    }
+}
+
+/**
  * Assign Book to Custom Filter Lists Dialog
  */
 @Composable
@@ -3215,55 +3541,74 @@ private fun AssignBookToListDialog(
                 )
             }
 
-            if (customFilters.isEmpty()) {
-                Text(
-                    text = "No custom filter lists created yet. Create a list below to easily group and sort your books.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 240.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    items(customFilters, key = { it.id }) { filter ->
-                        val isAssigned = assignedFilterIds.contains(filter.id)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    if (isAssigned) assignedFilterIds.remove(filter.id) else assignedFilterIds.add(filter.id)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (customFilters.isEmpty()) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.PlaylistAdd,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Text(
+                            text = "No custom filter lists created yet.\nCreate a list below to group your books.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        items(customFilters, key = { it.id }) { filter ->
+                            val isAssigned = assignedFilterIds.contains(filter.id)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        if (isAssigned) assignedFilterIds.remove(filter.id) else assignedFilterIds.add(filter.id)
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Checkbox(
+                                    checked = isAssigned,
+                                    onCheckedChange = { checked ->
+                                        if (checked) assignedFilterIds.add(filter.id) else assignedFilterIds.remove(filter.id)
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = filter.name,
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "${filter.bookIds.size} books",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Checkbox(
-                                checked = isAssigned,
-                                onCheckedChange = { checked ->
-                                    if (checked) assignedFilterIds.add(filter.id) else assignedFilterIds.remove(filter.id)
-                                },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = MaterialTheme.colorScheme.primary
-                                )
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = filter.name,
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "${filter.bookIds.size} books",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
                             }
                         }
                     }

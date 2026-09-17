@@ -59,6 +59,7 @@ data class LibraryUiState(
     val importToastMessage: String? = null,
     val selectedBookToDelete: BookEntity? = null,
     val selectedBookToCopy: BookEntity? = null,
+    val selectedBookToRename: BookEntity? = null,
     val isCreateFilterDialogOpen: Boolean = false,
     val editingCustomFilter: CustomFilter? = null,
     val renamingCustomFilter: CustomFilter? = null,
@@ -94,6 +95,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val _importToastMessageState = MutableStateFlow<String?>(null)
     private val _bookToDeleteState = MutableStateFlow<BookEntity?>(null)
     private val _bookToCopyState = MutableStateFlow<BookEntity?>(null)
+    private val _bookToRenameState = MutableStateFlow<BookEntity?>(null)
     private val _isCreateFilterDialogOpenState = MutableStateFlow(false)
     private val _editingCustomFilterState = MutableStateFlow<CustomFilter?>(null)
     private val _renamingCustomFilterState = MutableStateFlow<CustomFilter?>(null)
@@ -251,7 +253,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         val renamingCustomFilter: CustomFilter?,
         val bookForListAssignment: BookEntity?,
         val bookToDelete: BookEntity?,
-        val bookToCopy: BookEntity?
+        val bookToCopy: BookEntity?,
+        val bookToRename: BookEntity?
     )
 
     private val _dialogsFlow = combine(
@@ -259,15 +262,16 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         _editingCustomFilterState,
         _renamingCustomFilterState,
         _bookForListAssignmentState,
-        combine(_bookToDeleteState, _bookToCopyState) { del, cpy -> Pair(del, cpy) }
-    ) { isCreateOpen, editFilter, renameFilter, bookForList, delAndCpy ->
+        combine(_bookToDeleteState, _bookToCopyState, _bookToRenameState) { del, cpy, ren -> Triple(del, cpy, ren) }
+    ) { isCreateOpen, editFilter, renameFilter, bookForList, delCpyRen ->
         DialogState(
             isCreateFilterDialogOpen = isCreateOpen,
             editingCustomFilter = editFilter,
             renamingCustomFilter = renameFilter,
             bookForListAssignment = bookForList,
-            bookToDelete = delAndCpy.first,
-            bookToCopy = delAndCpy.second
+            bookToDelete = delCpyRen.first,
+            bookToCopy = delCpyRen.second,
+            bookToRename = delCpyRen.third
         )
     }
 
@@ -312,6 +316,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             importToastMessage = importStatus.importToast,
             selectedBookToDelete = dialogs.bookToDelete,
             selectedBookToCopy = dialogs.bookToCopy,
+            selectedBookToRename = dialogs.bookToRename,
             isCreateFilterDialogOpen = dialogs.isCreateFilterDialogOpen,
             editingCustomFilter = dialogs.editingCustomFilter,
             renamingCustomFilter = dialogs.renamingCustomFilter,
@@ -683,6 +688,30 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 onCopied?.invoke(newId)
             }.onFailure { err ->
                 _importErrorState.value = "Failed to copy book: ${err.message}"
+            }
+        }
+    }
+
+    // Rename Book / PDF
+    fun initiateRenameBook(book: BookEntity) {
+        _bookToRenameState.value = book
+    }
+
+    fun cancelRenameBook() {
+        _bookToRenameState.value = null
+    }
+
+    fun executeRenameBook(newTitle: String) {
+        val book = _bookToRenameState.value ?: return
+        val trimmed = newTitle.trim()
+        if (trimmed.isBlank()) return
+        viewModelScope.launch {
+            val result = repository.renameBook(book.id, trimmed)
+            _bookToRenameState.value = null
+            result.onSuccess {
+                _importToastMessageState.value = "Renamed to \"$trimmed\""
+            }.onFailure { err ->
+                _importErrorState.value = "Failed to rename: ${err.message}"
             }
         }
     }

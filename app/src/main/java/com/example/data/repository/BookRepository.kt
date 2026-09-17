@@ -358,6 +358,44 @@ class BookRepository(
         }
     }
 
+    suspend fun renameBook(bookId: Long, newTitle: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val trimmedTitle = newTitle.trim()
+            if (trimmedTitle.isBlank()) {
+                return@withContext Result.failure(IllegalArgumentException("Title cannot be empty"))
+            }
+            val book = bookDao.getBookByIdSync(bookId)
+                ?: return@withContext Result.failure(Exception("Book not found"))
+
+            var updatedFilePath = book.filePath
+            try {
+                val oldFile = File(book.filePath)
+                if (oldFile.exists() && oldFile.parentFile != null) {
+                    val sanitized = trimmedTitle.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(60)
+                    val newFile = File(oldFile.parentFile, "${sanitized}_${book.id}.pdf")
+                    if (newFile.absolutePath != oldFile.absolutePath && !newFile.exists()) {
+                        if (oldFile.renameTo(newFile)) {
+                            updatedFilePath = newFile.absolutePath
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            bookDao.updateBook(
+                book.copy(
+                    title = trimmedTitle,
+                    filePath = updatedFilePath
+                )
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+
     suspend fun markBookOpened(bookId: Long, page: Int? = null, totalPages: Int? = null) = withContext(Dispatchers.IO) {
         val book = bookDao.getBookByIdSync(bookId) ?: return@withContext
         val newPage = page ?: book.currentPage
