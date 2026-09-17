@@ -154,7 +154,7 @@ fun AboutUsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.img_lumina_vector_logo),
+                        painter = painterResource(id = R.drawable.img_lumina_cushion_logo_1789631077889),
                         contentDescription = "Lumina Logo",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier

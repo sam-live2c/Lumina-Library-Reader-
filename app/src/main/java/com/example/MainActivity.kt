@@ -1,3 +1,4 @@
+// Lumina Physical Reader - Modern Android Application
 package com.example
 
 import android.app.Activity
