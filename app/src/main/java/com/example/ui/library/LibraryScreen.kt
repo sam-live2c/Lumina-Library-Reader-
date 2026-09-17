@@ -8,6 +8,8 @@ import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -53,6 +55,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -61,6 +64,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
@@ -1569,11 +1573,32 @@ private fun FilterChipsRow(
             val isSelected = chip.id == activeFilterId
             var showMenu by remember { mutableStateOf(false) }
 
+            val chipBgColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                animationSpec = tween(140),
+                label = "chipBg"
+            )
+            val chipContentColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                animationSpec = tween(140),
+                label = "chipContent"
+            )
+            val badgeBgColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                animationSpec = tween(140),
+                label = "badgeBg"
+            )
+            val badgeTextColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                animationSpec = tween(140),
+                label = "badgeText"
+            )
+
             Box {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    color = chipBgColor,
+                    contentColor = chipContentColor,
                     modifier = Modifier
                         .defaultMinSize(minHeight = 36.dp)
                         .clip(RoundedCornerShape(20.dp))
@@ -1601,16 +1626,16 @@ private fun FilterChipsRow(
                         Text(
                             text = chip.label,
                             style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                fontWeight = FontWeight.SemiBold
                             ),
                             maxLines = 1,
                             softWrap = false
                         )
-                        if (chip.count > 0 || isSelected) {
+                        if (chip.count > 0) {
                             Surface(
                                 shape = CircleShape,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = badgeBgColor,
+                                contentColor = badgeTextColor
                             ) {
                                 Text(
                                     text = "${chip.count}",
@@ -1712,7 +1737,7 @@ private fun FilterChipsRow(
                 Text(
                     text = "New List",
                     style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.SemiBold
                     ),
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,

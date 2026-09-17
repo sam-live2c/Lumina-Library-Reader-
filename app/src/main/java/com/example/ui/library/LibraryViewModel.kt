@@ -194,6 +194,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         val bookmarkedCount = books.count { it.getBookmarkPages().isNotEmpty() }
 
         val chips = mutableListOf<FilterChipItem>()
+        chips.add(FilterChipItem("ALL", "All", allCount))
         if (unreadCount > 0) {
             chips.add(FilterChipItem("UNREAD", "Unread", unreadCount))
         }

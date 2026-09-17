@@ -17,11 +17,21 @@ import java.io.FileOutputStream
 
 object SampleBooksGenerator {
 
+    data class BookCoverTheme(
+        val primaryColor: String = "#0E2442",
+        val spineColor: String = "#061224",
+        val blueAccentColor: String = "#60A5FA",
+        val whiteAccentColor: String = "#FFFFFF",
+        val titleTextColor: String = "#FFFFFF",
+        val subtitleTextColor: String = "#E0F2FE"
+    )
+
     data class SampleBookInfo(
         val title: String,
         val author: String,
         val fileName: String,
-        val pages: List<SamplePageContent>
+        val pages: List<SamplePageContent>,
+        val coverTheme: BookCoverTheme = BookCoverTheme()
     )
 
     data class SamplePageContent(
@@ -36,11 +46,11 @@ object SampleBooksGenerator {
         val booksDir = File(context.filesDir, "sample_books")
         if (!booksDir.exists()) booksDir.mkdirs()
 
-        val versionMarker = File(booksDir, ".clean_white_v1")
+        val versionMarker = File(booksDir, ".blue_white_book_v1")
         if (!versionMarker.exists()) {
-            // Remove legacy sample books to re-render them with clean white pristine layout
+            // Remove legacy sample books to re-render them with blue and white colors and book icon styling
             booksDir.listFiles()?.forEach { file ->
-                if (file.name.endsWith(".pdf") || file.name.startsWith(".serif") || file.name.startsWith(".clean")) {
+                if (file.name.endsWith(".pdf") || file.name.startsWith(".serif") || file.name.startsWith(".clean") || file.name.startsWith(".real")) {
                     file.delete()
                 }
             }
@@ -82,10 +92,7 @@ object SampleBooksGenerator {
         val coversDir = File(context.filesDir, "covers")
         if (coversDir.exists()) {
             coversDir.listFiles()?.forEach {
-                val n = it.name.lowercase()
-                if (n.contains("gatsby") || n.contains("alice") || n.contains("meditations")) {
-                    it.delete()
-                }
+                it.delete()
             }
         }
     }
@@ -121,16 +128,15 @@ object SampleBooksGenerator {
             val page = document.startPage(pageInfo)
             val canvas = page.canvas
 
-            // Background clean pristine white
-            val bgPaint = Paint().apply {
-                color = Color.parseColor("#FFFFFF")
-                style = Paint.Style.FILL
-            }
-            canvas.drawRect(0f, 0f, pageWidth.toFloat(), pageHeight.toFloat(), bgPaint)
-
             if (pageContent.isCover) {
                 renderCoverPage(canvas, pageWidth, pageHeight, book, serifBold, serifItalic)
             } else {
+                // Natural clean crisp reading paper background
+                val bgPaint = Paint().apply {
+                    color = Color.parseColor("#FAF7F0")
+                    style = Paint.Style.FILL
+                }
+                canvas.drawRect(0f, 0f, pageWidth.toFloat(), pageHeight.toFloat(), bgPaint)
                 renderTextPage(canvas, pageWidth, pageHeight, pageContent, index + 1, book.pages.size, margin, contentWidth, serifRegular, serifBold, serifItalic)
             }
 
@@ -149,6 +155,119 @@ object SampleBooksGenerator {
         }
     }
 
+    /**
+     * Draws the exact open book icon (matching Material AutoStories icon on the book cards thumbnail)
+     * in blue and white with graceful curvature, page lines, and spine binding.
+     */
+    private fun drawBookCoverIcon(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        size: Float,
+        whiteColor: Int,
+        blueColor: Int
+    ) {
+        val halfW = size * 0.52f
+        val halfH = size * 0.40f
+        val gap = size * 0.05f
+
+        val strokeWhite = Paint().apply {
+            color = whiteColor
+            strokeWidth = size * 0.065f
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+            isAntiAlias = true
+        }
+
+        val fillBlue = Paint().apply {
+            color = (blueColor and 0x00FFFFFF) or 0x40000000 // 25% translucent blue fill
+            style = Paint.Style.FILL
+            isAntiAlias = true
+        }
+
+        val strokeBlue = Paint().apply {
+            color = blueColor
+            strokeWidth = size * 0.045f
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+            isAntiAlias = true
+        }
+
+        // Left open page outline
+        val leftPath = android.graphics.Path().apply {
+            moveTo(cx - gap, cy + halfH * 0.85f)
+            cubicTo(
+                cx - halfW * 0.45f, cy + halfH * 0.65f,
+                cx - halfW * 0.80f, cy + halfH * 0.95f,
+                cx - halfW, cy + halfH * 0.75f
+            )
+            lineTo(cx - halfW, cy - halfH * 0.75f)
+            cubicTo(
+                cx - halfW * 0.80f, cy - halfH * 0.95f,
+                cx - halfW * 0.45f, cy - halfH * 0.65f,
+                cx - gap, cy - halfH * 0.85f
+            )
+            close()
+        }
+
+        // Right open page outline
+        val rightPath = android.graphics.Path().apply {
+            moveTo(cx + gap, cy + halfH * 0.85f)
+            cubicTo(
+                cx + halfW * 0.45f, cy + halfH * 0.65f,
+                cx + halfW * 0.80f, cy + halfH * 0.95f,
+                cx + halfW, cy + halfH * 0.75f
+            )
+            lineTo(cx + halfW, cy - halfH * 0.75f)
+            cubicTo(
+                cx + halfW * 0.80f, cy - halfH * 0.95f,
+                cx + halfW * 0.45f, cy - halfH * 0.65f,
+                cx + gap, cy - halfH * 0.85f
+            )
+            close()
+        }
+
+        // Fill pages with soft blue tint
+        canvas.drawPath(leftPath, fillBlue)
+        canvas.drawPath(rightPath, fillBlue)
+
+        // Draw page outlines in pure white
+        canvas.drawPath(leftPath, strokeWhite)
+        canvas.drawPath(rightPath, strokeWhite)
+
+        // Inner page lines in bright blue
+        val leftInnerPath = android.graphics.Path().apply {
+            moveTo(cx - gap - size * 0.10f, cy - halfH * 0.45f)
+            cubicTo(
+                cx - halfW * 0.42f, cy - halfH * 0.32f,
+                cx - halfW * 0.72f, cy - halfH * 0.55f,
+                cx - halfW * 0.85f, cy - halfH * 0.42f
+            )
+        }
+        val rightInnerPath = android.graphics.Path().apply {
+            moveTo(cx + gap + size * 0.10f, cy - halfH * 0.45f)
+            cubicTo(
+                cx + halfW * 0.42f, cy - halfH * 0.32f,
+                cx + halfW * 0.72f, cy - halfH * 0.55f,
+                cx + halfW * 0.85f, cy - halfH * 0.42f
+            )
+        }
+        canvas.drawPath(leftInnerPath, strokeBlue)
+        canvas.drawPath(rightInnerPath, strokeBlue)
+
+        // Central spine binding in white
+        val spinePaint = Paint().apply {
+            color = whiteColor
+            strokeWidth = size * 0.07f
+            strokeCap = Paint.Cap.ROUND
+            style = Paint.Style.STROKE
+            isAntiAlias = true
+        }
+        canvas.drawLine(cx, cy - halfH * 0.90f, cx, cy + halfH * 0.92f, spinePaint)
+    }
+
     private fun renderCoverPage(
         canvas: Canvas,
         width: Int,
@@ -157,33 +276,144 @@ object SampleBooksGenerator {
         serifBold: Typeface,
         serifItalic: Typeface
     ) {
-        val leftMargin = 48f
+        val theme = book.coverTheme
+        val primaryCol = Color.parseColor(theme.primaryColor)
+        val spineCol = Color.parseColor(theme.spineColor)
+        val blueCol = Color.parseColor(theme.blueAccentColor)
+        val whiteCol = Color.parseColor(theme.whiteAccentColor)
+        val titleCol = Color.parseColor(theme.titleTextColor)
+        val subCol = Color.parseColor(theme.subtitleTextColor)
 
-        // Luxury Crimson Ribbon Header
-        val ribbonPaint = Paint().apply {
-            color = Color.parseColor("#9E2A2B")
+        // 1. Rich Deep Hardcover Blue Gradient Background
+        val bgShader = android.graphics.LinearGradient(
+            0f, 0f, width.toFloat(), height.toFloat(),
+            intArrayOf(spineCol, primaryCol, primaryCol, spineCol),
+            floatArrayOf(0f, 0.25f, 0.85f, 1f),
+            android.graphics.Shader.TileMode.CLAMP
+        )
+        val bgPaint = Paint().apply {
+            shader = bgShader
             style = Paint.Style.FILL
         }
-        canvas.drawRect(30f, 30f, width - 30f, 48f, ribbonPaint)
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
 
-        // Publisher / Collection Tag
-        val collectionPaint = TextPaint().apply {
-            color = Color.parseColor("#8E877D")
+        // 2. Realistic Spine Crease Shadow along the left edge
+        val spineCreaseShader = android.graphics.LinearGradient(
+            0f, 0f, 38f, 0f,
+            intArrayOf(Color.parseColor("#77000000"), Color.parseColor("#22000000"), Color.TRANSPARENT),
+            floatArrayOf(0f, 0.6f, 1f),
+            android.graphics.Shader.TileMode.CLAMP
+        )
+        val spineCreasePaint = Paint().apply {
+            shader = spineCreaseShader
+            style = Paint.Style.FILL
+        }
+        canvas.drawRect(0f, 0f, 38f, height.toFloat(), spineCreasePaint)
+
+        // Spine Hinge Highlight in white
+        val spineHingePaint = Paint().apply {
+            color = Color.parseColor("#30FFFFFF")
+            strokeWidth = 1.5f
+            style = Paint.Style.STROKE
+        }
+        canvas.drawLine(38f, 0f, 38f, height.toFloat(), spineHingePaint)
+
+        // 3. Double-Line Blue & White Border Frame
+        val outerBorderInset = 28f
+        val innerBorderInset = 36f
+
+        val outerBorderPaint = Paint().apply {
+            color = whiteCol
+            strokeWidth = 2.5f
+            style = Paint.Style.STROKE
+            isAntiAlias = true
+        }
+        canvas.drawRect(outerBorderInset, outerBorderInset, width - outerBorderInset, height - outerBorderInset, outerBorderPaint)
+
+        val innerBorderPaint = Paint().apply {
+            color = blueCol
+            strokeWidth = 1.2f
+            style = Paint.Style.STROKE
+            isAntiAlias = true
+        }
+        canvas.drawRect(innerBorderInset, innerBorderInset, width - innerBorderInset, height - innerBorderInset, innerBorderPaint)
+
+        // Ornate Corner Diamonds in White & Blue
+        val cornerDiamondPaint = Paint().apply {
+            color = whiteCol
+            style = Paint.Style.FILL
+            isAntiAlias = true
+        }
+        val cornerBlueDotPaint = Paint().apply {
+            color = blueCol
+            style = Paint.Style.FILL
+            isAntiAlias = true
+        }
+        fun drawCornerDiamond(cx: Float, cy: Float, size: Float) {
+            val path = android.graphics.Path().apply {
+                moveTo(cx, cy - size)
+                lineTo(cx + size, cy)
+                lineTo(cx, cy + size)
+                lineTo(cx - size, cy)
+                close()
+            }
+            canvas.drawPath(path, cornerDiamondPaint)
+            canvas.drawCircle(cx, cy, size * 0.35f, cornerBlueDotPaint)
+        }
+        drawCornerDiamond(outerBorderInset, outerBorderInset, 5.5f)
+        drawCornerDiamond(width - outerBorderInset, outerBorderInset, 5.5f)
+        drawCornerDiamond(outerBorderInset, height - outerBorderInset, 5.5f)
+        drawCornerDiamond(width - outerBorderInset, height - outerBorderInset, 5.5f)
+
+        val contentLeft = 54f
+        val contentRight = width - 54f
+        val maxTitleWidth = (contentRight - contentLeft).toInt()
+
+        // 4. Header Badge: "✦ LUMINA LITERARY CLASSICS ✦" in White & Blue
+        val headerPaint = TextPaint().apply {
+            color = whiteCol
             textSize = 10.5f
             typeface = serifBold
             isAntiAlias = true
-            textAlign = Paint.Align.LEFT
-            letterSpacing = 0.12f
+            textAlign = Paint.Align.CENTER
+            letterSpacing = 0.16f
         }
-        canvas.drawText("LUMINA LITERARY CLASSICS", leftMargin, 85f, collectionPaint)
+        canvas.drawText("✦  LUMINA LITERARY CLASSICS  ✦", width / 2f, 78f, headerPaint)
 
-        // Ornate Title with dynamic multi-line wrapping so long titles never overflow or clip
-        val maxTitleWidth = (width - leftMargin * 2).toInt()
+        // Top Blue Divider
+        val topDividerPaint = Paint().apply {
+            color = blueCol
+            strokeWidth = 1.2f
+            style = Paint.Style.STROKE
+            isAntiAlias = true
+        }
+        canvas.drawLine(width / 2f - 95f, 92f, width / 2f + 95f, 92f, topDividerPaint)
+
+        // 5. Open Book Icon Emblem (matching the icon on the book cards thumbnail)
+        val iconCenterY = 142f
+        val iconSize = 48f
+        // Symmetrical accent wings beside the book icon
+        val iconWingPaint = Paint().apply {
+            color = blueCol
+            strokeWidth = 1f
+            style = Paint.Style.STROKE
+            isAntiAlias = true
+        }
+        canvas.drawLine(width / 2f - 90f, iconCenterY, width / 2f - 38f, iconCenterY, iconWingPaint)
+        canvas.drawLine(width / 2f + 38f, iconCenterY, width / 2f + 90f, iconCenterY, iconWingPaint)
+        drawCornerDiamond(width / 2f - 38f, iconCenterY, 3.5f)
+        drawCornerDiamond(width / 2f + 38f, iconCenterY, 3.5f)
+
+        drawBookCoverIcon(canvas, width / 2f, iconCenterY, iconSize, whiteCol, blueCol)
+
+        // 6. Ornate Embossed Pure White Title
         val titlePaint = TextPaint().apply {
-            color = Color.parseColor("#1C1A17")
-            textSize = if (book.title.length > 25) 24f else 28f
+            color = titleCol
+            textSize = if (book.title.length > 25) 26f else 30f
             typeface = serifBold
             isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+            setShadowLayer(4f, 1.5f, 2.5f, Color.parseColor("#AA000000"))
         }
 
         val titleLayout = StaticLayout.Builder.obtain(
@@ -192,46 +422,68 @@ object SampleBooksGenerator {
             book.title.length,
             titlePaint,
             maxTitleWidth
-        ).setAlignment(Layout.Alignment.ALIGN_NORMAL)
-         .setLineSpacing(4f, 1.15f)
+        ).setAlignment(Layout.Alignment.ALIGN_CENTER)
+         .setLineSpacing(5f, 1.15f)
          .build()
 
-        val titleY = height * 0.28f
+        val titleY = height * 0.33f
         canvas.save()
-        canvas.translate(leftMargin, titleY)
+        canvas.translate(width / 2f, titleY)
         titleLayout.draw(canvas)
         canvas.restore()
 
-        val afterTitleY = titleY + titleLayout.height + 16f
+        val afterTitleY = titleY + titleLayout.height + 22f
 
-        // Crimson accent line below title
-        val linePaint = Paint().apply {
-            color = Color.parseColor("#9E2A2B")
-            strokeWidth = 2.5f
+        // Center Blue & White Emblem / Flourish below Title
+        val dividerPaint = Paint().apply {
+            color = blueCol
+            strokeWidth = 1.8f
             style = Paint.Style.STROKE
+            isAntiAlias = true
         }
-        canvas.drawLine(leftMargin, afterTitleY, leftMargin + 120f, afterTitleY, linePaint)
+        canvas.drawLine(width / 2f - 80f, afterTitleY, width / 2f - 16f, afterTitleY, dividerPaint)
+        drawCornerDiamond(width / 2f, afterTitleY, 6f)
+        canvas.drawLine(width / 2f + 16f, afterTitleY, width / 2f + 80f, afterTitleY, dividerPaint)
 
-        // Author positioned dynamically below title
+        // 7. Author in Elegant Light Ice Blue Serif Italic
         val authorPaint = TextPaint().apply {
-            color = Color.parseColor("#5A524A")
-            textSize = 17f
+            color = subCol
+            textSize = 17.5f
             typeface = serifItalic
             isAntiAlias = true
-            textAlign = Paint.Align.LEFT
+            textAlign = Paint.Align.CENTER
+            setShadowLayer(2f, 1f, 1.5f, Color.parseColor("#88000000"))
         }
-        canvas.drawText("by ${book.author}", leftMargin, afterTitleY + 28f, authorPaint)
+        canvas.drawText("by ${book.author}", width / 2f, afterTitleY + 40f, authorPaint)
 
-        // Bottom edition tag
+        // 8. Bottom Collector Seal & Imprint in White & Blue
         val sealPaint = TextPaint().apply {
-            color = Color.parseColor("#A8A196")
-            textSize = 10.5f
+            color = whiteCol
+            textSize = 9.5f
             typeface = serifBold
             isAntiAlias = true
-            textAlign = Paint.Align.LEFT
-            letterSpacing = 0.08f
+            textAlign = Paint.Align.CENTER
+            letterSpacing = 0.14f
         }
-        canvas.drawText("COMPLETE & UNABRIDGED EDITION", leftMargin, height - 52f, sealPaint)
+        canvas.drawText("ARCHIVAL HARDCOVER EDITION", width / 2f, height - 76f, sealPaint)
+
+        val bottomDividerPaint = Paint().apply {
+            color = blueCol
+            strokeWidth = 1f
+            style = Paint.Style.STROKE
+            isAntiAlias = true
+        }
+        canvas.drawLine(width / 2f - 65f, height - 64f, width / 2f + 65f, height - 64f, bottomDividerPaint)
+
+        val imprintPaint = TextPaint().apply {
+            color = subCol
+            textSize = 8.5f
+            typeface = serifBold
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+            letterSpacing = 0.10f
+        }
+        canvas.drawText("COMPLETE & UNABRIDGED", width / 2f, height - 50f, imprintPaint)
     }
 
     private fun renderTextPage(
@@ -251,7 +503,7 @@ object SampleBooksGenerator {
 
         // Top Running Header: left-aligned section title, right-aligned page counter
         val headerPaint = TextPaint().apply {
-            color = Color.parseColor("#64748B")
+            color = Color.parseColor("#475569")
             textSize = 10f
             typeface = serifRegular
             isAntiAlias = true
@@ -260,7 +512,7 @@ object SampleBooksGenerator {
         canvas.drawText(pageContent.header.uppercase(), margin, currentY, headerPaint)
 
         val headerPagePaint = TextPaint().apply {
-            color = Color.parseColor("#64748B")
+            color = Color.parseColor("#475569")
             textSize = 10f
             typeface = serifRegular
             isAntiAlias = true
@@ -271,13 +523,13 @@ object SampleBooksGenerator {
         // Hairline rule under header
         currentY += 12f
         val rulePaint = Paint().apply {
-            color = Color.parseColor("#E2E8F0")
+            color = Color.parseColor("#CBD5E1")
             strokeWidth = 1f
         }
         canvas.drawLine(margin, currentY, width - margin, currentY, rulePaint)
         currentY += 24f
 
-        // Chapter Title if present (left-aligned with generous emphasis)
+        // Chapter Title if present
         if (!pageContent.chapterTitle.isNullOrBlank()) {
             val chapterPaint = TextPaint().apply {
                 color = Color.parseColor("#0F172A")
@@ -290,10 +542,10 @@ object SampleBooksGenerator {
             currentY += 26f
         }
 
-        // Quote Box if present
+        // Quote Box if present - Clean blue and white theme
         if (!pageContent.quote.isNullOrBlank()) {
             val quotePaint = TextPaint().apply {
-                color = Color.parseColor("#334155")
+                color = Color.parseColor("#1E293B")
                 textSize = 13.5f
                 typeface = serifItalic
                 isAntiAlias = true
@@ -307,7 +559,7 @@ object SampleBooksGenerator {
             ).setAlignment(Layout.Alignment.ALIGN_NORMAL).build()
 
             val quoteBg = Paint().apply {
-                color = Color.parseColor("#F8FAFC")
+                color = Color.parseColor("#F0F6FF")
                 style = Paint.Style.FILL
             }
             canvas.drawRect(margin, currentY - 6f, width - margin, currentY + quoteLayout.height + 14f, quoteBg)
@@ -328,7 +580,7 @@ object SampleBooksGenerator {
 
         // Paragraphs
         val bodyPaint = TextPaint().apply {
-            color = Color.parseColor("#0F172A")
+            color = Color.parseColor("#1E293B")
             textSize = 14f
             typeface = serifRegular
             isAntiAlias = true
@@ -353,23 +605,22 @@ object SampleBooksGenerator {
             currentY += layout.height + 18f
         }
 
-        // Bottom Footer: adjusted component positions, subtly shifted to left side, careful with book names
+        // Bottom Footer
         val footerRulePaint = Paint().apply {
-            color = Color.parseColor("#E2E8F0")
+            color = Color.parseColor("#CBD5E1")
             strokeWidth = 0.8f
         }
         val footerY = height - 34f
         canvas.drawLine(margin - 4f, footerY - 14f, width - margin, footerY - 14f, footerRulePaint)
 
         val footerPaint = TextPaint().apply {
-            color = Color.parseColor("#64748B")
+            color = Color.parseColor("#475569")
             textSize = 9.5f
             typeface = serifRegular
             isAntiAlias = true
             textAlign = Paint.Align.LEFT
         }
 
-        // Careful with book names: format title cleanly with ellipsis if long
         val rawTitle = pageContent.header
         val maxTitleWidth = (width - margin * 2) * 0.62f
         val displayTitle = if (footerPaint.measureText(rawTitle) > maxTitleWidth) {
@@ -379,11 +630,10 @@ object SampleBooksGenerator {
             rawTitle
         }
 
-        // Asymmetrical / left-shifted layout: book name shifted to margin - 4f
         canvas.drawText(displayTitle, margin - 4f, footerY, footerPaint)
 
         val footerPagePaint = TextPaint().apply {
-            color = Color.parseColor("#64748B")
+            color = Color.parseColor("#475569")
             textSize = 9.5f
             typeface = serifRegular
             isAntiAlias = true
@@ -397,6 +647,14 @@ object SampleBooksGenerator {
             title = "The Great Gatsby",
             author = "F. Scott Fitzgerald",
             fileName = "the_great_gatsby.pdf",
+            coverTheme = BookCoverTheme(
+                primaryColor = "#0D253F", // Midnight Jazz Navy Cloth
+                spineColor = "#071424",
+                blueAccentColor = "#60A5FA",
+                whiteAccentColor = "#FFFFFF",
+                titleTextColor = "#FFFFFF",
+                subtitleTextColor = "#E0F2FE"
+            ),
             pages = listOf(
                 SamplePageContent("The Great Gatsby", null, emptyList(), isCover = true),
                 SamplePageContent(
@@ -460,6 +718,14 @@ object SampleBooksGenerator {
             title = "Alice's Adventures in Wonderland",
             author = "Lewis Carroll",
             fileName = "alice_in_wonderland.pdf",
+            coverTheme = BookCoverTheme(
+                primaryColor = "#132D52", // Wonderland Royal Cobalt Cloth
+                spineColor = "#09172B",
+                blueAccentColor = "#38BDF8",
+                whiteAccentColor = "#FFFFFF",
+                titleTextColor = "#FFFFFF",
+                subtitleTextColor = "#E0F2FE"
+            ),
             pages = listOf(
                 SamplePageContent("Alice's Adventures in Wonderland", null, emptyList(), isCover = true),
                 SamplePageContent(
@@ -512,6 +778,14 @@ object SampleBooksGenerator {
             title = "Meditations",
             author = "Marcus Aurelius",
             fileName = "meditations_marcus_aurelius.pdf",
+            coverTheme = BookCoverTheme(
+                primaryColor = "#0F2847", // Stoic Imperial Sapphire
+                spineColor = "#081527",
+                blueAccentColor = "#60A5FA",
+                whiteAccentColor = "#FFFFFF",
+                titleTextColor = "#FFFFFF",
+                subtitleTextColor = "#E0F2FE"
+            ),
             pages = listOf(
                 SamplePageContent("Meditations", null, emptyList(), isCover = true),
                 SamplePageContent(
@@ -564,6 +838,14 @@ object SampleBooksGenerator {
             title = "Frankenstein",
             author = "Mary Shelley",
             fileName = "frankenstein_mary_shelley.pdf",
+            coverTheme = BookCoverTheme(
+                primaryColor = "#112239", // Gothic Arctic Midnight Cloth
+                spineColor = "#09121F",
+                blueAccentColor = "#38BDF8",
+                whiteAccentColor = "#FFFFFF",
+                titleTextColor = "#FFFFFF",
+                subtitleTextColor = "#E0F2FE"
+            ),
             pages = listOf(
                 SamplePageContent("Frankenstein", null, emptyList(), isCover = true),
                 SamplePageContent(
@@ -617,6 +899,14 @@ object SampleBooksGenerator {
             title = "Pride and Prejudice",
             author = "Jane Austen",
             fileName = "pride_and_prejudice_austen.pdf",
+            coverTheme = BookCoverTheme(
+                primaryColor = "#142B55", // Regency Oxford Blue Cloth
+                spineColor = "#0A172F",
+                blueAccentColor = "#60A5FA",
+                whiteAccentColor = "#FFFFFF",
+                titleTextColor = "#FFFFFF",
+                subtitleTextColor = "#E0F2FE"
+            ),
             pages = listOf(
                 SamplePageContent("Pride and Prejudice", null, emptyList(), isCover = true),
                 SamplePageContent(
@@ -669,6 +959,14 @@ object SampleBooksGenerator {
             title = "The Picture of Dorian Gray",
             author = "Oscar Wilde",
             fileName = "picture_of_dorian_gray_wilde.pdf",
+            coverTheme = BookCoverTheme(
+                primaryColor = "#172346", // Decadent Deep Indigo Velvet
+                spineColor = "#0B1224",
+                blueAccentColor = "#38BDF8",
+                whiteAccentColor = "#FFFFFF",
+                titleTextColor = "#FFFFFF",
+                subtitleTextColor = "#E0F2FE"
+            ),
             pages = listOf(
                 SamplePageContent("The Picture of Dorian Gray", null, emptyList(), isCover = true),
                 SamplePageContent(
@@ -710,6 +1008,14 @@ object SampleBooksGenerator {
             title = "Dracula",
             author = "Bram Stoker",
             fileName = "dracula_bram_stoker.pdf",
+            coverTheme = BookCoverTheme(
+                primaryColor = "#0C1F38", // Transylvanian Midnight Abyssal Blue
+                spineColor = "#060F1C",
+                blueAccentColor = "#60A5FA",
+                whiteAccentColor = "#FFFFFF",
+                titleTextColor = "#FFFFFF",
+                subtitleTextColor = "#E0F2FE"
+            ),
             pages = listOf(
                 SamplePageContent("Dracula", null, emptyList(), isCover = true),
                 SamplePageContent(
@@ -750,6 +1056,14 @@ object SampleBooksGenerator {
             title = "The Time Machine",
             author = "H. G. Wells",
             fileName = "the_time_machine_wells.pdf",
+            coverTheme = BookCoverTheme(
+                primaryColor = "#102E4E", // Chrono Steampunk Navy
+                spineColor = "#081829",
+                blueAccentColor = "#38BDF8",
+                whiteAccentColor = "#FFFFFF",
+                titleTextColor = "#FFFFFF",
+                subtitleTextColor = "#E0F2FE"
+            ),
             pages = listOf(
                 SamplePageContent("The Time Machine", null, emptyList(), isCover = true),
                 SamplePageContent(
@@ -789,6 +1103,14 @@ object SampleBooksGenerator {
             title = "The Metamorphosis",
             author = "Franz Kafka",
             fileName = "the_metamorphosis_kafka.pdf",
+            coverTheme = BookCoverTheme(
+                primaryColor = "#152C4B", // Modernist Prussian Deep Blue Cloth
+                spineColor = "#0B1728",
+                blueAccentColor = "#60A5FA",
+                whiteAccentColor = "#FFFFFF",
+                titleTextColor = "#FFFFFF",
+                subtitleTextColor = "#E0F2FE"
+            ),
             pages = listOf(
                 SamplePageContent("The Metamorphosis", null, emptyList(), isCover = true),
                 SamplePageContent(
@@ -830,6 +1152,14 @@ object SampleBooksGenerator {
             title = "The Adventures of Sherlock Holmes",
             author = "Arthur Conan Doyle",
             fileName = "sherlock_holmes_doyle.pdf",
+            coverTheme = BookCoverTheme(
+                primaryColor = "#0E294A", // Baker Street Navy Blue Cloth
+                spineColor = "#071629",
+                blueAccentColor = "#38BDF8",
+                whiteAccentColor = "#FFFFFF",
+                titleTextColor = "#FFFFFF",
+                subtitleTextColor = "#E0F2FE"
+            ),
             pages = listOf(
                 SamplePageContent("The Adventures of Sherlock Holmes", null, emptyList(), isCover = true),
                 SamplePageContent(
@@ -883,6 +1213,14 @@ object SampleBooksGenerator {
             title = "Moby Dick",
             author = "Herman Melville",
             fileName = "moby_dick_melville.pdf",
+            coverTheme = BookCoverTheme(
+                primaryColor = "#081E3B", // Oceanic Deep Abyssal Navy Cloth
+                spineColor = "#040F20",
+                blueAccentColor = "#60A5FA",
+                whiteAccentColor = "#FFFFFF",
+                titleTextColor = "#FFFFFF",
+                subtitleTextColor = "#E0F2FE"
+            ),
             pages = listOf(
                 SamplePageContent("Moby Dick", null, emptyList(), isCover = true),
                 SamplePageContent(
@@ -922,6 +1260,14 @@ object SampleBooksGenerator {
             title = "A Tale of Two Cities",
             author = "Charles Dickens",
             fileName = "a_tale_of_two_cities_dickens.pdf",
+            coverTheme = BookCoverTheme(
+                primaryColor = "#112648", // Revolutionary Cobalt French Navy Cloth
+                spineColor = "#081325",
+                blueAccentColor = "#38BDF8",
+                whiteAccentColor = "#FFFFFF",
+                titleTextColor = "#FFFFFF",
+                subtitleTextColor = "#E0F2FE"
+            ),
             pages = listOf(
                 SamplePageContent("A Tale of Two Cities", null, emptyList(), isCover = true),
                 SamplePageContent(
@@ -960,6 +1306,14 @@ object SampleBooksGenerator {
             title = "The Art of War",
             author = "Sun Tzu",
             fileName = "the_art_of_war_sun_tzu.pdf",
+            coverTheme = BookCoverTheme(
+                primaryColor = "#0B2240", // Ancient Imperial Deep Indigo Blue
+                spineColor = "#051121",
+                blueAccentColor = "#60A5FA",
+                whiteAccentColor = "#FFFFFF",
+                titleTextColor = "#FFFFFF",
+                subtitleTextColor = "#E0F2FE"
+            ),
             pages = listOf(
                 SamplePageContent("The Art of War", null, emptyList(), isCover = true),
                 SamplePageContent(

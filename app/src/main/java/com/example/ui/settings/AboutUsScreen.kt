@@ -134,32 +134,27 @@ fun AboutUsScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             ) {
-                // Circular Emblem Badge Logo
+                // Monogram Emblem
                 Box(
                     modifier = Modifier
-                        .size(96.dp)
-                        .shadow(
-                            elevation = 14.dp,
-                            shape = CircleShape,
-                            ambientColor = Color(0xFF1E3A8A).copy(alpha = 0.45f),
-                            spotColor = LuminaAccentPrimary.copy(alpha = 0.50f)
-                        )
-                        .clip(CircleShape)
-                        .background(Color(0xFF0F172A))
+                        .size(88.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color(0xFF000000))
                         .border(
-                            width = 1.5.dp,
-                            color = Color(0xFFE2B755).copy(alpha = 0.6f),
-                            shape = CircleShape
-                        ),
+                            width = 1.dp,
+                            color = Color(0xFF2563EB).copy(alpha = 0.4f),
+                            shape = RoundedCornerShape(24.dp)
+                        )
+                        .shadow(12.dp, RoundedCornerShape(24.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.img_lumina_cushion_logo_1789631077889),
+                        painter = painterResource(id = R.drawable.ic_lumina_app_icon),
                         contentDescription = "Lumina Logo",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxSize()
-                            .clip(CircleShape)
+                            .clip(RoundedCornerShape(24.dp))
                     )
                 }
 

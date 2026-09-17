@@ -41,7 +41,7 @@ class BookRepository(
     suspend fun initializeDefaultsIfNeeded() = withContext(Dispatchers.IO) {
         try {
             val sampleBooksDir = File(context.filesDir, "sample_books")
-            val versionMarker = File(sampleBooksDir, ".serif_v8")
+            val versionMarker = File(sampleBooksDir, ".blue_white_book_v1")
             val needsRefresh = !versionMarker.exists()
             val count = bookDao.getBookCount()
 

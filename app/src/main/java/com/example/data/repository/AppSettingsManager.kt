@@ -110,6 +110,7 @@ object AppSettingsManager {
         val block = Runnable {
             try {
                 WindowCompat.setDecorFitsSystemWindows(window, false)
+                window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     window.attributes = window.attributes.apply {
                         layoutInDisplayCutoutMode =
@@ -121,11 +122,6 @@ object AppSettingsManager {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     window.isNavigationBarContrastEnforced = false
                     window.isStatusBarContrastEnforced = false
-                }
-                if (isFullScreen) {
-                    window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
-                } else {
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
                 }
                 val insetsController = WindowCompat.getInsetsController(window, window.decorView)
                 insetsController.isAppearanceLightStatusBars = !isDarkTheme

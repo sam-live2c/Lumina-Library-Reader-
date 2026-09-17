@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -65,29 +64,29 @@ fun SplashScreen(
             // Authentic App Logo itself as configured for launcher and identity
             Box(
                 modifier = Modifier
-                    .size(104.dp)
+                    .size(96.dp)
                     .shadow(
                         elevation = 16.dp,
-                        shape = CircleShape,
-                        ambientColor = Color(0xFF1E3A8A).copy(alpha = 0.45f),
-                        spotColor = LuminaAccentPrimary.copy(alpha = 0.50f)
+                        shape = RoundedCornerShape(24.dp),
+                        ambientColor = LuminaAccentPrimary.copy(alpha = 0.35f),
+                        spotColor = LuminaAccentPrimary.copy(alpha = 0.45f)
                     )
-                    .clip(CircleShape)
-                    .background(Color(0xFF0F172A))
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFF000000))
                     .border(
-                        width = 1.5.dp,
-                        color = Color(0xFFE2B755).copy(alpha = 0.6f),
-                        shape = CircleShape
+                        width = 1.dp,
+                        color = Color(0xFF2563EB).copy(alpha = 0.4f),
+                        shape = RoundedCornerShape(24.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.img_lumina_cushion_logo_1789631077889),
+                    painter = painterResource(id = R.drawable.ic_lumina_app_icon),
                     contentDescription = "Lumina App Logo",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(CircleShape)
+                        .clip(RoundedCornerShape(24.dp))
                 )
             }
 
