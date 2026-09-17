@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.layout.layout
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -139,6 +140,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -167,6 +169,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -1160,8 +1163,16 @@ private fun LibraryHeader(
     onOpenSettings: () -> Unit,
     onOpenHelpAndSupport: () -> Unit
 ) {
+    val coroutineScope = rememberCoroutineScope()
     var showMenu by remember { mutableStateOf(false) }
     var showSortPopup by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            showMenu = false
+            showSortPopup = false
+        }
+    }
 
     Row(
         modifier = Modifier
@@ -1211,6 +1222,11 @@ private fun LibraryHeader(
             DropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false },
+                properties = PopupProperties(
+                    focusable = true,
+                    dismissOnBackPress = true,
+                    dismissOnClickOutside = true
+                ),
                 shape = RoundedCornerShape(16.dp),
                 containerColor = MaterialTheme.colorScheme.surface,
                 shadowElevation = 0.dp,
@@ -1278,7 +1294,10 @@ private fun LibraryHeader(
                     text = { Text("Settings", fontWeight = FontWeight.Medium) },
                     onClick = {
                         showMenu = false
-                        onOpenSettings()
+                        coroutineScope.launch {
+                            delay(20)
+                            onOpenSettings()
+                        }
                     },
                     leadingIcon = {
                         Icon(
@@ -1295,7 +1314,10 @@ private fun LibraryHeader(
                     text = { Text("Help & Support", fontWeight = FontWeight.Medium) },
                     onClick = {
                         showMenu = false
-                        onOpenHelpAndSupport()
+                        coroutineScope.launch {
+                            delay(20)
+                            onOpenHelpAndSupport()
+                        }
                     },
                     leadingIcon = {
                         Icon(
