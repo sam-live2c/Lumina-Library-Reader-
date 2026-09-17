@@ -213,6 +213,8 @@ private fun StationaryDialog(
         val focusManager = LocalFocusManager.current
         val keyboardController = LocalSoftwareKeyboardController.current
 
+        AppSettingsManager.SyncDialogSystemBars()
+
         fun applyStationaryFlags(win: Window?) {
             win?.let { w ->
                 w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
@@ -222,6 +224,11 @@ private fun StationaryDialog(
                 w.setLayout(
                     WindowManager.LayoutParams.MATCH_PARENT,
                     WindowManager.LayoutParams.MATCH_PARENT
+                )
+                AppSettingsManager.applyWindowSystemBars(
+                    w,
+                    AppSettingsManager.isFullScreenModeEnabled.value,
+                    AppSettingsManager.currentAppTheme.value.isDark
                 )
             }
         }

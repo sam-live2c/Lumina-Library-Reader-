@@ -9,12 +9,18 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.ViewParent
+import android.view.ViewTreeObserver
 import android.view.Window
 import android.view.WindowManager
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.theme.ReaderThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -173,6 +179,40 @@ object AppSettingsManager {
             ctx = ctx.baseContext
         }
         return currentActivity?.get()?.window
+    }
+
+    @Composable
+    fun SyncDialogSystemBars() {
+        val view = LocalView.current
+        val isFullScreen by isFullScreenModeEnabled.collectAsStateWithLifecycle()
+        val currentTheme by currentAppTheme.collectAsStateWithLifecycle()
+
+        DisposableEffect(view, isFullScreen, currentTheme) {
+            var dialogWindow = findWindow(view)
+            fun apply() {
+                if (dialogWindow == null) {
+                    dialogWindow = findWindow(view)
+                }
+                dialogWindow?.let { win ->
+                    applyWindowSystemBars(win, isFullScreen, currentTheme.isDark)
+                }
+            }
+            apply()
+            val layoutListener = ViewTreeObserver.OnGlobalLayoutListener { apply() }
+            val focusListener = ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
+                if (hasFocus) apply()
+            }
+            dialogWindow?.decorView?.viewTreeObserver?.addOnGlobalLayoutListener(layoutListener)
+            dialogWindow?.decorView?.viewTreeObserver?.addOnWindowFocusChangeListener(focusListener)
+            view.post { apply() }
+
+            onDispose {
+                try {
+                    dialogWindow?.decorView?.viewTreeObserver?.removeOnGlobalLayoutListener(layoutListener)
+                    dialogWindow?.decorView?.viewTreeObserver?.removeOnWindowFocusChangeListener(focusListener)
+                } catch (_: Throwable) {}
+            }
+        }
     }
 }
 

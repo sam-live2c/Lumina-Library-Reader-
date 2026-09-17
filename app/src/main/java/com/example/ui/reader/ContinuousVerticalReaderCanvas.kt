@@ -449,7 +449,7 @@ private fun VerticalPdfPageCard(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(if (readerTheme.isDark) Color(0xFF252220) else Color(0xFFF9F7F3)),
+                        .background(if (readerTheme.isDark) Color(0xFF252220) else Color(0xFFFFFFFF)),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
@@ -473,40 +473,44 @@ private fun VerticalPdfPageCard(
                 }
             }
 
-            // Real Book Page Spine Shadow (Left gutter)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                Color(0x16000000),
-                                Color(0x08000000),
-                                Color.Transparent
-                            ),
-                            startX = 0f,
-                            endX = 40f
+            // Real Book Page Spine Shadow (Left gutter) - rendered for antique paper styles
+            if (readerTheme != ReaderThemeMode.WHITE) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .fillMaxSize()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    readerTheme.spineShadowColor,
+                                    readerTheme.spineShadowColor.copy(alpha = readerTheme.spineShadowColor.alpha * 0.5f),
+                                    Color.Transparent
+                                ),
+                                startX = 0f,
+                                endX = 40f
+                            )
                         )
-                    )
-            )
+                )
+            }
 
-            // Real Book Page Outer Edge Shadow (Right edge)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color(0x0C000000)
-                            ),
-                            startX = 200f,
-                            endX = 240f
+            // Real Book Page Outer Edge Shadow (Right edge) - rendered for antique paper styles
+            if (readerTheme != ReaderThemeMode.WHITE) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxSize()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color(0x0C000000)
+                                ),
+                                startX = 200f,
+                                endX = 240f
+                            )
                         )
-                    )
-            )
+                )
+            }
 
             // In-Page Interactive Annotation Canvas
             if (isCurrentPage && isAnnotationsVisible) {

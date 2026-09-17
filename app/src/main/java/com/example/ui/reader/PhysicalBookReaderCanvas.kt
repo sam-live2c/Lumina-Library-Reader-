@@ -1437,6 +1437,7 @@ private fun DrawScope.drawBookSpineGutter(width: Float, height: Float, theme: Re
  * Draws subtle page edge thickness shadow on right edge to give paper depth
  */
 private fun DrawScope.drawBookEdgeShadow(metrics: PageLayoutMetrics, theme: ReaderThemeMode) {
+    if (theme == ReaderThemeMode.WHITE) return
     val edgeWidth = minOf(16f, metrics.width * 0.035f)
     drawRect(
         brush = Brush.horizontalGradient(

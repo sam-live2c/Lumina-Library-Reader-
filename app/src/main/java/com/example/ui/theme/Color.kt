@@ -50,7 +50,7 @@ enum class ReaderThemeMode(
         textColor = Color(0xFF0F172A),
         textSecondaryColor = Color(0xFF475569),
         accentColor = Color(0xFF2563EB),
-        spineShadowColor = Color(0x18000000),
+        spineShadowColor = Color.Transparent,
         isDark = false
     ),
     CREAM(

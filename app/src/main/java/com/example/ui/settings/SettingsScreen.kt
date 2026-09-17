@@ -1,5 +1,6 @@
 package com.example.ui.settings
 
+import com.example.data.repository.AppSettingsManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -868,6 +869,7 @@ private fun MainSettingsContent(
                 }
             },
             text = {
+                AppSettingsManager.SyncDialogSystemBars()
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -995,6 +997,7 @@ private fun MainSettingsContent(
                 }
             },
             text = {
+                AppSettingsManager.SyncDialogSystemBars()
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1125,6 +1128,7 @@ private fun MainSettingsContent(
                 }
             },
             text = {
+                AppSettingsManager.SyncDialogSystemBars()
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1328,6 +1332,7 @@ private fun MainSettingsContent(
                 }
             },
             text = {
+                AppSettingsManager.SyncDialogSystemBars()
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()

@@ -36,11 +36,11 @@ object SampleBooksGenerator {
         val booksDir = File(context.filesDir, "sample_books")
         if (!booksDir.exists()) booksDir.mkdirs()
 
-        val versionMarker = File(booksDir, ".serif_v8")
+        val versionMarker = File(booksDir, ".clean_white_v1")
         if (!versionMarker.exists()) {
-            // Remove legacy sample books to re-render them with proper literary layout
+            // Remove legacy sample books to re-render them with clean white pristine layout
             booksDir.listFiles()?.forEach { file ->
-                if (file.name.endsWith(".pdf") || file.name.startsWith(".serif")) {
+                if (file.name.endsWith(".pdf") || file.name.startsWith(".serif") || file.name.startsWith(".clean")) {
                     file.delete()
                 }
             }
@@ -121,20 +121,12 @@ object SampleBooksGenerator {
             val page = document.startPage(pageInfo)
             val canvas = page.canvas
 
-            // Background warm cream tone
+            // Background clean pristine white
             val bgPaint = Paint().apply {
-                color = Color.parseColor("#FCFAF6")
+                color = Color.parseColor("#FFFFFF")
                 style = Paint.Style.FILL
             }
             canvas.drawRect(0f, 0f, pageWidth.toFloat(), pageHeight.toFloat(), bgPaint)
-
-            // Inner subtle border
-            val borderPaint = Paint().apply {
-                color = Color.parseColor("#EAE3D5")
-                style = Paint.Style.STROKE
-                strokeWidth = 1.2f
-            }
-            canvas.drawRect(20f, 20f, pageWidth - 20f, pageHeight - 20f, borderPaint)
 
             if (pageContent.isCover) {
                 renderCoverPage(canvas, pageWidth, pageHeight, book, serifBold, serifItalic)
@@ -259,7 +251,7 @@ object SampleBooksGenerator {
 
         // Top Running Header: left-aligned section title, right-aligned page counter
         val headerPaint = TextPaint().apply {
-            color = Color.parseColor("#8E877D")
+            color = Color.parseColor("#64748B")
             textSize = 10f
             typeface = serifRegular
             isAntiAlias = true
@@ -268,7 +260,7 @@ object SampleBooksGenerator {
         canvas.drawText(pageContent.header.uppercase(), margin, currentY, headerPaint)
 
         val headerPagePaint = TextPaint().apply {
-            color = Color.parseColor("#8E877D")
+            color = Color.parseColor("#64748B")
             textSize = 10f
             typeface = serifRegular
             isAntiAlias = true
@@ -279,7 +271,7 @@ object SampleBooksGenerator {
         // Hairline rule under header
         currentY += 12f
         val rulePaint = Paint().apply {
-            color = Color.parseColor("#E6DFD4")
+            color = Color.parseColor("#E2E8F0")
             strokeWidth = 1f
         }
         canvas.drawLine(margin, currentY, width - margin, currentY, rulePaint)
@@ -288,7 +280,7 @@ object SampleBooksGenerator {
         // Chapter Title if present (left-aligned with generous emphasis)
         if (!pageContent.chapterTitle.isNullOrBlank()) {
             val chapterPaint = TextPaint().apply {
-                color = Color.parseColor("#9E2A2B")
+                color = Color.parseColor("#0F172A")
                 textSize = 18f
                 typeface = serifBold
                 isAntiAlias = true
@@ -301,7 +293,7 @@ object SampleBooksGenerator {
         // Quote Box if present
         if (!pageContent.quote.isNullOrBlank()) {
             val quotePaint = TextPaint().apply {
-                color = Color.parseColor("#4A443D")
+                color = Color.parseColor("#334155")
                 textSize = 13.5f
                 typeface = serifItalic
                 isAntiAlias = true
@@ -315,13 +307,13 @@ object SampleBooksGenerator {
             ).setAlignment(Layout.Alignment.ALIGN_NORMAL).build()
 
             val quoteBg = Paint().apply {
-                color = Color.parseColor("#F3ECE0")
+                color = Color.parseColor("#F8FAFC")
                 style = Paint.Style.FILL
             }
             canvas.drawRect(margin, currentY - 6f, width - margin, currentY + quoteLayout.height + 14f, quoteBg)
 
             val quoteBar = Paint().apply {
-                color = Color.parseColor("#9E2A2B")
+                color = Color.parseColor("#2563EB")
                 style = Paint.Style.FILL
             }
             canvas.drawRect(margin, currentY - 6f, margin + 4.5f, currentY + quoteLayout.height + 14f, quoteBar)
@@ -336,7 +328,7 @@ object SampleBooksGenerator {
 
         // Paragraphs
         val bodyPaint = TextPaint().apply {
-            color = Color.parseColor("#26221E")
+            color = Color.parseColor("#0F172A")
             textSize = 14f
             typeface = serifRegular
             isAntiAlias = true
@@ -363,14 +355,14 @@ object SampleBooksGenerator {
 
         // Bottom Footer: adjusted component positions, subtly shifted to left side, careful with book names
         val footerRulePaint = Paint().apply {
-            color = Color.parseColor("#EAE4D9")
+            color = Color.parseColor("#E2E8F0")
             strokeWidth = 0.8f
         }
         val footerY = height - 34f
         canvas.drawLine(margin - 4f, footerY - 14f, width - margin, footerY - 14f, footerRulePaint)
 
         val footerPaint = TextPaint().apply {
-            color = Color.parseColor("#8E877D")
+            color = Color.parseColor("#64748B")
             textSize = 9.5f
             typeface = serifRegular
             isAntiAlias = true
@@ -391,7 +383,7 @@ object SampleBooksGenerator {
         canvas.drawText(displayTitle, margin - 4f, footerY, footerPaint)
 
         val footerPagePaint = TextPaint().apply {
-            color = Color.parseColor("#8E877D")
+            color = Color.parseColor("#64748B")
             textSize = 9.5f
             typeface = serifRegular
             isAntiAlias = true
