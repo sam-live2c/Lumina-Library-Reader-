@@ -76,7 +76,7 @@ data class ReaderUiState(
 class ReaderViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getInstance(application)
-    private val pdfRendererManager = PdfRendererManager(application)
+    private val pdfRendererManager = PdfRendererManager.getInstance(application)
     val pdfManager: PdfRendererManager get() = pdfRendererManager
     private val repository = BookRepository(application, db.bookDao(), pdfRendererManager, db.annotationDao())
     private val annotationRepository = AnnotationRepository(db.annotationDao())

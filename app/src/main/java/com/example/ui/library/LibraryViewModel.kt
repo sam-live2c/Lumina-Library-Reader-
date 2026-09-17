@@ -70,7 +70,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     private val prefs: SharedPreferences = application.getSharedPreferences("lumina_settings_prefs", Context.MODE_PRIVATE)
     private val db = AppDatabase.getInstance(application)
-    private val pdfRendererManager = PdfRendererManager(application)
+    private val pdfRendererManager = PdfRendererManager.getInstance(application)
     private val repository = BookRepository(application, db.bookDao(), pdfRendererManager, db.annotationDao())
 
     private val _filterState = MutableStateFlow(LibraryFilter.ALL)

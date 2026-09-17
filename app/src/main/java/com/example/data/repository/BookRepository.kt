@@ -58,7 +58,7 @@ class BookRepository(
                     val pageCount = pdfRendererManager.getPageCount(file.absolutePath)
                     val coverFile = File(context.filesDir, "covers/${file.nameWithoutExtension}_cover.jpg")
                     if (!coverFile.exists() || coverFile.length() == 0L) {
-                        SampleBooksGenerator.generateCoverImage(context, coverFile, info)
+                        pdfRendererManager.generateCoverThumbnail(file.absolutePath, coverFile.absolutePath)
                     }
 
                     val existing = existingBooks.find { it.title.equals(info.title, ignoreCase = true) && it.isSample }
@@ -104,25 +104,25 @@ class BookRepository(
             val coversDir = File(context.filesDir, "covers")
             if (!coversDir.exists()) coversDir.mkdirs()
 
+            val coverVersionMarker = File(coversDir, ".actual_pdf_page_cover_v8")
+            if (!coverVersionMarker.exists()) {
+                coversDir.listFiles()?.forEach { file ->
+                    if (!file.name.startsWith(".")) {
+                        file.delete()
+                    }
+                }
+                try { coverVersionMarker.createNewFile() } catch (_: Throwable) {}
+            }
+
             for (book in allCurrentBooks) {
                 if (book.author.equals("Imported Document", ignoreCase = true)) {
                     bookDao.updateBook(book.copy(author = ""))
                 }
-                val hasValidCover = !book.coverImagePath.isNullOrBlank() &&
-                        File(book.coverImagePath).exists() &&
-                        File(book.coverImagePath).length() > 500
-                if (!hasValidCover && File(book.filePath).exists()) {
-                    val coverFile = File(coversDir, "${File(book.filePath).nameWithoutExtension}_cover.jpg")
-                    val sampleInfo = SampleBooksGenerator.findSampleBook(book.title) ?: SampleBooksGenerator.findSampleBookByFile(book.filePath)
-                    if (sampleInfo != null) {
-                        SampleBooksGenerator.generateCoverImage(context, coverFile, sampleInfo)
-                    } else {
-                        if (coverFile.exists() && coverFile.length() <= 500) {
-                            coverFile.delete()
-                        }
-                        pdfRendererManager.generateCoverThumbnail(book.filePath, coverFile.absolutePath)
-                    }
-                    if (coverFile.exists() && coverFile.length() > 0) {
+                val coverFile = File(coversDir, "${File(book.filePath).nameWithoutExtension}_cover.jpg")
+                if (File(book.filePath).exists()) {
+                    // Render the actual first page from the PDF file for both imported and sample books
+                    val generated = pdfRendererManager.generateCoverThumbnail(book.filePath, coverFile.absolutePath)
+                    if (generated && coverFile.exists() && coverFile.length() > 0) {
                         bookDao.updateCover(book.id, coverFile.absolutePath)
                     }
                 }
@@ -205,8 +205,12 @@ class BookRepository(
                 if (existingBook != null) {
                     // File already exists in library: prevent creating duplicate entries!
                     tempFile.delete()
+                    val coverFile = File(coversDir, "${File(existingBook.filePath).nameWithoutExtension}_cover.jpg")
+                    pdfRendererManager.generateCoverThumbnail(existingBook.filePath, coverFile.absolutePath)
+                    val newCoverPath = if (coverFile.exists() && coverFile.length() > 0) coverFile.absolutePath else existingBook.coverImagePath
                     // Update lastReadTimestamp and refresh activity
                     val updatedBook = existingBook.copy(
+                        coverImagePath = newCoverPath,
                         lastReadTimestamp = System.currentTimeMillis()
                     )
                     bookDao.updateBook(updatedBook)
@@ -215,10 +219,18 @@ class BookRepository(
                     continue
                 }
 
-                // Rename temp file to permanent file
+                // Rename temp file to permanent file (with fallback copy if rename fails)
                 val permFileName = "${UUID.randomUUID()}_${fileName}"
                 val permFile = File(booksDir, permFileName)
-                tempFile.renameTo(permFile)
+                val moved = tempFile.renameTo(permFile)
+                if (!moved) {
+                    try {
+                        tempFile.copyTo(permFile, overwrite = true)
+                        tempFile.delete()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
 
                 // Generate cover thumbnail
                 val coverFile = File(coversDir, "${permFile.nameWithoutExtension}_cover.jpg")

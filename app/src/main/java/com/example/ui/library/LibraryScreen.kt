@@ -3331,7 +3331,6 @@ private fun AssignBookToListDialog(
  * In-memory LRU cache to prevent repeated decoding of cover images on scroll and eliminate flicker
  */
 private object CoverMemoryCache {
-    val pdfRenderMutex = kotlinx.coroutines.sync.Mutex()
     private val maxMem = (Runtime.getRuntime().maxMemory() / 1024).toInt()
     private val cacheSize = (maxMem / 16).coerceIn(4096, 24576) // 4MB - 24MB
     val lru = object : android.util.LruCache<String, Bitmap>(cacheSize) {
@@ -3375,7 +3374,7 @@ private fun BookCoverThumbnail(
 
             for (path in candidatePaths) {
                 val file = File(path)
-                if (file.exists() && file.length() > 100) {
+                if (file.exists() && file.length() > 0) {
                     try {
                         val opts = BitmapFactory.Options().apply {
                             inPreferredConfig = Bitmap.Config.RGB_565
@@ -3386,68 +3385,23 @@ private fun BookCoverThumbnail(
                 }
             }
 
-            // 2. If this is a sample book, generate its cover image on demand if missing
-            if (loaded == null) {
-                val sampleInfo = com.example.data.pdf.SampleBooksGenerator.findSampleBook(title)
-                    ?: com.example.data.pdf.SampleBooksGenerator.findSampleBookByFile(filePath)
-                if (sampleInfo != null) {
-                    val targetCover = File(context.filesDir, "covers/${sampleInfo.fileName.removeSuffix(".pdf")}_cover.jpg")
-                    try {
-                        com.example.data.pdf.SampleBooksGenerator.generateCoverImage(context, targetCover, sampleInfo)
-                        if (targetCover.exists() && targetCover.length() > 100) {
-                            val opts = BitmapFactory.Options().apply {
-                                inPreferredConfig = Bitmap.Config.RGB_565
-                            }
-                            loaded = BitmapFactory.decodeFile(targetCover.absolutePath, opts)
-                        }
-                    } catch (_: Throwable) {}
-                }
-            }
-
-            // 3. Fallback: dynamically render page 0 from the PDF file (e.g. for imported user PDFs)
+            // 2. Render actual first page (page 0) directly from the PDF file using thread-safe PdfRendererManager
             if (loaded == null && !filePath.isNullOrBlank()) {
                 val pdfFile = File(filePath)
                 if (pdfFile.exists() && pdfFile.length() > 0) {
                     try {
-                        CoverMemoryCache.pdfRenderMutex.lock()
-                        var pfd: ParcelFileDescriptor? = null
-                        var renderer: PdfRenderer? = null
-                        var page: PdfRenderer.Page? = null
-                        try {
-                            pfd = ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY)
-                            renderer = PdfRenderer(pfd)
-                            if (renderer.pageCount > 0) {
-                                page = renderer.openPage(0)
-                                val pw = page.width
-                                val ph = page.height
-                                val scale = minOf(360f / pw.toFloat(), 520f / ph.toFloat(), 1.0f).coerceAtLeast(0.15f)
-                                val outW = (pw * scale).toInt().coerceIn(120, 480)
-                                val outH = (ph * scale).toInt().coerceIn(180, 720)
-
-                                val bmp = Bitmap.createBitmap(outW, outH, Bitmap.Config.RGB_565)
-                                val canvas = Canvas(bmp)
-                                canvas.drawColor(AndroidColor.WHITE)
-                                page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-
-                                loaded = bmp
-
-                                // Persist to covers directory so subsequent loads are immediate
-                                val coversDir = File(context.filesDir, "covers")
-                                if (!coversDir.exists()) coversDir.mkdirs()
-                                val cachedCover = File(coversDir, "${pdfFile.nameWithoutExtension}_cover.jpg")
-                                java.io.FileOutputStream(cachedCover).use { out ->
-                                    bmp.compress(Bitmap.CompressFormat.JPEG, 85, out)
-                                }
-                            }
-                        } catch (t: Throwable) {
-                            t.printStackTrace()
-                        } finally {
-                            try { page?.close() } catch (_: Throwable) {}
-                            try { renderer?.close() } catch (_: Throwable) {}
-                            try { pfd?.close() } catch (_: Throwable) {}
+                        val coversDir = File(context.filesDir, "covers")
+                        if (!coversDir.exists()) coversDir.mkdirs()
+                        val targetCover = File(coversDir, "${pdfFile.nameWithoutExtension}_cover.jpg")
+                        val rendered = com.example.data.pdf.PdfRendererManager.getInstance(context).renderCoverThumbnailBitmap(
+                            filePath = pdfFile.absolutePath,
+                            destPath = targetCover.absolutePath
+                        )
+                        if (rendered != null) {
+                            loaded = rendered
                         }
-                    } finally {
-                        CoverMemoryCache.pdfRenderMutex.unlock()
+                    } catch (t: Throwable) {
+                        t.printStackTrace()
                     }
                 }
             }
@@ -3476,38 +3430,41 @@ private fun BookCoverThumbnail(
             modifier = modifier
         )
     } else {
-        // Clean paper sheet document placeholder (mimics physical first page while loading)
+        // Book cover placeholder while thumbnail is being decoded
         Box(
             modifier = modifier
-                .background(Color(0xFFFAF7F0))
-                .padding(horizontal = 8.dp, vertical = 10.dp),
-            contentAlignment = Alignment.TopStart
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(12.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.65f)
-                        .height(6.dp)
-                        .background(Color(0xFFCBD5E1).copy(alpha = 0.7f), RoundedCornerShape(2.dp))
+                Icon(
+                    imageVector = Icons.Outlined.Book,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.size(28.dp)
                 )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.4f)
-                        .height(4.dp)
-                        .background(Color(0xFFCBD5E1).copy(alpha = 0.45f), RoundedCornerShape(2.dp))
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(3.dp))
-                repeat(4) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(2.5.dp)
-                            .background(Color(0xFFE2E8F0).copy(alpha = 0.6f), RoundedCornerShape(1.dp))
-                    )
-                }
             }
         }
     }

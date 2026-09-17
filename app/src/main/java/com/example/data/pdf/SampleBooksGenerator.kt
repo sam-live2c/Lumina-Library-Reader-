@@ -105,10 +105,6 @@ object SampleBooksGenerator {
             if (!pdfFile.exists() || pdfFile.length() == 0L) {
                 generatePdf(context, pdfFile, book)
             }
-            val coverFile = File(coversDir, "${pdfFile.nameWithoutExtension}_cover.jpg")
-            if (!coverFile.exists() || coverFile.length() == 0L) {
-                generateCoverImage(context, coverFile, book)
-            }
             Pair(book, pdfFile)
         }
     }
