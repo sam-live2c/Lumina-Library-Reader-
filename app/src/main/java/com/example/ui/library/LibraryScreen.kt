@@ -478,20 +478,22 @@ fun LibraryScreen(
                         }
 
                         if (uiState.filteredBooks.isEmpty()) {
-                            item(span = { GridItemSpan(maxLineSpan) }, key = "empty_state") {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 14.dp, vertical = 32.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    EmptyLibraryState(
-                                        onUpload = {
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                            multiPdfPickerLauncher.launch(arrayOf("application/pdf"))
-                                        }
-                                    )
+                            if (uiState.isOrganizedAndReady || uiState.searchQuery.isNotBlank() || uiState.activeFilterId != "ALL") {
+                                item(span = { GridItemSpan(maxLineSpan) }, key = "empty_state") {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 14.dp, vertical = 32.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        EmptyLibraryState(
+                                            onUpload = {
+                                                focusManager.clearFocus()
+                                                keyboardController?.hide()
+                                                multiPdfPickerLauncher.launch(arrayOf("application/pdf"))
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         } else {
@@ -574,20 +576,22 @@ fun LibraryScreen(
                         }
 
                         if (uiState.filteredBooks.isEmpty()) {
-                            item(key = "empty_state") {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 14.dp, vertical = 32.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    EmptyLibraryState(
-                                        onUpload = {
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                            multiPdfPickerLauncher.launch(arrayOf("application/pdf"))
-                                        }
-                                    )
+                            if (uiState.isOrganizedAndReady || uiState.searchQuery.isNotBlank() || uiState.activeFilterId != "ALL") {
+                                item(key = "empty_state") {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 14.dp, vertical = 32.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        EmptyLibraryState(
+                                            onUpload = {
+                                                focusManager.clearFocus()
+                                                keyboardController?.hide()
+                                                multiPdfPickerLauncher.launch(arrayOf("application/pdf"))
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         } else {
@@ -2212,7 +2216,6 @@ private fun BookListItem(
                         .width(52.dp)
                         .aspectRatio(0.72f)
                         .clip(RoundedCornerShape(6.dp))
-                        .shadow(2.dp, RoundedCornerShape(6.dp))
                 )
                 if (book.isPinned) {
                     Surface(
@@ -3795,8 +3798,10 @@ private fun BookCoverThumbnail(
     }
 
     val currentBmp = bitmapLoaded?.takeIf { !it.isRecycled }
-    val imgBitmap = currentBmp?.let { bmp ->
-        try { bmp.asImageBitmap() } catch (_: Throwable) { null }
+    val imgBitmap = remember(currentBmp) {
+        currentBmp?.let { bmp ->
+            try { bmp.asImageBitmap() } catch (_: Throwable) { null }
+        }
     }
 
     if (imgBitmap != null) {

@@ -120,9 +120,13 @@ class BookRepository(
                 }
                 val coverFile = File(coversDir, "${File(book.filePath).nameWithoutExtension}_cover.jpg")
                 if (File(book.filePath).exists()) {
-                    // Render the actual first page from the PDF file for both imported and sample books
-                    val generated = pdfRendererManager.generateCoverThumbnail(book.filePath, coverFile.absolutePath)
-                    if (generated && coverFile.exists() && coverFile.length() > 0) {
+                    val needsGeneration = !coverFile.exists() || coverFile.length() == 0L
+                    if (needsGeneration) {
+                        val generated = pdfRendererManager.generateCoverThumbnail(book.filePath, coverFile.absolutePath)
+                        if (generated && coverFile.exists() && coverFile.length() > 0) {
+                            bookDao.updateCover(book.id, coverFile.absolutePath)
+                        }
+                    } else if (book.coverImagePath != coverFile.absolutePath) {
                         bookDao.updateCover(book.id, coverFile.absolutePath)
                     }
                 }
