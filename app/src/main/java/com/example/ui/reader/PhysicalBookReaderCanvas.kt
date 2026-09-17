@@ -171,6 +171,7 @@ fun PhysicalBookReaderCanvas(
             panOffsetX.snapTo(saved.second)
             panOffsetY.snapTo(saved.third)
         } else {
+            zoomScale.snapTo(1f)
             panOffsetX.snapTo(0f)
             panOffsetY.snapTo(0f)
         }
@@ -209,9 +210,15 @@ fun PhysicalBookReaderCanvas(
                         val pointerCount = pressedPointers.size
 
                         if (pointerCount >= 2) {
-                            // Multi-touch Zoom & Pan
+                            // Multi-touch Zoom & Pan: Cancel any in-flight page folding smoothly
                             isMultiTouch = true
                             isDraggingPage = false
+                            if (activeDirection != FlipDirection.NONE || animProgress.value != 0f) {
+                                coroutineScope.launch {
+                                    animProgress.animateTo(0f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
+                                    activeDirection = FlipDirection.NONE
+                                }
+                            }
                             val zoomChange = event.calculateZoom()
                             val panChange = event.calculatePan()
 
@@ -320,6 +327,12 @@ fun PhysicalBookReaderCanvas(
                                 }
                             }
                             animProgress.snapTo(0f)
+                            activeDirection = FlipDirection.NONE
+                        }
+                    } else if (animProgress.value != 0f || activeDirection != FlipDirection.NONE) {
+                        // Multi-touch or aborted drag ended with page partially folded: snap smoothly flat
+                        coroutineScope.launch {
+                            animProgress.animateTo(0f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
                             activeDirection = FlipDirection.NONE
                         }
                     } else if (!isDraggingPage && !isMultiTouch && duration < 450 && abs(totalDragX) < 24f && abs(totalDragY) < 24f) {

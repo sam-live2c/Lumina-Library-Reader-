@@ -1294,10 +1294,7 @@ private fun LibraryHeader(
                     text = { Text("Settings", fontWeight = FontWeight.Medium) },
                     onClick = {
                         showMenu = false
-                        coroutineScope.launch {
-                            delay(20)
-                            onOpenSettings()
-                        }
+                        onOpenSettings()
                     },
                     leadingIcon = {
                         Icon(
@@ -1314,10 +1311,7 @@ private fun LibraryHeader(
                     text = { Text("Help & Support", fontWeight = FontWeight.Medium) },
                     onClick = {
                         showMenu = false
-                        coroutineScope.launch {
-                            delay(20)
-                            onOpenHelpAndSupport()
-                        }
+                        onOpenHelpAndSupport()
                     },
                     leadingIcon = {
                         Icon(
