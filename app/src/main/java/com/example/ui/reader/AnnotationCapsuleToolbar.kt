@@ -35,10 +35,10 @@ import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.AutoFixNormal
+import androidx.compose.material.icons.outlined.BorderColor
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Create
 import androidx.compose.material.icons.outlined.FormatStrikethrough
-import androidx.compose.material.icons.outlined.Highlight
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
@@ -392,7 +392,7 @@ fun AnnotationCapsuleToolbar(
 
                 // 2. Highlighter Tool
                 ToolIconButton(
-                    icon = Icons.Outlined.Highlight,
+                    icon = Icons.Outlined.BorderColor,
                     label = "Highlight",
                     isSelected = !isEraserActive && activeTool == AnnotationType.HIGHLIGHTER,
                     selectedColor = activeColor,
