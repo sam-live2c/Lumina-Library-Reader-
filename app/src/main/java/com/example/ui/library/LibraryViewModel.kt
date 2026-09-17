@@ -484,9 +484,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun setFilterById(filterId: String) {
-        val targetId = if (_activeFilterIdState.value == filterId && filterId != "ALL") "ALL" else filterId
-        _activeFilterIdState.value = targetId
-        _filterState.value = when (targetId) {
+        _activeFilterIdState.value = filterId
+        _filterState.value = when (filterId) {
             "ALL" -> LibraryFilter.ALL
             "UNREAD" -> LibraryFilter.UNREAD
             "READING" -> LibraryFilter.READING
