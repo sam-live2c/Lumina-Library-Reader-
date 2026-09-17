@@ -36,7 +36,7 @@ object AppSettingsManager {
     private var sharedPrefs: SharedPreferences? = null
     private var currentActivity: WeakReference<Activity>? = null
 
-    private val _isFullScreenModeEnabled = MutableStateFlow(false)
+    private val _isFullScreenModeEnabled = MutableStateFlow(true)
     val isFullScreenModeEnabled: StateFlow<Boolean> = _isFullScreenModeEnabled.asStateFlow()
 
     private val _currentAppTheme = MutableStateFlow(ReaderThemeMode.WHITE)
@@ -44,7 +44,7 @@ object AppSettingsManager {
 
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
         if (key == KEY_FULL_SCREEN_MODE) {
-            val enabled = prefs.getBoolean(KEY_FULL_SCREEN_MODE, false)
+            val enabled = prefs.getBoolean(KEY_FULL_SCREEN_MODE, true)
             if (_isFullScreenModeEnabled.value != enabled) {
                 _isFullScreenModeEnabled.value = enabled
                 applySystemBars(currentActivity?.get(), enabled, _currentAppTheme.value.isDark)
@@ -67,7 +67,7 @@ object AppSettingsManager {
         if (sharedPrefs == null) {
             val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             sharedPrefs = prefs
-            _isFullScreenModeEnabled.value = prefs.getBoolean(KEY_FULL_SCREEN_MODE, false)
+            _isFullScreenModeEnabled.value = prefs.getBoolean(KEY_FULL_SCREEN_MODE, true)
             val themeName = prefs.getString(KEY_APP_THEME, ReaderThemeMode.WHITE.name) ?: ReaderThemeMode.WHITE.name
             _currentAppTheme.value = try {
                 ReaderThemeMode.valueOf(themeName)

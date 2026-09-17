@@ -50,7 +50,7 @@ data class SettingsUiState(
     val defaultPageFlipStyle: PageFlipStyle = PageFlipStyle.REALISTIC_CURL,
     val defaultSoundStyle: PageTurnSoundStyle = PageTurnSoundStyle.CLASSIC_PAPER,
     val isSmartMarginFitEnabled: Boolean = true,
-    val isFullScreenModeEnabled: Boolean = false,
+    val isFullScreenModeEnabled: Boolean = true,
     val isHapticsEnabled: Boolean = true,
     val isPageTurnSoundEnabled: Boolean = true,
     val isDoubleTapPenEnabled: Boolean = true,
@@ -95,7 +95,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 PageTurnSoundStyle.CLASSIC_PAPER
             },
             isSmartMarginFitEnabled = prefs.getBoolean("pref_smart_margin_fit", true),
-            isFullScreenModeEnabled = prefs.getBoolean("pref_full_screen_mode", false),
+            isFullScreenModeEnabled = prefs.getBoolean("pref_full_screen_mode", true),
             isHapticsEnabled = prefs.getBoolean("pref_haptics", true),
             isPageTurnSoundEnabled = prefs.getBoolean("pref_sound", true),
             isDoubleTapPenEnabled = prefs.getBoolean("pref_double_tap_pen", true),
