@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.repository.AppSettingsManager
@@ -44,9 +45,16 @@ import com.example.ui.theme.LuminaAccentPrimary
 @Composable
 fun TermsAndConditionsScreen(
     onNavigateBack: () -> Unit,
+    initialScrollOffset: Int = 0,
+    onScrollChanged: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val isFullScreen by AppSettingsManager.isFullScreenModeEnabled.collectAsStateWithLifecycle()
+    val scrollState = rememberScrollState(initial = initialScrollOffset)
+
+    LaunchedEffect(scrollState.value) {
+        onScrollChanged(scrollState.value)
+    }
 
     Scaffold(
         contentWindowInsets = if (isFullScreen) WindowInsets(0, 0, 0, 0) else WindowInsets.statusBars,
@@ -84,7 +92,7 @@ fun TermsAndConditionsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(horizontal = 14.dp, vertical = 12.dp)
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(18.dp)

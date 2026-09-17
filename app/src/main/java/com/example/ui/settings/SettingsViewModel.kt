@@ -69,6 +69,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val prefs: SharedPreferences = application.getSharedPreferences("lumina_settings_prefs", Context.MODE_PRIVATE)
     private val soundManager = PageTurnSoundManager(application)
 
+    // Scroll state preservation across settings options and pages
+    var mainSettingsScrollIndex: Int = 0
+    var mainSettingsScrollOffset: Int = 0
+
+    var privacyPolicyScrollOffset: Int = 0
+    var aboutUsScrollOffset: Int = 0
+    var termsScrollOffset: Int = 0
+    var howToUseScrollOffset: Int = 0
+    var helpAndSupportScrollOffset: Int = 0
+
     private val _uiState = MutableStateFlow(
         SettingsUiState(
             defaultReaderTheme = ReaderThemeMode.valueOf(

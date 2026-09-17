@@ -123,8 +123,16 @@ fun HelpAndSupportScreen(
     onSubmitFeedback: (category: String, message: String) -> Unit,
     feedbackSuccessMessage: String?,
     onClearFeedbackMessage: () -> Unit,
+    initialScrollOffset: Int = 0,
+    onScrollChanged: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val scrollState = rememberScrollState(initial = initialScrollOffset)
+
+    LaunchedEffect(scrollState.value) {
+        onScrollChanged(scrollState.value)
+    }
+
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -259,7 +267,7 @@ fun HelpAndSupportScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(horizontal = 14.dp, vertical = 12.dp)
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(18.dp)

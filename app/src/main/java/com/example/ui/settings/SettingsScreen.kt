@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -223,27 +224,41 @@ fun SettingsScreen(
                         onSetViewMode = { viewModel.setLibraryViewMode(it) },
                         onSetSortOrder = { viewModel.setLibrarySortOrder(it) },
                         onClearCache = { viewModel.clearRenderCache() },
+                        initialScrollIndex = viewModel.mainSettingsScrollIndex,
+                        initialScrollOffset = viewModel.mainSettingsScrollOffset,
+                        onScrollChanged = { index, offset ->
+                            viewModel.mainSettingsScrollIndex = index
+                            viewModel.mainSettingsScrollOffset = offset
+                        },
                         modifier = Modifier.fillMaxSize()
                     )
                 }
                 SettingsSubpage.PRIVACY_POLICY -> {
                     PrivacyPolicyScreen(
-                        onNavigateBack = handleBack
+                        onNavigateBack = handleBack,
+                        initialScrollOffset = viewModel.privacyPolicyScrollOffset,
+                        onScrollChanged = { viewModel.privacyPolicyScrollOffset = it }
                     )
                 }
                 SettingsSubpage.ABOUT_US -> {
                     AboutUsScreen(
-                        onNavigateBack = handleBack
+                        onNavigateBack = handleBack,
+                        initialScrollOffset = viewModel.aboutUsScrollOffset,
+                        onScrollChanged = { viewModel.aboutUsScrollOffset = it }
                     )
                 }
                 SettingsSubpage.TERMS_AND_CONDITIONS -> {
                     TermsAndConditionsScreen(
-                        onNavigateBack = handleBack
+                        onNavigateBack = handleBack,
+                        initialScrollOffset = viewModel.termsScrollOffset,
+                        onScrollChanged = { viewModel.termsScrollOffset = it }
                     )
                 }
                 SettingsSubpage.HOW_TO_USE -> {
                     HowToUseScreen(
-                        onNavigateBack = handleBack
+                        onNavigateBack = handleBack,
+                        initialScrollOffset = viewModel.howToUseScrollOffset,
+                        onScrollChanged = { viewModel.howToUseScrollOffset = it }
                     )
                 }
                 SettingsSubpage.HELP_AND_SUPPORT -> {
@@ -253,7 +268,9 @@ fun SettingsScreen(
                             viewModel.submitFeedback(category, msg) {}
                         },
                         feedbackSuccessMessage = uiState.feedbackSentMessage,
-                        onClearFeedbackMessage = { viewModel.clearFeedbackMessage() }
+                        onClearFeedbackMessage = { viewModel.clearFeedbackMessage() },
+                        initialScrollOffset = viewModel.helpAndSupportScrollOffset,
+                        onScrollChanged = { viewModel.helpAndSupportScrollOffset = it }
                     )
                 }
             }
@@ -310,6 +327,9 @@ private fun MainSettingsContent(
     onSetViewMode: (LibraryViewMode) -> Unit,
     onSetSortOrder: (LibrarySortOrder) -> Unit,
     onClearCache: () -> Unit,
+    initialScrollIndex: Int = 0,
+    initialScrollOffset: Int = 0,
+    onScrollChanged: (Int, Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     var showThemePickerSheet by remember { mutableStateOf(false) }
@@ -325,6 +345,15 @@ private fun MainSettingsContent(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = initialScrollIndex,
+        initialFirstVisibleItemScrollOffset = initialScrollOffset
+    )
+
+    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
+        onScrollChanged(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
+    }
 
     BackHandler(enabled = isSearchFocused) {
         focusManager.clearFocus()
@@ -355,6 +384,7 @@ private fun MainSettingsContent(
             }
     ) { paddingValues ->
         LazyColumn(
+            state = listState,
             contentPadding = PaddingValues(
                 start = 14.dp,
                 end = 14.dp,
