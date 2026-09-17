@@ -108,7 +108,7 @@ class PageTurnSoundManager(context: Context) {
 
     /**
      * Internal Shared SoundPool Audio Engine.
-     * Uses USAGE_ASSISTANCE_SONIFICATION for immediate, low-latency UI feedback without Codec2 media overhead.
+     * Uses USAGE_MEDIA and eager preloading for immediate, crystal-clear page turning feedback.
      */
     private class SharedAudioEngine(private val context: Context) {
         private val soundIds = ConcurrentHashMap<PageTurnSoundStyle, Int>()
@@ -119,6 +119,18 @@ class PageTurnSoundManager(context: Context) {
         private var soundPool: SoundPool? = null
         private var soundPoolInitAttempted = false
 
+        init {
+            // Eagerly initialize sound pool and preload all sound effects
+            try {
+                getSoundPool()
+                PageTurnSoundStyle.entries.forEach { style ->
+                    ensureSoundLoaded(style)
+                }
+            } catch (e: Throwable) {
+                Log.w(TAG, "Audio engine eager preload issue", e)
+            }
+        }
+
         private fun getSoundPool(): SoundPool? {
             if (soundPoolInitAttempted) return soundPool
             synchronized(this) {
@@ -126,12 +138,12 @@ class PageTurnSoundManager(context: Context) {
                 soundPoolInitAttempted = true
                 soundPool = try {
                     val attributes = AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build()
 
                     SoundPool.Builder()
-                        .setMaxStreams(2)
+                        .setMaxStreams(4)
                         .setAudioAttributes(attributes)
                         .build().apply {
                             setOnLoadCompleteListener { _, sampleId, status ->
@@ -151,7 +163,7 @@ class PageTurnSoundManager(context: Context) {
                             }
                         }
                 } catch (e: Throwable) {
-                    Log.w(TAG, "SoundPool initialization skipped", e)
+                    Log.w(TAG, "SoundPool initialization fallback", e)
                     null
                 }
             }
@@ -180,17 +192,46 @@ class PageTurnSoundManager(context: Context) {
             if (now - lastTriggerTime < 35L) return
             lastTriggerTime = now
 
-            val pool = getSoundPool() ?: return
-            val soundId = ensureSoundLoaded(style) ?: return
+            val pool = getSoundPool()
+            val soundId = ensureSoundLoaded(style)
 
-            if (loadedSoundIds.contains(soundId)) {
+            var played = false
+            if (pool != null && soundId != null && loadedSoundIds.contains(soundId)) {
                 try {
-                    pool.play(soundId, 1.0f, 1.0f, 1, 0, 1.0f)
+                    val streamId = pool.play(soundId, 1.0f, 1.0f, 1, 0, 1.0f)
+                    if (streamId > 0) {
+                        played = true
+                    }
                 } catch (e: Throwable) {
-                    Log.w(TAG, "SoundPool.play failed for $style", e)
+                    Log.w(TAG, "SoundPool.play error for $style", e)
                 }
-            } else {
-                pendingPlayStyle.set(style)
+            }
+
+            if (!played) {
+                if (soundId != null && pool != null && !loadedSoundIds.contains(soundId)) {
+                    pendingPlayStyle.set(style)
+                }
+                // Fallback direct MediaPlayer for zero-latency audio guarantee
+                try {
+                    val mp = android.media.MediaPlayer.create(context, style.rawResId)
+                    mp?.apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_MEDIA)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                .build()
+                        )
+                        setVolume(1.0f, 1.0f)
+                        setOnCompletionListener { player ->
+                            try {
+                                player.release()
+                            } catch (_: Throwable) {}
+                        }
+                        start()
+                    }
+                } catch (e: Throwable) {
+                    Log.w(TAG, "MediaPlayer fallback error for $style", e)
+                }
             }
         }
     }

@@ -38,11 +38,14 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.layout.layout
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -360,6 +363,25 @@ fun LibraryScreen(
         }
     }
 
+    val gridState = rememberLazyGridState(
+        initialFirstVisibleItemIndex = viewModel.gridScrollIndex,
+        initialFirstVisibleItemScrollOffset = viewModel.gridScrollOffset
+    )
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = viewModel.listScrollIndex,
+        initialFirstVisibleItemScrollOffset = viewModel.listScrollOffset
+    )
+
+    LaunchedEffect(gridState.firstVisibleItemIndex, gridState.firstVisibleItemScrollOffset) {
+        viewModel.gridScrollIndex = gridState.firstVisibleItemIndex
+        viewModel.gridScrollOffset = gridState.firstVisibleItemScrollOffset
+    }
+
+    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
+        viewModel.listScrollIndex = listState.firstVisibleItemIndex
+        viewModel.listScrollOffset = listState.firstVisibleItemScrollOffset
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -425,6 +447,7 @@ fun LibraryScreen(
             ) {
                 if (uiState.viewMode == LibraryViewMode.GRID) {
                     LazyVerticalGrid(
+                        state = gridState,
                         columns = GridCells.Adaptive(minSize = 152.dp),
                         contentPadding = PaddingValues(
                             start = 14.dp,
@@ -522,6 +545,7 @@ fun LibraryScreen(
                     }
                 } else {
                     LazyColumn(
+                        state = listState,
                         contentPadding = PaddingValues(
                             start = 14.dp,
                             end = 14.dp,
@@ -1585,10 +1609,23 @@ private fun FilterChipsRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .layout { measurable, constraints ->
+                val extraPx = 28.dp.roundToPx()
+                val placeable = measurable.measure(
+                    constraints.copy(
+                        minWidth = constraints.minWidth + extraPx,
+                        maxWidth = constraints.maxWidth + extraPx
+                    )
+                )
+                layout(placeable.width - extraPx, placeable.height) {
+                    placeable.placeRelative(-14.dp.roundToPx(), 0)
+                }
+            }
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Spacer(modifier = Modifier.width(6.dp))
         // Render each filter chip
         filterChips.forEach { chip ->
             val isSelected = chip.id == activeFilterId
@@ -1766,6 +1803,7 @@ private fun FilterChipsRow(
                 )
             }
         }
+        Spacer(modifier = Modifier.width(6.dp))
     }
 }
 
@@ -1938,7 +1976,7 @@ private fun BookCardItem(
                         DropdownMenuItem(
                             text = {
                                 Text(
-                                    text = "Rename PDF",
+                                    text = "Rename",
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
@@ -2340,7 +2378,7 @@ private fun BookListItem(
                     DropdownMenuItem(
                         text = {
                             Text(
-                                text = "Rename PDF",
+                                text = "Rename",
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -3378,14 +3416,8 @@ private fun RenameBookDialog(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Edit,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(26.dp)
-                )
                 Text(
-                    text = "Rename PDF",
+                    text = "Rename",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )

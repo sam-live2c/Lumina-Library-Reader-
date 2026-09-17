@@ -141,6 +141,10 @@ fun PhysicalBookReaderCanvas(
     var containerHeight by remember { mutableFloatStateOf(1920f) }
     var touchFractionY by remember { mutableFloatStateOf(0.75f) }
 
+    // Per-page scroll and zoom state cache so going back from a new page preserves previous scroll position
+    val pageScrollCache = remember { mutableMapOf<Int, Triple<Float, Float, Float>>() } // pageIndex -> (scale, panX, panY)
+    var previousTrackedPageIndex by remember { androidx.compose.runtime.mutableIntStateOf(currentPageIndex) }
+
     LaunchedEffect(zoomInteractionTimestamp, zoomScale.value) {
         if (zoomScale.value > 1.05f) {
             isZoomIndicatorVisible = true
@@ -151,12 +155,25 @@ fun PhysicalBookReaderCanvas(
         }
     }
 
-    // Instantly snap to rest on programmatic page changes without showing transition steps
+    // Instantly snap to rest and restore previous scroll/zoom position for the target page
     LaunchedEffect(currentPageIndex) {
         animProgress.snapTo(0f)
         activeDirection = FlipDirection.NONE
-        panOffsetX.snapTo(0f)
-        panOffsetY.snapTo(0f)
+
+        if (previousTrackedPageIndex != currentPageIndex) {
+            pageScrollCache[previousTrackedPageIndex] = Triple(zoomScale.value, panOffsetX.value, panOffsetY.value)
+            previousTrackedPageIndex = currentPageIndex
+        }
+
+        val saved = pageScrollCache[currentPageIndex]
+        if (saved != null) {
+            zoomScale.snapTo(saved.first)
+            panOffsetX.snapTo(saved.second)
+            panOffsetY.snapTo(saved.third)
+        } else {
+            panOffsetX.snapTo(0f)
+            panOffsetY.snapTo(0f)
+        }
     }
 
     Box(
@@ -286,20 +303,18 @@ fun PhysicalBookReaderCanvas(
                             if (activeDirection == FlipDirection.FORWARD) {
                                 if ((progress > 0.18f || (isFling && totalDragX < -30f)) && currentPageIndex < totalPages) {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    pageScrollCache[currentPageIndex] = Triple(zoomScale.value, panOffsetX.value, panOffsetY.value)
                                     animProgress.animateTo(1f, tween(230, easing = FastOutSlowInEasing))
                                     onNextPage()
-                                    panOffsetX.snapTo(0f)
-                                    panOffsetY.snapTo(0f)
                                 } else {
                                     animProgress.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow))
                                 }
                             } else if (activeDirection == FlipDirection.BACKWARD) {
                                 if ((progress < -0.18f || (isFling && totalDragX > 30f)) && currentPageIndex > 1) {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    pageScrollCache[currentPageIndex] = Triple(zoomScale.value, panOffsetX.value, panOffsetY.value)
                                     animProgress.animateTo(-1f, tween(230, easing = FastOutSlowInEasing))
                                     onPreviousPage()
-                                    panOffsetX.snapTo(0f)
-                                    panOffsetY.snapTo(0f)
                                 } else {
                                     animProgress.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow))
                                 }

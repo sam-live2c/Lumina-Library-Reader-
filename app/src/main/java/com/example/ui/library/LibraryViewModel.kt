@@ -102,6 +102,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val _bookForListAssignmentState = MutableStateFlow<BookEntity?>(null)
     private val _isOrganizedAndReadyState = MutableStateFlow(false)
 
+    // Scroll state preservation across screens and back-navigation
+    var gridScrollIndex: Int = 0
+    var gridScrollOffset: Int = 0
+    var listScrollIndex: Int = 0
+    var listScrollOffset: Int = 0
+
     // Combine primary data flows cleanly
     private val _filteredBooksFlow = combine(
         repository.allBooks,
