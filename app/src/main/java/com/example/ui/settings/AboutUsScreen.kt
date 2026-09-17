@@ -134,18 +134,23 @@ fun AboutUsScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             ) {
-                // Monogram Emblem
+                // Circular Emblem Badge Logo
                 Box(
                     modifier = Modifier
-                        .size(88.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Color(0xFF161210))
-                        .border(
-                            width = 1.dp,
-                            color = LuminaAccentPrimary.copy(alpha = 0.35f),
-                            shape = RoundedCornerShape(24.dp)
+                        .size(96.dp)
+                        .shadow(
+                            elevation = 14.dp,
+                            shape = CircleShape,
+                            ambientColor = Color(0xFF1E3A8A).copy(alpha = 0.45f),
+                            spotColor = LuminaAccentPrimary.copy(alpha = 0.50f)
                         )
-                        .shadow(12.dp, RoundedCornerShape(24.dp)),
+                        .clip(CircleShape)
+                        .background(Color(0xFF0F172A))
+                        .border(
+                            width = 1.5.dp,
+                            color = Color(0xFFE2B755).copy(alpha = 0.6f),
+                            shape = CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
@@ -154,7 +159,7 @@ fun AboutUsScreen(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxSize()
-                            .clip(RoundedCornerShape(24.dp))
+                            .clip(CircleShape)
                     )
                 }
 

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -64,19 +65,19 @@ fun SplashScreen(
             // Authentic App Logo itself as configured for launcher and identity
             Box(
                 modifier = Modifier
-                    .size(96.dp)
+                    .size(104.dp)
                     .shadow(
                         elevation = 16.dp,
-                        shape = RoundedCornerShape(24.dp),
-                        ambientColor = LuminaAccentPrimary.copy(alpha = 0.35f),
-                        spotColor = LuminaAccentPrimary.copy(alpha = 0.45f)
+                        shape = CircleShape,
+                        ambientColor = Color(0xFF1E3A8A).copy(alpha = 0.45f),
+                        spotColor = LuminaAccentPrimary.copy(alpha = 0.50f)
                     )
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFF161210))
+                    .clip(CircleShape)
+                    .background(Color(0xFF0F172A))
                     .border(
-                        width = 1.dp,
-                        color = LuminaAccentPrimary.copy(alpha = 0.35f),
-                        shape = RoundedCornerShape(24.dp)
+                        width = 1.5.dp,
+                        color = Color(0xFFE2B755).copy(alpha = 0.6f),
+                        shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -86,7 +87,7 @@ fun SplashScreen(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(24.dp))
+                        .clip(CircleShape)
                 )
             }
 
