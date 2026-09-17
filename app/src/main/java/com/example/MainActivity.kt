@@ -179,8 +179,18 @@ fun LuminaApp(
     val activity = context as? Activity
     val isFullScreen by AppSettingsManager.isFullScreenModeEnabled.collectAsStateWithLifecycle()
     val currentTheme by AppSettingsManager.currentAppTheme.collectAsStateWithLifecycle()
+    val lastOpenedBookId = remember { AppSettingsManager.getLastOpenedBookId() }
+    val initialDestination = remember {
+        if (lastOpenedBookId != null && lastOpenedBookId > 0L) {
+            AppDestination.Reader(lastOpenedBookId)
+        } else {
+            AppDestination.Library
+        }
+    }
     var isSplashActive by rememberSaveable { mutableStateOf(true) }
-    var currentDestination by rememberSaveable(stateSaver = AppDestinationSaver) { mutableStateOf<AppDestination>(AppDestination.Library) }
+    var currentDestination by rememberSaveable(stateSaver = AppDestinationSaver) {
+        mutableStateOf<AppDestination>(initialDestination)
+    }
 
     // Dynamic full-screen mode listener: toggles status bar immediately when preference changes
     LaunchedEffect(isFullScreen, currentTheme) {
@@ -191,9 +201,18 @@ fun LuminaApp(
     LaunchedEffect(incomingUri, isSplashActive) {
         if (!isSplashActive && incomingUri != null) {
             libraryViewModel.importPdf(incomingUri) { importedBookId ->
+                AppSettingsManager.setLastOpenedBookId(importedBookId)
                 currentDestination = AppDestination.Reader(importedBookId)
             }
             onConsumeIncomingUri()
+        }
+    }
+
+    // If opening directly into an active reader book, dismiss splash promptly so reading resumes smoothly
+    LaunchedEffect(currentDestination) {
+        if (currentDestination is AppDestination.Reader) {
+            delay(350)
+            isSplashActive = false
         }
     }
 
@@ -231,6 +250,7 @@ fun LuminaApp(
                         viewModel = libraryViewModel,
                         isFullScreenModeEnabled = isFullScreen,
                         onOpenBook = { bookId ->
+                            AppSettingsManager.setLastOpenedBookId(bookId)
                             currentDestination = AppDestination.Reader(bookId)
                         },
                         onOpenSettings = { subpage ->
@@ -244,6 +264,7 @@ fun LuminaApp(
                         ReaderScreen(
                             bookId = destination.bookId,
                             onNavigateBack = {
+                                AppSettingsManager.clearLastOpenedBookId()
                                 currentDestination = AppDestination.Library
                             }
                         )

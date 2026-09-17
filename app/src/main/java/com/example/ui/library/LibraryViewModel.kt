@@ -64,7 +64,8 @@ data class LibraryUiState(
     val editingCustomFilter: CustomFilter? = null,
     val renamingCustomFilter: CustomFilter? = null,
     val bookForListAssignment: BookEntity? = null,
-    val isOrganizedAndReady: Boolean = false
+    val isOrganizedAndReady: Boolean = false,
+    val hasLoadedFromDatabase: Boolean = false
 )
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
@@ -327,12 +328,89 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             editingCustomFilter = dialogs.editingCustomFilter,
             renamingCustomFilter = dialogs.renamingCustomFilter,
             bookForListAssignment = dialogs.bookForListAssignment,
-            isOrganizedAndReady = cfAndOrg.second
+            isOrganizedAndReady = cfAndOrg.second,
+            hasLoadedFromDatabase = true
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
-        initialValue = LibraryUiState(sortOrder = _sortOrderState.value)
+        initialValue = run {
+            val cached = BookRepository.cachedBooks
+            if (cached != null) {
+                val sorted = when (_sortOrderState.value) {
+                    LibrarySortOrder.DATE_ADDED -> cached.sortedWith(
+                        compareByDescending<BookEntity> { it.isPinned }
+                            .thenByDescending { it.dateAddedTimestamp }
+                            .thenByDescending { it.id }
+                    )
+                    LibrarySortOrder.RECENT -> cached.sortedWith(
+                        compareByDescending<BookEntity> { it.isPinned }
+                            .thenByDescending { if (it.hasBeenOpened) it.lastReadTimestamp else 0L }
+                            .thenByDescending { it.dateAddedTimestamp }
+                            .thenByDescending { it.id }
+                    )
+                    LibrarySortOrder.TITLE_ASC -> cached.sortedWith(
+                        compareByDescending<BookEntity> { it.isPinned }
+                            .thenBy { it.title.lowercase() }
+                            .thenByDescending { it.id }
+                    )
+                    LibrarySortOrder.TITLE_DESC -> cached.sortedWith(
+                        compareByDescending<BookEntity> { it.isPinned }
+                            .thenByDescending { it.title.lowercase() }
+                            .thenByDescending { it.id }
+                    )
+                    LibrarySortOrder.AUTHOR_ASC -> cached.sortedWith(
+                        compareByDescending<BookEntity> { it.isPinned }
+                            .thenBy { it.author.lowercase() }
+                            .thenBy { it.title.lowercase() }
+                            .thenByDescending { it.id }
+                    )
+                    LibrarySortOrder.PROGRESS -> cached.sortedWith(
+                        compareByDescending<BookEntity> { it.isPinned }
+                            .thenByDescending { if (it.hasBeenOpened) it.progressPercent else -1f }
+                            .thenByDescending { if (it.hasBeenOpened) it.lastReadTimestamp else 0L }
+                            .thenByDescending { it.id }
+                    )
+                    LibrarySortOrder.PAGE_COUNT_DESC -> cached.sortedWith(
+                        compareByDescending<BookEntity> { it.isPinned }
+                            .thenByDescending { it.totalPages }
+                            .thenByDescending { it.id }
+                    )
+                    LibrarySortOrder.PAGE_COUNT_ASC -> cached.sortedWith(
+                        compareByDescending<BookEntity> { it.isPinned }
+                            .thenBy { it.totalPages }
+                            .thenByDescending { it.id }
+                    )
+                }
+                val recentReadBooks = cached
+                    .filter { it.hasBeenOpened && it.lastReadTimestamp > 0L }
+                    .sortedWith(
+                        compareByDescending<BookEntity> { it.isPinned }
+                            .thenByDescending { it.lastReadTimestamp }
+                            .thenByDescending { it.id }
+                    )
+                    .take(5)
+                val chips = mutableListOf<FilterChipItem>()
+                chips.add(FilterChipItem("ALL", "All", cached.size))
+                LibraryUiState(
+                    books = cached,
+                    filteredBooks = sorted,
+                    booksLeftToRead = recentReadBooks,
+                    sortOrder = _sortOrderState.value,
+                    viewMode = _viewModeState.value,
+                    filterChipItems = chips,
+                    hasLoadedFromDatabase = true,
+                    isOrganizedAndReady = true
+                )
+            } else {
+                LibraryUiState(
+                    sortOrder = _sortOrderState.value,
+                    viewMode = _viewModeState.value,
+                    hasLoadedFromDatabase = false,
+                    isOrganizedAndReady = false
+                )
+            }
+        }
     )
 
     init {

@@ -480,7 +480,7 @@ fun LibraryScreen(
                             )
                         }
 
-                        if (uiState.filteredBooks.isEmpty()) {
+                        if (uiState.hasLoadedFromDatabase && uiState.filteredBooks.isEmpty()) {
                             if (uiState.isOrganizedAndReady || uiState.searchQuery.isNotBlank() || uiState.activeFilterId != "ALL") {
                                 item(span = { GridItemSpan(maxLineSpan) }, key = "empty_state") {
                                     Box(
@@ -499,7 +499,7 @@ fun LibraryScreen(
                                     }
                                 }
                             }
-                        } else {
+                        } else if (uiState.filteredBooks.isNotEmpty()) {
                             gridItems(uiState.filteredBooks, key = { it.id }) { book ->
                                 BookCardItem(
                                     book = book,
@@ -578,7 +578,7 @@ fun LibraryScreen(
                             )
                         }
 
-                        if (uiState.filteredBooks.isEmpty()) {
+                        if (uiState.hasLoadedFromDatabase && uiState.filteredBooks.isEmpty()) {
                             if (uiState.isOrganizedAndReady || uiState.searchQuery.isNotBlank() || uiState.activeFilterId != "ALL") {
                                 item(key = "empty_state") {
                                     Box(
@@ -597,7 +597,7 @@ fun LibraryScreen(
                                     }
                                 }
                             }
-                        } else {
+                        } else if (uiState.filteredBooks.isNotEmpty()) {
                             items(uiState.filteredBooks, key = { it.id }) { book ->
                                 BookListItem(
                                     book = book,

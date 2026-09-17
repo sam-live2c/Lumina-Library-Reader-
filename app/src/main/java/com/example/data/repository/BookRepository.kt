@@ -10,6 +10,7 @@ import com.example.data.pdf.PdfRendererManager
 import com.example.data.pdf.SampleBooksGenerator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -32,7 +33,15 @@ class BookRepository(
     private val annotationDao: AnnotationDao? = null
 ) {
 
-    val allBooks: Flow<List<BookEntity>> = bookDao.getAllBooks()
+    companion object {
+        @Volatile
+        var cachedBooks: List<BookEntity>? = null
+            internal set
+    }
+
+    val allBooks: Flow<List<BookEntity>> = bookDao.getAllBooks().onEach { books ->
+        cachedBooks = books
+    }
 
     fun getBookById(id: Long): Flow<BookEntity?> = bookDao.getBookById(id)
 
@@ -41,6 +50,9 @@ class BookRepository(
     suspend fun initializeDefaultsIfNeeded() = withContext(Dispatchers.IO) {
         try {
             val sampleBooksDir = File(context.filesDir, "sample_books")
+            if (!sampleBooksDir.exists()) {
+                sampleBooksDir.mkdirs()
+            }
             val versionMarker = File(sampleBooksDir, ".first_page_book_covers_v6")
             val needsRefresh = !versionMarker.exists()
             val count = bookDao.getBookCount()
@@ -89,6 +101,12 @@ class BookRepository(
                         bookDao.insertBook(bookEntity)
                     }
                 }
+            }
+
+            if (!versionMarker.exists()) {
+                try {
+                    versionMarker.createNewFile()
+                } catch (_: Throwable) {}
             }
 
             // Self-heal covers on initialization

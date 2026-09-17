@@ -85,6 +85,7 @@ fun ReaderScreen(
     }
 
     DisposableEffect(bookId) {
+        AppSettingsManager.setLastOpenedBookId(bookId)
         viewModel.prepareForBook(bookId)
         viewModel.loadBook(bookId)
         onDispose {
@@ -93,13 +94,21 @@ fun ReaderScreen(
         }
     }
 
-    val isCurrentBookReady = !uiState.isLoading && uiState.book?.id == bookId && (uiState.currentPageBitmap != null || uiState.isContinuousScrollMode)
-
     val handleInstantBack = {
         keyboardController?.hide()
         focusManager.clearFocus()
+        AppSettingsManager.clearLastOpenedBookId()
         onNavigateBack()
     }
+
+    LaunchedEffect(uiState.isLoading, uiState.book) {
+        if (!uiState.isLoading && uiState.book == null) {
+            AppSettingsManager.clearLastOpenedBookId()
+            handleInstantBack()
+        }
+    }
+
+    val isCurrentBookReady = !uiState.isLoading && uiState.book?.id == bookId && (uiState.currentPageBitmap != null || uiState.isContinuousScrollMode)
 
     BackHandler {
         if (uiState.isSearchOpen) {

@@ -31,6 +31,7 @@ object AppSettingsManager {
     private const val PREFS_NAME = "lumina_settings_prefs"
     const val KEY_FULL_SCREEN_MODE = "pref_full_screen_mode"
     const val KEY_APP_THEME = "pref_reader_theme"
+    const val KEY_LAST_OPENED_BOOK_ID = "pref_last_opened_book_id"
 
     private var sharedPrefs: SharedPreferences? = null
     private var currentActivity: WeakReference<Activity>? = null
@@ -98,6 +99,19 @@ object AppSettingsManager {
         _currentAppTheme.value = theme
         sharedPrefs?.edit()?.putString(KEY_APP_THEME, theme.name)?.apply()
         applySystemBars(currentActivity?.get(), _isFullScreenModeEnabled.value, theme.isDark)
+    }
+
+    fun setLastOpenedBookId(bookId: Long) {
+        sharedPrefs?.edit()?.putLong(KEY_LAST_OPENED_BOOK_ID, bookId)?.apply()
+    }
+
+    fun getLastOpenedBookId(): Long? {
+        val id = sharedPrefs?.getLong(KEY_LAST_OPENED_BOOK_ID, -1L) ?: -1L
+        return if (id > 0L) id else null
+    }
+
+    fun clearLastOpenedBookId() {
+        sharedPrefs?.edit()?.remove(KEY_LAST_OPENED_BOOK_ID)?.apply()
     }
 
     fun applySystemBars(activity: Activity?, isFullScreen: Boolean, isDarkTheme: Boolean = false) {
