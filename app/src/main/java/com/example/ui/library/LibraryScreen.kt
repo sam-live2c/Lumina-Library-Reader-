@@ -54,7 +54,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
@@ -3332,6 +3331,7 @@ private fun AssignBookToListDialog(
  * In-memory LRU cache to prevent repeated decoding of cover images on scroll and eliminate flicker
  */
 private object CoverMemoryCache {
+    val pdfRenderMutex = kotlinx.coroutines.sync.Mutex()
     private val maxMem = (Runtime.getRuntime().maxMemory() / 1024).toInt()
     private val cacheSize = (maxMem / 16).coerceIn(4096, 24576) // 4MB - 24MB
     val lru = object : android.util.LruCache<String, Bitmap>(cacheSize) {
@@ -3349,40 +3349,67 @@ private fun BookCoverThumbnail(
     modifier: Modifier = Modifier
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val cacheKey = coverImagePath ?: filePath ?: title
+    val cacheKey = (filePath?.takeIf { it.isNotBlank() } ?: coverImagePath ?: title)
     val initialCached = remember(cacheKey) { CoverMemoryCache.lru.get(cacheKey) }
     var bitmapLoaded by remember(cacheKey) {
         mutableStateOf(initialCached)
     }
 
-    if (initialCached == null) {
-        LaunchedEffect(cacheKey) {
-            val inCache = CoverMemoryCache.lru.get(cacheKey)
-            if (inCache != null) {
-                bitmapLoaded = inCache
-                return@LaunchedEffect
+    LaunchedEffect(cacheKey, coverImagePath, filePath) {
+        val inCache = CoverMemoryCache.lru.get(cacheKey)
+        if (inCache != null && !inCache.isRecycled) {
+            bitmapLoaded = inCache
+            return@LaunchedEffect
+        }
+
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            var loaded: Bitmap? = null
+
+            // 1. Try loading cached cover image file if available and valid
+            val candidatePaths = listOfNotNull(
+                coverImagePath?.takeIf { it.isNotBlank() },
+                if (!filePath.isNullOrBlank()) {
+                    File(context.filesDir, "covers/${File(filePath).nameWithoutExtension}_cover.jpg").absolutePath
+                } else null
+            )
+
+            for (path in candidatePaths) {
+                val file = File(path)
+                if (file.exists() && file.length() > 100) {
+                    try {
+                        val opts = BitmapFactory.Options().apply {
+                            inPreferredConfig = Bitmap.Config.RGB_565
+                        }
+                        loaded = BitmapFactory.decodeFile(file.absolutePath, opts)
+                        if (loaded != null) break
+                    } catch (_: Throwable) {}
+                }
             }
 
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                var loaded: Bitmap? = null
-
-                // 1. Try loading cached cover image file if available and valid
-                if (!coverImagePath.isNullOrBlank()) {
-                    val file = File(coverImagePath)
-                    if (file.exists() && file.length() > 0) {
-                        try {
+            // 2. If this is a sample book, generate its cover image on demand if missing
+            if (loaded == null) {
+                val sampleInfo = com.example.data.pdf.SampleBooksGenerator.findSampleBook(title)
+                    ?: com.example.data.pdf.SampleBooksGenerator.findSampleBookByFile(filePath)
+                if (sampleInfo != null) {
+                    val targetCover = File(context.filesDir, "covers/${sampleInfo.fileName.removeSuffix(".pdf")}_cover.jpg")
+                    try {
+                        com.example.data.pdf.SampleBooksGenerator.generateCoverImage(context, targetCover, sampleInfo)
+                        if (targetCover.exists() && targetCover.length() > 100) {
                             val opts = BitmapFactory.Options().apply {
                                 inPreferredConfig = Bitmap.Config.RGB_565
                             }
-                            loaded = BitmapFactory.decodeFile(file.absolutePath, opts)
-                        } catch (_: Throwable) {}
-                    }
+                            loaded = BitmapFactory.decodeFile(targetCover.absolutePath, opts)
+                        }
+                    } catch (_: Throwable) {}
                 }
+            }
 
-                // 2. If cover file is missing or unreadable, dynamically render page 0 directly from the PDF file
-                if (loaded == null && !filePath.isNullOrBlank()) {
-                    val pdfFile = File(filePath)
-                    if (pdfFile.exists() && pdfFile.length() > 0) {
+            // 3. Fallback: dynamically render page 0 from the PDF file (e.g. for imported user PDFs)
+            if (loaded == null && !filePath.isNullOrBlank()) {
+                val pdfFile = File(filePath)
+                if (pdfFile.exists() && pdfFile.length() > 0) {
+                    try {
+                        CoverMemoryCache.pdfRenderMutex.lock()
                         var pfd: ParcelFileDescriptor? = null
                         var renderer: PdfRenderer? = null
                         var page: PdfRenderer.Page? = null
@@ -3419,14 +3446,18 @@ private fun BookCoverThumbnail(
                             try { renderer?.close() } catch (_: Throwable) {}
                             try { pfd?.close() } catch (_: Throwable) {}
                         }
+                    } finally {
+                        CoverMemoryCache.pdfRenderMutex.unlock()
                     }
                 }
+            }
 
-                if (loaded != null) {
-                    CoverMemoryCache.lru.put(cacheKey, loaded)
-                    withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        bitmapLoaded = loaded
-                    }
+            if (loaded != null && !loaded.isRecycled) {
+                CoverMemoryCache.lru.put(cacheKey, loaded)
+                filePath?.let { CoverMemoryCache.lru.put(it, loaded) }
+                coverImagePath?.let { CoverMemoryCache.lru.put(it, loaded) }
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    bitmapLoaded = loaded
                 }
             }
         }
@@ -3445,40 +3476,38 @@ private fun BookCoverThumbnail(
             modifier = modifier
         )
     } else {
-        // Aesthetic Fallback Book Cover (or decoding placeholder)
+        // Clean paper sheet document placeholder (mimics physical first page while loading)
         Box(
             modifier = modifier
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surfaceVariant,
-                            MaterialTheme.colorScheme.surface
-                        )
-                    )
-                )
-                .padding(10.dp),
-            contentAlignment = Alignment.Center
+                .background(Color(0xFFFAF7F0))
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            contentAlignment = Alignment.TopStart
         ) {
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.AutoStories,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                    modifier = Modifier.size(26.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.65f)
+                        .height(6.dp)
+                        .background(Color(0xFFCBD5E1).copy(alpha = 0.7f), RoundedCornerShape(2.dp))
                 )
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    ),
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.4f)
+                        .height(4.dp)
+                        .background(Color(0xFFCBD5E1).copy(alpha = 0.45f), RoundedCornerShape(2.dp))
                 )
+                Spacer(modifier = Modifier.height(3.dp))
+                repeat(4) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.5.dp)
+                            .background(Color(0xFFE2E8F0).copy(alpha = 0.6f), RoundedCornerShape(1.dp))
+                    )
+                }
             }
         }
     }

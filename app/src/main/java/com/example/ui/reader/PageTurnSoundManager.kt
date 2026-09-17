@@ -3,8 +3,6 @@ package com.example.ui.reader
 import android.content.Context
 import android.content.SharedPreferences
 import android.media.AudioAttributes
-import android.media.AudioManager
-import android.media.MediaPlayer
 import android.media.SoundPool
 import android.util.Log
 import androidx.annotation.RawRes
@@ -51,8 +49,8 @@ enum class PageTurnSoundStyle(
 
 /**
  * High-performance, zero-latency Sound Engine for page-turn sonification.
- * Uses Android's native SoundPool with USAGE_MEDIA for crystal-clear playback on all physical devices,
- * with an automatic fallback to MediaPlayer to guarantee sound is always played.
+ * Uses Android's native SoundPool with USAGE_ASSISTANCE_SONIFICATION for lightweight,
+ * low-latency audio feedback without requesting heavy media streaming codecs.
  */
 class PageTurnSoundManager(context: Context) {
 
@@ -109,8 +107,8 @@ class PageTurnSoundManager(context: Context) {
     }
 
     /**
-     * Internal Shared SoundPool & MediaPlayer Fallback Audio Engine.
-     * Guarantees reliable, low-latency audio feedback across all devices and Android versions.
+     * Internal Shared SoundPool Audio Engine.
+     * Uses USAGE_ASSISTANCE_SONIFICATION for immediate, low-latency UI feedback without Codec2 media overhead.
      */
     private class SharedAudioEngine(private val context: Context) {
         private val soundIds = ConcurrentHashMap<PageTurnSoundStyle, Int>()
@@ -128,12 +126,12 @@ class PageTurnSoundManager(context: Context) {
                 soundPoolInitAttempted = true
                 soundPool = try {
                     val attributes = AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build()
 
                     SoundPool.Builder()
-                        .setMaxStreams(4)
+                        .setMaxStreams(2)
                         .setAudioAttributes(attributes)
                         .build().apply {
                             setOnLoadCompleteListener { _, sampleId, status ->
@@ -182,50 +180,17 @@ class PageTurnSoundManager(context: Context) {
             if (now - lastTriggerTime < 35L) return
             lastTriggerTime = now
 
-            val pool = getSoundPool()
-            val soundId = ensureSoundLoaded(style)
-            if (pool != null && soundId != null && loadedSoundIds.contains(soundId)) {
-                val streamId = try {
+            val pool = getSoundPool() ?: return
+            val soundId = ensureSoundLoaded(style) ?: return
+
+            if (loadedSoundIds.contains(soundId)) {
+                try {
                     pool.play(soundId, 1.0f, 1.0f, 1, 0, 1.0f)
                 } catch (e: Throwable) {
                     Log.w(TAG, "SoundPool.play failed for $style", e)
-                    0
                 }
-                if (streamId == 0) {
-                    playViaMediaPlayer(style)
-                }
-            } else if (soundId != null) {
-                pendingPlayStyle.set(style)
             } else {
-                playViaMediaPlayer(style)
-            }
-        }
-
-        private fun playViaMediaPlayer(style: PageTurnSoundStyle) {
-            try {
-                val mediaPlayer = MediaPlayer.create(context, style.rawResId) ?: return
-                val attributes = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-                mediaPlayer.setAudioAttributes(attributes)
-                mediaPlayer.setVolume(1.0f, 1.0f)
-                mediaPlayer.setOnCompletionListener { player ->
-                    try {
-                        player.reset()
-                        player.release()
-                    } catch (_: Throwable) {}
-                }
-                mediaPlayer.setOnErrorListener { player, _, _ ->
-                    try {
-                        player.reset()
-                        player.release()
-                    } catch (_: Throwable) {}
-                    true
-                }
-                mediaPlayer.start()
-            } catch (e: Throwable) {
-                Log.w(TAG, "MediaPlayer fallback failed for style $style", e)
+                pendingPlayStyle.set(style)
             }
         }
     }

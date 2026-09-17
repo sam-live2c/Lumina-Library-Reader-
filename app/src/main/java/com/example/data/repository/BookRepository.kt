@@ -41,7 +41,7 @@ class BookRepository(
     suspend fun initializeDefaultsIfNeeded() = withContext(Dispatchers.IO) {
         try {
             val sampleBooksDir = File(context.filesDir, "sample_books")
-            val versionMarker = File(sampleBooksDir, ".blue_white_book_v1")
+            val versionMarker = File(sampleBooksDir, ".first_page_book_covers_v6")
             val needsRefresh = !versionMarker.exists()
             val count = bookDao.getBookCount()
 
@@ -57,7 +57,9 @@ class BookRepository(
                 sampleBooks.forEachIndexed { index, (info, file) ->
                     val pageCount = pdfRendererManager.getPageCount(file.absolutePath)
                     val coverFile = File(context.filesDir, "covers/${file.nameWithoutExtension}_cover.jpg")
-                    pdfRendererManager.generateCoverThumbnail(file.absolutePath, coverFile.absolutePath)
+                    if (!coverFile.exists() || coverFile.length() == 0L) {
+                        SampleBooksGenerator.generateCoverImage(context, coverFile, info)
+                    }
 
                     val existing = existingBooks.find { it.title.equals(info.title, ignoreCase = true) && it.isSample }
                     if (existing != null) {
@@ -65,8 +67,8 @@ class BookRepository(
                         bookDao.updateBook(
                             existing.copy(
                                 filePath = file.absolutePath,
-                                totalPages = if (pageCount > 0) pageCount else info.pages.size,
-                                coverImagePath = if (coverFile.exists() && coverFile.length() > 0) coverFile.absolutePath else existing.coverImagePath,
+                                totalPages = if (pageCount > 0) pageCount else (info.pages.size + 1),
+                                coverImagePath = coverFile.absolutePath,
                                 lastReadTimestamp = if (existing.hasBeenOpened) existing.lastReadTimestamp else 0L
                             )
                         )
@@ -75,10 +77,10 @@ class BookRepository(
                             title = info.title,
                             author = info.author,
                             filePath = file.absolutePath,
-                            totalPages = if (pageCount > 0) pageCount else info.pages.size,
+                            totalPages = if (pageCount > 0) pageCount else (info.pages.size + 1),
                             currentPage = 1,
                             bookmarks = "",
-                            coverImagePath = if (coverFile.exists() && coverFile.length() > 0) coverFile.absolutePath else null,
+                            coverImagePath = coverFile.absolutePath,
                             isSample = true,
                             lastReadTimestamp = 0L,
                             dateAddedTimestamp = baseTime - (index * 60_000L),
@@ -111,11 +113,16 @@ class BookRepository(
                         File(book.coverImagePath).length() > 500
                 if (!hasValidCover && File(book.filePath).exists()) {
                     val coverFile = File(coversDir, "${File(book.filePath).nameWithoutExtension}_cover.jpg")
-                    if (coverFile.exists() && coverFile.length() <= 500) {
-                        coverFile.delete()
+                    val sampleInfo = SampleBooksGenerator.findSampleBook(book.title) ?: SampleBooksGenerator.findSampleBookByFile(book.filePath)
+                    if (sampleInfo != null) {
+                        SampleBooksGenerator.generateCoverImage(context, coverFile, sampleInfo)
+                    } else {
+                        if (coverFile.exists() && coverFile.length() <= 500) {
+                            coverFile.delete()
+                        }
+                        pdfRendererManager.generateCoverThumbnail(book.filePath, coverFile.absolutePath)
                     }
-                    val generated = pdfRendererManager.generateCoverThumbnail(book.filePath, coverFile.absolutePath)
-                    if (generated && coverFile.exists() && coverFile.length() > 0) {
+                    if (coverFile.exists() && coverFile.length() > 0) {
                         bookDao.updateCover(book.id, coverFile.absolutePath)
                     }
                 }

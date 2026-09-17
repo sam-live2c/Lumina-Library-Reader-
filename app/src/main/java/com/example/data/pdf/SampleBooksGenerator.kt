@@ -1,6 +1,7 @@
 package com.example.data.pdf
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -42,43 +43,71 @@ object SampleBooksGenerator {
         val quote: String? = null
     )
 
+    fun getSampleBooks(): List<SampleBookInfo> = listOf(
+        createGatsbyBook(),
+        createAliceBook(),
+        createMeditationsBook(),
+        createFrankensteinBook(),
+        createPridePrejudiceBook(),
+        createDorianGrayBook(),
+        createDraculaBook(),
+        createTimeMachineBook(),
+        createMetamorphosisBook(),
+        createSherlockHolmesBook(),
+        createMobyDickBook(),
+        createTaleOfTwoCitiesBook(),
+        createArtOfWarBook()
+    )
+
+    fun findSampleBook(title: String?): SampleBookInfo? {
+        if (title.isNullOrBlank()) return null
+        val clean = title.trim()
+        return getSampleBooks().firstOrNull {
+            it.title.equals(clean, ignoreCase = true) ||
+            clean.contains(it.title, ignoreCase = true) ||
+            it.title.contains(clean, ignoreCase = true)
+        }
+    }
+
+    fun findSampleBookByFile(filePath: String?): SampleBookInfo? {
+        if (filePath.isNullOrBlank()) return null
+        val fileName = File(filePath).name
+        return getSampleBooks().firstOrNull { it.fileName.equals(fileName, ignoreCase = true) }
+    }
+
     suspend fun createSampleBooksIfNotExist(context: Context): List<Pair<SampleBookInfo, File>> = withContext(Dispatchers.IO) {
         val booksDir = File(context.filesDir, "sample_books")
         if (!booksDir.exists()) booksDir.mkdirs()
 
-        val versionMarker = File(booksDir, ".blue_white_book_v1")
+        val coversDir = File(context.filesDir, "covers")
+        if (!coversDir.exists()) coversDir.mkdirs()
+
+        val versionMarker = File(booksDir, ".first_page_book_covers_v6")
         if (!versionMarker.exists()) {
-            // Remove legacy sample books to re-render them with blue and white colors and book icon styling
+            // Purge legacy books and covers to regenerate with book cover as page 1
             booksDir.listFiles()?.forEach { file ->
-                if (file.name.endsWith(".pdf") || file.name.startsWith(".serif") || file.name.startsWith(".clean") || file.name.startsWith(".real")) {
+                if (file.name.endsWith(".pdf") || file.name.startsWith(".")) {
                     file.delete()
                 }
+            }
+            if (coversDir.exists()) {
+                coversDir.listFiles()?.forEach { it.delete() }
             }
             try {
                 versionMarker.createNewFile()
             } catch (_: Exception) {}
         }
 
-        val sampleBooks = listOf(
-            createGatsbyBook(),
-            createAliceBook(),
-            createMeditationsBook(),
-            createFrankensteinBook(),
-            createPridePrejudiceBook(),
-            createDorianGrayBook(),
-            createDraculaBook(),
-            createTimeMachineBook(),
-            createMetamorphosisBook(),
-            createSherlockHolmesBook(),
-            createMobyDickBook(),
-            createTaleOfTwoCitiesBook(),
-            createArtOfWarBook()
-        )
+        val sampleBooks = getSampleBooks()
 
         sampleBooks.map { book ->
             val pdfFile = File(booksDir, book.fileName)
             if (!pdfFile.exists() || pdfFile.length() == 0L) {
                 generatePdf(context, pdfFile, book)
+            }
+            val coverFile = File(coversDir, "${pdfFile.nameWithoutExtension}_cover.jpg")
+            if (!coverFile.exists() || coverFile.length() == 0L) {
+                generateCoverImage(context, coverFile, book)
             }
             Pair(book, pdfFile)
         }
@@ -111,6 +140,26 @@ object SampleBooksGenerator {
         }
     }
 
+    fun generateCoverImage(context: Context, destCoverFile: File, book: SampleBookInfo) {
+        try {
+            val width = 420
+            val height = 600
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
+            val canvas = Canvas(bitmap)
+            val serifBold = getBookTypeface(context, isBold = true, isItalic = false)
+            val serifItalic = getBookTypeface(context, isBold = false, isItalic = true)
+            renderCoverPage(canvas, width, height, book, serifBold, serifItalic)
+
+            destCoverFile.parentFile?.mkdirs()
+            FileOutputStream(destCoverFile).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            }
+            try { bitmap.recycle() } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            t.printStackTrace()
+        }
+    }
+
     private fun generatePdf(context: Context, destFile: File, book: SampleBookInfo) {
         val document = PdfDocument()
         val pageWidth = 595 // Standard A4 width in points
@@ -123,22 +172,28 @@ object SampleBooksGenerator {
         val serifBold = getBookTypeface(context, isBold = true, isItalic = false)
         val serifItalic = getBookTypeface(context, isBold = false, isItalic = true)
 
+        val totalPages = book.pages.size + 1 // Page 1 is Cover, Pages 2..N are content
+
+        // Page 1: Archival Hardcover Book Cover
+        val coverPageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
+        val coverPage = document.startPage(coverPageInfo)
+        renderCoverPage(coverPage.canvas, pageWidth, pageHeight, book, serifBold, serifItalic)
+        document.finishPage(coverPage)
+
+        // Pages 2+: Content pages
         book.pages.forEachIndexed { index, pageContent ->
-            val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, index + 1).create()
+            val pageNum = index + 2
+            val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNum).create()
             val page = document.startPage(pageInfo)
             val canvas = page.canvas
 
-            if (pageContent.isCover) {
-                renderCoverPage(canvas, pageWidth, pageHeight, book, serifBold, serifItalic)
-            } else {
-                // Natural clean crisp reading paper background
-                val bgPaint = Paint().apply {
-                    color = Color.parseColor("#FAF7F0")
-                    style = Paint.Style.FILL
-                }
-                canvas.drawRect(0f, 0f, pageWidth.toFloat(), pageHeight.toFloat(), bgPaint)
-                renderTextPage(canvas, pageWidth, pageHeight, pageContent, index + 1, book.pages.size, margin, contentWidth, serifRegular, serifBold, serifItalic)
+            // Natural clean crisp reading paper background
+            val bgPaint = Paint().apply {
+                color = Color.parseColor("#FAF7F0")
+                style = Paint.Style.FILL
             }
+            canvas.drawRect(0f, 0f, pageWidth.toFloat(), pageHeight.toFloat(), bgPaint)
+            renderTextPage(canvas, pageWidth, pageHeight, book, pageContent, pageNum, totalPages, margin, contentWidth, serifRegular, serifBold, serifItalic)
 
             document.finishPage(page)
         }
@@ -153,119 +208,6 @@ object SampleBooksGenerator {
         } finally {
             try { document.close() } catch (_: Throwable) {}
         }
-    }
-
-    /**
-     * Draws the exact open book icon (matching Material AutoStories icon on the book cards thumbnail)
-     * in blue and white with graceful curvature, page lines, and spine binding.
-     */
-    private fun drawBookCoverIcon(
-        canvas: Canvas,
-        cx: Float,
-        cy: Float,
-        size: Float,
-        whiteColor: Int,
-        blueColor: Int
-    ) {
-        val halfW = size * 0.52f
-        val halfH = size * 0.40f
-        val gap = size * 0.05f
-
-        val strokeWhite = Paint().apply {
-            color = whiteColor
-            strokeWidth = size * 0.065f
-            style = Paint.Style.STROKE
-            strokeCap = Paint.Cap.ROUND
-            strokeJoin = Paint.Join.ROUND
-            isAntiAlias = true
-        }
-
-        val fillBlue = Paint().apply {
-            color = (blueColor and 0x00FFFFFF) or 0x40000000 // 25% translucent blue fill
-            style = Paint.Style.FILL
-            isAntiAlias = true
-        }
-
-        val strokeBlue = Paint().apply {
-            color = blueColor
-            strokeWidth = size * 0.045f
-            style = Paint.Style.STROKE
-            strokeCap = Paint.Cap.ROUND
-            strokeJoin = Paint.Join.ROUND
-            isAntiAlias = true
-        }
-
-        // Left open page outline
-        val leftPath = android.graphics.Path().apply {
-            moveTo(cx - gap, cy + halfH * 0.85f)
-            cubicTo(
-                cx - halfW * 0.45f, cy + halfH * 0.65f,
-                cx - halfW * 0.80f, cy + halfH * 0.95f,
-                cx - halfW, cy + halfH * 0.75f
-            )
-            lineTo(cx - halfW, cy - halfH * 0.75f)
-            cubicTo(
-                cx - halfW * 0.80f, cy - halfH * 0.95f,
-                cx - halfW * 0.45f, cy - halfH * 0.65f,
-                cx - gap, cy - halfH * 0.85f
-            )
-            close()
-        }
-
-        // Right open page outline
-        val rightPath = android.graphics.Path().apply {
-            moveTo(cx + gap, cy + halfH * 0.85f)
-            cubicTo(
-                cx + halfW * 0.45f, cy + halfH * 0.65f,
-                cx + halfW * 0.80f, cy + halfH * 0.95f,
-                cx + halfW, cy + halfH * 0.75f
-            )
-            lineTo(cx + halfW, cy - halfH * 0.75f)
-            cubicTo(
-                cx + halfW * 0.80f, cy - halfH * 0.95f,
-                cx + halfW * 0.45f, cy - halfH * 0.65f,
-                cx + gap, cy - halfH * 0.85f
-            )
-            close()
-        }
-
-        // Fill pages with soft blue tint
-        canvas.drawPath(leftPath, fillBlue)
-        canvas.drawPath(rightPath, fillBlue)
-
-        // Draw page outlines in pure white
-        canvas.drawPath(leftPath, strokeWhite)
-        canvas.drawPath(rightPath, strokeWhite)
-
-        // Inner page lines in bright blue
-        val leftInnerPath = android.graphics.Path().apply {
-            moveTo(cx - gap - size * 0.10f, cy - halfH * 0.45f)
-            cubicTo(
-                cx - halfW * 0.42f, cy - halfH * 0.32f,
-                cx - halfW * 0.72f, cy - halfH * 0.55f,
-                cx - halfW * 0.85f, cy - halfH * 0.42f
-            )
-        }
-        val rightInnerPath = android.graphics.Path().apply {
-            moveTo(cx + gap + size * 0.10f, cy - halfH * 0.45f)
-            cubicTo(
-                cx + halfW * 0.42f, cy - halfH * 0.32f,
-                cx + halfW * 0.72f, cy - halfH * 0.55f,
-                cx + halfW * 0.85f, cy - halfH * 0.42f
-            )
-        }
-        canvas.drawPath(leftInnerPath, strokeBlue)
-        canvas.drawPath(rightInnerPath, strokeBlue)
-
-        // Central spine binding in white
-        val spinePaint = Paint().apply {
-            color = whiteColor
-            strokeWidth = size * 0.07f
-            strokeCap = Paint.Cap.ROUND
-            style = Paint.Style.STROKE
-            isAntiAlias = true
-        }
-        canvas.drawLine(cx, cy - halfH * 0.90f, cx, cy + halfH * 0.92f, spinePaint)
     }
 
     private fun renderCoverPage(
@@ -389,22 +331,17 @@ object SampleBooksGenerator {
         }
         canvas.drawLine(width / 2f - 95f, 92f, width / 2f + 95f, 92f, topDividerPaint)
 
-        // 5. Open Book Icon Emblem (matching the icon on the book cards thumbnail)
-        val iconCenterY = 142f
-        val iconSize = 48f
-        // Symmetrical accent wings beside the book icon
-        val iconWingPaint = Paint().apply {
+        // 5. Classic Literary Flourish Emblem
+        val flourishY = 135f
+        val flourishPaint = Paint().apply {
             color = blueCol
-            strokeWidth = 1f
+            strokeWidth = 1.2f
             style = Paint.Style.STROKE
             isAntiAlias = true
         }
-        canvas.drawLine(width / 2f - 90f, iconCenterY, width / 2f - 38f, iconCenterY, iconWingPaint)
-        canvas.drawLine(width / 2f + 38f, iconCenterY, width / 2f + 90f, iconCenterY, iconWingPaint)
-        drawCornerDiamond(width / 2f - 38f, iconCenterY, 3.5f)
-        drawCornerDiamond(width / 2f + 38f, iconCenterY, 3.5f)
-
-        drawBookCoverIcon(canvas, width / 2f, iconCenterY, iconSize, whiteCol, blueCol)
+        canvas.drawLine(width / 2f - 75f, flourishY, width / 2f - 18f, flourishY, flourishPaint)
+        drawCornerDiamond(width / 2f, flourishY, 5f)
+        canvas.drawLine(width / 2f + 18f, flourishY, width / 2f + 75f, flourishY, flourishPaint)
 
         // 6. Ornate Embossed Pure White Title
         val titlePaint = TextPaint().apply {
@@ -490,6 +427,7 @@ object SampleBooksGenerator {
         canvas: Canvas,
         width: Int,
         height: Int,
+        book: SampleBookInfo,
         pageContent: SamplePageContent,
         pageNum: Int,
         totalPages: Int,
@@ -528,6 +466,36 @@ object SampleBooksGenerator {
         }
         canvas.drawLine(margin, currentY, width - margin, currentY, rulePaint)
         currentY += 24f
+
+        // If this is page 1 of the PDF, display the authentic document title and author header
+        if (pageNum == 1) {
+            val titlePaint = TextPaint().apply {
+                color = Color.parseColor("#0F172A")
+                textSize = 24f
+                typeface = serifBold
+                isAntiAlias = true
+                textAlign = Paint.Align.LEFT
+            }
+            canvas.drawText(book.title, margin, currentY + 8f, titlePaint)
+            currentY += 34f
+
+            val authorPaint = TextPaint().apply {
+                color = Color.parseColor("#475569")
+                textSize = 13.5f
+                typeface = serifItalic
+                isAntiAlias = true
+                textAlign = Paint.Align.LEFT
+            }
+            canvas.drawText("by ${book.author}", margin, currentY, authorPaint)
+            currentY += 22f
+
+            val titleDivider = Paint().apply {
+                color = Color.parseColor("#CBD5E1")
+                strokeWidth = 1f
+            }
+            canvas.drawLine(margin, currentY, width - margin, currentY, titleDivider)
+            currentY += 24f
+        }
 
         // Chapter Title if present
         if (!pageContent.chapterTitle.isNullOrBlank()) {
@@ -656,7 +624,6 @@ object SampleBooksGenerator {
                 subtitleTextColor = "#E0F2FE"
             ),
             pages = listOf(
-                SamplePageContent("The Great Gatsby", null, emptyList(), isCover = true),
                 SamplePageContent(
                     header = "The Great Gatsby",
                     chapterTitle = "Chapter I",
@@ -727,7 +694,6 @@ object SampleBooksGenerator {
                 subtitleTextColor = "#E0F2FE"
             ),
             pages = listOf(
-                SamplePageContent("Alice's Adventures in Wonderland", null, emptyList(), isCover = true),
                 SamplePageContent(
                     header = "Alice in Wonderland",
                     chapterTitle = "Chapter I: Down the Rabbit-Hole",
@@ -787,7 +753,6 @@ object SampleBooksGenerator {
                 subtitleTextColor = "#E0F2FE"
             ),
             pages = listOf(
-                SamplePageContent("Meditations", null, emptyList(), isCover = true),
                 SamplePageContent(
                     header = "Meditations",
                     chapterTitle = "Book II: On the River Gran",
@@ -847,7 +812,6 @@ object SampleBooksGenerator {
                 subtitleTextColor = "#E0F2FE"
             ),
             pages = listOf(
-                SamplePageContent("Frankenstein", null, emptyList(), isCover = true),
                 SamplePageContent(
                     header = "Frankenstein",
                     chapterTitle = "Letter I: Walton to Mrs. Saville",
@@ -908,7 +872,6 @@ object SampleBooksGenerator {
                 subtitleTextColor = "#E0F2FE"
             ),
             pages = listOf(
-                SamplePageContent("Pride and Prejudice", null, emptyList(), isCover = true),
                 SamplePageContent(
                     header = "Pride and Prejudice",
                     chapterTitle = "Chapter I: A Truth Universally Acknowledged",
@@ -968,7 +931,6 @@ object SampleBooksGenerator {
                 subtitleTextColor = "#E0F2FE"
             ),
             pages = listOf(
-                SamplePageContent("The Picture of Dorian Gray", null, emptyList(), isCover = true),
                 SamplePageContent(
                     header = "The Picture of Dorian Gray",
                     chapterTitle = "The Studio of Basil Hallward",
@@ -1017,7 +979,6 @@ object SampleBooksGenerator {
                 subtitleTextColor = "#E0F2FE"
             ),
             pages = listOf(
-                SamplePageContent("Dracula", null, emptyList(), isCover = true),
                 SamplePageContent(
                     header = "Dracula",
                     chapterTitle = "Jonathan Harker's Journal",
@@ -1065,7 +1026,6 @@ object SampleBooksGenerator {
                 subtitleTextColor = "#E0F2FE"
             ),
             pages = listOf(
-                SamplePageContent("The Time Machine", null, emptyList(), isCover = true),
                 SamplePageContent(
                     header = "The Time Machine",
                     chapterTitle = "Chapter I: The Fourth Dimension",
@@ -1112,7 +1072,6 @@ object SampleBooksGenerator {
                 subtitleTextColor = "#E0F2FE"
             ),
             pages = listOf(
-                SamplePageContent("The Metamorphosis", null, emptyList(), isCover = true),
                 SamplePageContent(
                     header = "The Metamorphosis",
                     chapterTitle = "Chapter I: The Awakening",
@@ -1161,7 +1120,6 @@ object SampleBooksGenerator {
                 subtitleTextColor = "#E0F2FE"
             ),
             pages = listOf(
-                SamplePageContent("The Adventures of Sherlock Holmes", null, emptyList(), isCover = true),
                 SamplePageContent(
                     header = "Sherlock Holmes",
                     chapterTitle = "A Scandal in Bohemia",
@@ -1222,7 +1180,6 @@ object SampleBooksGenerator {
                 subtitleTextColor = "#E0F2FE"
             ),
             pages = listOf(
-                SamplePageContent("Moby Dick", null, emptyList(), isCover = true),
                 SamplePageContent(
                     header = "Moby Dick",
                     chapterTitle = "Chapter I: Loomings",
@@ -1269,7 +1226,6 @@ object SampleBooksGenerator {
                 subtitleTextColor = "#E0F2FE"
             ),
             pages = listOf(
-                SamplePageContent("A Tale of Two Cities", null, emptyList(), isCover = true),
                 SamplePageContent(
                     header = "A Tale of Two Cities",
                     chapterTitle = "Book I: The Period",
@@ -1315,7 +1271,6 @@ object SampleBooksGenerator {
                 subtitleTextColor = "#E0F2FE"
             ),
             pages = listOf(
-                SamplePageContent("The Art of War", null, emptyList(), isCover = true),
                 SamplePageContent(
                     header = "The Art of War",
                     chapterTitle = "Chapter I: Laying Plans",
